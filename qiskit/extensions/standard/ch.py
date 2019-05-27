@@ -22,6 +22,7 @@ from qiskit.circuit import Gate
 from qiskit.circuit import QuantumCircuit
 from qiskit.circuit import QuantumRegister
 from qiskit.extensions.standard.x import XGate
+from qiskit.extensions.standard.i import IGate
 from qiskit.extensions.standard.h import HGate
 from qiskit.extensions.standard.cx import CnotGate
 from qiskit.extensions.standard.t import TGate

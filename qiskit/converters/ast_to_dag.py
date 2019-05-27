@@ -54,6 +54,7 @@ from qiskit.extensions.standard.ch import CHGate
 from qiskit.extensions.standard.crz import CrzGate
 from qiskit.extensions.standard.cu3 import Cu3Gate
 from qiskit.extensions.standard.rzz import RZZGate
+from qiskit.extensions.standard.i import IGate
 
 
 def ast_to_dag(ast):
@@ -81,6 +82,7 @@ class AstInterpreter:
                           "u1": U1Gate,
                           "u2": U2Gate,
                           "u3": U3Gate,
+                          "i": IGate,
                           "x": XGate,
                           "y": YGate,
                           "z": ZGate,
@@ -176,7 +178,8 @@ class AstInterpreter:
                 self.bit_stack.append({gbits[j]: bits[j][element[j]]
                                        for j in range(len(gbits))})
                 self._create_dag_op(name,
-                                    [self.arg_stack[-1][s].sym() for s in gargs],
+                                    [self.arg_stack[-1][s].sym()
+                                     for s in gargs],
                                     [self.bit_stack[-1][s] for s in gbits])
                 self.arg_stack.pop()
                 self.bit_stack.pop()
@@ -196,7 +199,8 @@ class AstInterpreter:
         de_gate["n_args"] = node.n_args()
         de_gate["n_bits"] = node.n_bits()
         if node.n_args() > 0:
-            de_gate["args"] = [element.name for element in node.arguments.children]
+            de_gate["args"] = [
+                element.name for element in node.arguments.children]
         else:
             de_gate["args"] = []
         de_gate["bits"] = [c.name for c in node.bitlist.children]
@@ -217,11 +221,14 @@ class AstInterpreter:
         maxidx = max([len(id0), len(id1)])
         for idx in range(maxidx):
             if len(id0) > 1 and len(id1) > 1:
-                self.dag.apply_operation_back(CXBase(), [id0[idx], id1[idx]], [], self.condition)
+                self.dag.apply_operation_back(
+                    CXBase(), [id0[idx], id1[idx]], [], self.condition)
             elif len(id0) > 1:
-                self.dag.apply_operation_back(CXBase(), [id0[idx], id1[0]], [], self.condition)
+                self.dag.apply_operation_back(
+                    CXBase(), [id0[idx], id1[0]], [], self.condition)
             else:
-                self.dag.apply_operation_back(CXBase(), [id0[0], id1[idx]], [], self.condition)
+                self.dag.apply_operation_back(
+                    CXBase(), [id0[0], id1[idx]], [], self.condition)
 
     def _process_measure(self, node):
         """Process a measurement node."""
@@ -231,7 +238,8 @@ class AstInterpreter:
             raise QiskitError("internal error: reg size mismatch",
                               "line=%s" % node.line, "file=%s" % node.file)
         for idx, idy in zip(id0, id1):
-            self.dag.apply_operation_back(Measure(), [idx], [idy], self.condition)
+            self.dag.apply_operation_back(
+                Measure(), [idx], [idy], self.condition)
 
     def _process_if(self, node):
         """Process an if node."""
@@ -291,7 +299,8 @@ class AstInterpreter:
             args = self._process_node(node.children[0])
             qid = self._process_bit_id(node.children[1])
             for element in qid:
-                self.dag.apply_operation_back(UBase(*args, element), self.condition)
+                self.dag.apply_operation_back(
+                    UBase(*args, element), self.condition)
 
         elif node.type == "cnot":
             self._process_cnot(node)
@@ -322,7 +331,8 @@ class AstInterpreter:
         elif node.type == "reset":
             id0 = self._process_bit_id(node.children[0])
             for i, _ in enumerate(id0):
-                self.dag.apply_operation_back(Reset(), [id0[i]], [], self.condition)
+                self.dag.apply_operation_back(
+                    Reset(), [id0[i]], [], self.condition)
 
         elif node.type == "if":
             self._process_if(node)
@@ -357,10 +367,12 @@ class AstInterpreter:
         elif name in self.gates:
             if self.gates[name]['opaque']:
                 # call an opaque gate
-                op = Gate(name=name, num_qubits=self.gates[name]['n_bits'], params=params)
+                op = Gate(
+                    name=name, num_qubits=self.gates[name]['n_bits'], params=params)
             else:
                 # call a custom gate
-                raise QiskitError('Custom non-opaque gates are not supported by as_to_dag module')
+                raise QiskitError(
+                    'Custom non-opaque gates are not supported by as_to_dag module')
         else:
             raise QiskitError("unknown operation for ast node name %s" % name)
 

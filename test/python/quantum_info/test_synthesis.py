@@ -22,7 +22,7 @@ from qiskit import execute
 from qiskit.circuit import QuantumCircuit, QuantumRegister
 from qiskit.extensions import UnitaryGate
 from qiskit.extensions.standard import (HGate, IdGate, SdgGate, SGate, U3Gate,
-                                        XGate, YGate, ZGate)
+                                        XGate, YGate, ZGate, IGate)
 from qiskit.providers.basicaer import UnitarySimulatorPy
 from qiskit.quantum_info.operators import Operator, Pauli
 from qiskit.quantum_info.random import random_unitary
@@ -35,7 +35,7 @@ from qiskit.test import QiskitTestCase
 
 def make_oneq_cliffords():
     """Make as list of 1q Cliffords"""
-    ixyz_list = [g().to_matrix() for g in (IdGate, XGate, YGate, ZGate)]
+    ixyz_list = [g().to_matrix() for g in (IdGate, XGate, YGate, ZGate, IGate)]
     ih_list = [g().to_matrix() for g in (IdGate, HGate)]
     irs_list = [IdGate().to_matrix(),
                 SdgGate().to_matrix() @ HGate().to_matrix(),

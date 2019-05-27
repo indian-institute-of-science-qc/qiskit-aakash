@@ -34,6 +34,7 @@ from .u2 import U2Gate
 from .u3 import U3Gate
 from .ubase import UBase
 from .x import XGate
+from .i import IGate
 from .y import YGate
 from .z import ZGate
 from .rx import RXGate
