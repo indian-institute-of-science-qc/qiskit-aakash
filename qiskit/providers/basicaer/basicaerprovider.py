@@ -24,6 +24,7 @@ from qiskit.providers.exceptions import QiskitBackendNotFoundError
 from qiskit.providers.providerutils import resolve_backend_name, filter_backends
 
 from .qasm_simulator import QasmSimulatorPy
+from .dm_simulator import DmSimulatorPy
 from .statevector_simulator import StatevectorSimulatorPy
 from .unitary_simulator import UnitarySimulatorPy
 
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 SIMULATORS = [
     QasmSimulatorPy,
+    DmSimulatorPy,
     StatevectorSimulatorPy,
     UnitarySimulatorPy
 ]
@@ -90,6 +92,7 @@ class BasicAerProvider(BaseProvider):
         """Returns deprecated backend names."""
         return {
             'qasm_simulator_py': 'qasm_simulator',
+            'dm_simulator_py': 'dm_simulator',
             'statevector_simulator_py': 'statevector_simulator',
             'unitary_simulator_py': 'unitary_simulator',
             'local_qasm_simulator_py': 'qasm_simulator',
