@@ -23,7 +23,7 @@ The simulator is run using
 
 .. code-block:: python
 
-    DmSimulator().run(qobj)
+    DmSimulatorPy().run(qobj)
 
 Where the input is a Qobj object and the output is a BasicAerJob object, which can
 later be queried for the Result object. The result will contain a 'memory' data
@@ -54,8 +54,7 @@ logger = logging.getLogger(__name__)
 class DmSimulatorPy(BaseBackend):
     """Python implementation of a qasm simulator."""
 
-    MAX_QUBITS_MEMORY = int(
-        log2(local_hardware_info()['memory'] * (1024 ** 3) / 16))
+    MAX_QUBITS_MEMORY = int(log2(local_hardware_info()['memory'] * (1024 ** 3) / 16))
 
     DEFAULT_CONFIGURATION = {
         'backend_name': 'dm_simulator',
@@ -117,7 +116,7 @@ class DmSimulatorPy(BaseBackend):
     def __init__(self, configuration=None, provider=None):
         super().__init__(configuration=(
             configuration or QasmBackendConfiguration.from_dict(self.DEFAULT_CONFIGURATION)),
-            provider=provider)
+                         provider=provider)
 
         # Define attributes in __init__.
         self._local_random = np.random.RandomState()
@@ -150,6 +149,7 @@ class DmSimulatorPy(BaseBackend):
                                       self._statevector,
                                       dtype=complex,
                                       casting='no')
+        print(indexes)
 
     def _add_unitary_two(self, gate, qubit0, qubit1):
         """Apply a two-qubit unitary matrix.
@@ -160,14 +160,18 @@ class DmSimulatorPy(BaseBackend):
             qubit1 (int): gate qubit-1
         """
         # Compute einsum index string for 1-qubit matrix multiplication
-        indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
+        #indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
         # Convert to complex rank-4 tensor
-        gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [2])
+        #gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [2])
         # Apply matrix multiplication
-        self._statevector = np.einsum(indexes, gate_tensor,
-                                      self._statevector,
-                                      dtype=complex,
-                                      casting='no')
+        ##self._statevector = np.einsum(indexes, gate_tensor,
+        #                              self._statevector,
+        #                              dtype=complex,
+        #                              casting='no')
+        
+        ts = self._statevector.copy()
+        self._statevector = np.array([[ts[0,0],ts[1,1],ts[2,1],ts[3,0]],[ts[0,1],ts[1,0],ts[2,0],ts[3,1]],[ts[3,2],ts[2,3],-ts[1,3],ts[0,2]],[ts[3,3],-ts[2,2],ts[1,2],ts[0,3]]])
+        print(self._statevector)
 
     def _get_measure_outcome(self, qubit):
         """Simulate the outcome of measurement of a qubit.
@@ -182,8 +186,7 @@ class DmSimulatorPy(BaseBackend):
         # Axis for numpy.sum to compute probabilities
         axis = list(range(self._number_of_qubits))
         axis.remove(self._number_of_qubits - 1 - qubit)
-        probabilities = np.sum(np.abs(self._statevector)
-                               ** 2, axis=tuple(axis))
+        probabilities = np.sum(np.abs(self._statevector) ** 2, axis=tuple(axis))
         # Compute einsum index string for 1-qubit matrix multiplication
         random_number = self._local_random.rand()
         if random_number < probabilities[0]:
@@ -224,8 +227,7 @@ class DmSimulatorPy(BaseBackend):
             for count, (qubit, cmembit) in enumerate(sorted(measure_params)):
                 qubit_outcome = int((sample & (1 << count)) >> count)
                 membit = 1 << cmembit
-                classical_memory = (classical_memory & (
-                    ~membit)) | (qubit_outcome << cmembit)
+                classical_memory = (classical_memory & (~membit)) | (qubit_outcome << cmembit)
             value = bin(classical_memory)[2:]
             memory.append(hex(int(value, 2)))
         return memory
@@ -242,14 +244,12 @@ class DmSimulatorPy(BaseBackend):
         outcome, probability = self._get_measure_outcome(qubit)
         # update classical state
         membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (
-            ~membit)) | (int(outcome) << cmembit)
+        self._classical_memory = (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
 
         if cregbit is not None:
             regbit = 1 << cregbit
             self._classical_register = \
-                (self._classical_register & (~regbit)) | (
-                    int(outcome) << cregbit)
+                (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
 
         # update quantum state
         if outcome == '0':
@@ -324,14 +324,17 @@ class DmSimulatorPy(BaseBackend):
         """Set the initial statevector for simulation"""
         if self._initial_statevector is None:
             # Set to default state of all qubits in |0>
-            self._statevector = np.zeros(2 ** self._number_of_qubits,
-                                         dtype=complex)
-            self._statevector[0] = 1
+            #self._statevector = np.zeros(4 ** self._number_of_qubits,
+            #                             dtype=float)
+            self._statevector = [1,0,0,-1]
+            for i in range(self._number_of_qubits-1):
+                self._statevector = np.kron(self._statevector,[1,0,0,-1])
         else:
             self._statevector = self._initial_statevector.copy()
         # Reshape to rank-N tensor
         self._statevector = np.reshape(self._statevector,
-                                       self._number_of_qubits * [2])
+                                       self._number_of_qubits * [4])
+        print(self._statevector)
 
     def _get_statevector(self):
         """Return the current statevector in JSON Result spec format"""
@@ -478,7 +481,7 @@ class DmSimulatorPy(BaseBackend):
         self._classical_register = 0
         self._sample_measure = False
         # Validate the dimension of initial statevector if set
-        self._validate_initial_statevector()
+        # self._validate_initial_statevector()
         # Get the seed looking in circuit, qobj, and then random.
         if hasattr(experiment.config, 'seed_simulator'):
             seed_simulator = experiment.config.seed_simulator
@@ -491,7 +494,7 @@ class DmSimulatorPy(BaseBackend):
 
         self._local_random.seed(seed=seed_simulator)
         # Check if measure sampling is supported for current circuit
-        self._validate_measure_sampling(experiment)
+        # self._validate_measure_sampling(experiment)
 
         # List of final counts for all shots
         memory = []
@@ -504,6 +507,8 @@ class DmSimulatorPy(BaseBackend):
             measure_sample_ops = []
         else:
             shots = self._shots
+        print("No error till now")
+        print(experiment.instructions)
         for _ in range(shots):
             self._initialize_statevector()
             # Initialize classical memory to all 0
@@ -512,8 +517,7 @@ class DmSimulatorPy(BaseBackend):
             for operation in experiment.instructions:
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
-                    conditional_bit_set = (
-                        self._classical_register >> conditional) & 1
+                    conditional_bit_set = (self._classical_register >> conditional) & 1
                     if not conditional_bit_set:
                         continue
                 elif conditional is not None:
@@ -538,7 +542,8 @@ class DmSimulatorPy(BaseBackend):
                 elif operation.name in ('CX', 'cx'):
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
-                    gate = cx_gate_matrix()
+                    gate = operation.name
+                    #gate = cx_gate_matrix()
                     self._add_unitary_two(gate, qubit0, qubit1)
                 # Check if reset
                 elif operation.name == 'reset':
@@ -551,8 +556,7 @@ class DmSimulatorPy(BaseBackend):
                 elif operation.name == 'measure':
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
-                    cregbit = operation.register[0] if hasattr(
-                        operation, 'register') else None
+                    cregbit = operation.register[0] if hasattr(operation, 'register') else None
 
                     if self._sample_measure:
                         # If sampling measurements record the qubit and cmembit
@@ -567,8 +571,7 @@ class DmSimulatorPy(BaseBackend):
                     val = int(operation.val, 16)
 
                     cregbit = operation.register
-                    cmembit = operation.memory if hasattr(
-                        operation, 'memory') else None
+                    cmembit = operation.memory if hasattr(operation, 'memory') else None
 
                     compared = (self._classical_register & mask) - val
 
@@ -585,31 +588,26 @@ class DmSimulatorPy(BaseBackend):
                     elif relation == '>=':
                         outcome = (compared >= 0)
                     else:
-                        raise BasicAerError(
-                            'Invalid boolean function relation.')
+                        raise BasicAerError('Invalid boolean function relation.')
 
                     # Store outcome in register and optionally memory slot
                     regbit = 1 << cregbit
                     self._classical_register = \
-                        (self._classical_register & (~regbit)) | (
-                            int(outcome) << cregbit)
+                        (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
                     if cmembit is not None:
                         membit = 1 << cmembit
                         self._classical_memory = \
-                            (self._classical_memory & (~membit)) | (
-                                int(outcome) << cmembit)
+                            (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
                 else:
                     backend = self.name()
                     err_msg = '{0} encountered unrecognized operation "{1}"'
-                    raise BasicAerError(
-                        err_msg.format(backend, operation.name))
+                    raise BasicAerError(err_msg.format(backend, operation.name))
 
             # Add final creg data to memory list
             if self._number_of_cmembits > 0:
                 if self._sample_measure:
                     # If sampling we generate all shot samples from the final statevector
-                    memory = self._add_sample_measure(
-                        measure_sample_ops, self._shots)
+                    memory = self._add_sample_measure(measure_sample_ops, self._shots)
                 else:
                     # Turn classical_memory (int) into bit string and pad zero for unused cmembits
                     outcome = bin(self._classical_memory)[2:]
