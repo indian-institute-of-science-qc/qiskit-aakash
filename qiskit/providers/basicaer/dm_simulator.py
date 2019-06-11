@@ -149,7 +149,7 @@ class DmSimulatorPy(BaseBackend):
                                       self._statevector,
                                       dtype=complex,
                                       casting='no')
-        print(qubit)
+                                      
 
     def _add_unitary_two(self, gate, qubit0, qubit1):
         """Apply a two-qubit unitary matrix.
@@ -160,18 +160,15 @@ class DmSimulatorPy(BaseBackend):
             qubit1 (int): gate qubit-1
         """
         # Compute einsum index string for 1-qubit matrix multiplication
-        #indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
+        indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
         # Convert to complex rank-4 tensor
-        #gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [2])
+        gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [2])
         # Apply matrix multiplication
-        ##self._statevector = np.einsum(indexes, gate_tensor,
-        #                              self._statevector,
-        #                              dtype=complex,
-        #                              casting='no')
-        
-        ts = self._statevector.copy()
-        self._statevector = np.array([[ts[0,0],ts[1,1],ts[2,1],ts[3,0]],[ts[0,1],ts[1,0],ts[2,0],ts[3,1]],[ts[3,2],ts[2,3],-ts[1,3],ts[0,2]],[ts[3,3],-ts[2,2],ts[1,2],ts[0,3]]])
-        print(self._statevector)
+        self._statevector = np.einsum(indexes, gate_tensor,
+                                      self._statevector,
+                                      dtype=complex,
+                                       casting='no')
+    
 
     def _get_measure_outcome(self, qubit):
         """Simulate the outcome of measurement of a qubit.
@@ -332,8 +329,8 @@ class DmSimulatorPy(BaseBackend):
         else:
             self._statevector = self._initial_statevector.copy()
         # Reshape to rank-N tensor
-        # self._statevector = np.reshape(self._statevector,
-        #                               self._number_of_qubits * [4])
+        self._statevector = np.reshape(self._statevector,
+                                       self._number_of_qubits * [4])
         print(self._statevector)
 
     def _get_statevector(self):
