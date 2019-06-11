@@ -149,7 +149,7 @@ class DmSimulatorPy(BaseBackend):
                                       self._statevector,
                                       dtype=complex,
                                       casting='no')
-        print(indexes)
+        print(qubit)
 
     def _add_unitary_two(self, gate, qubit0, qubit1):
         """Apply a two-qubit unitary matrix.
@@ -286,7 +286,7 @@ class DmSimulatorPy(BaseBackend):
             return
         # Check statevector is correct length for number of qubits
         length = len(self._initial_statevector)
-        required_dim = 2 ** self._number_of_qubits
+        required_dim = 4 * self._number_of_qubits
         if length != required_dim:
             raise BasicAerError('initial statevector is incorrect length: ' +
                                 '{} != {}'.format(length, required_dim))
@@ -326,14 +326,14 @@ class DmSimulatorPy(BaseBackend):
             # Set to default state of all qubits in |0>
             #self._statevector = np.zeros(4 ** self._number_of_qubits,
             #                             dtype=float)
-            self._statevector = [1,0,0,-1]
+            self._statevector = [1,0,0,1]
             for i in range(self._number_of_qubits-1):
-                self._statevector = np.kron(self._statevector,[1,0,0,-1])
+                self._statevector = np.kron(self._statevector[1,0,0,1])
         else:
             self._statevector = self._initial_statevector.copy()
         # Reshape to rank-N tensor
-        self._statevector = np.reshape(self._statevector,
-                                       self._number_of_qubits * [4])
+        # self._statevector = np.reshape(self._statevector,
+        #                               self._number_of_qubits * [4])
         print(self._statevector)
 
     def _get_statevector(self):
@@ -534,7 +534,7 @@ class DmSimulatorPy(BaseBackend):
                 if operation.name in ('U', 'u1', 'u2', 'u3'):
                     params = getattr(operation, 'params', None)
                     qubit = operation.qubits[0]
-                    gate = single_gate_matrix(operation.name, params)
+                    gate = single_gate_dm_matrix(operation.name, params)
                     self._add_unitary_single(gate, qubit)
                 # Check if CX gate
                 elif operation.name in ('id', 'u0'):
@@ -543,7 +543,7 @@ class DmSimulatorPy(BaseBackend):
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
                     gate = operation.name
-                    #gate = cx_gate_matrix()
+                    gate = cx_gate_dm_matrix()
                     self._add_unitary_two(gate, qubit0, qubit1)
                 # Check if reset
                 elif operation.name == 'reset':
