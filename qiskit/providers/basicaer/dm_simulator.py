@@ -149,7 +149,7 @@ class DmSimulatorPy(BaseBackend):
                                       self._statevector,
                                       dtype=complex,
                                       casting='no')
-        print(indexes)
+                                      
 
     def _add_unitary_two(self, gate, qubit0, qubit1):
         """Apply a two-qubit unitary matrix.
@@ -160,18 +160,15 @@ class DmSimulatorPy(BaseBackend):
             qubit1 (int): gate qubit-1
         """
         # Compute einsum index string for 1-qubit matrix multiplication
-        #indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
+        indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
         # Convert to complex rank-4 tensor
-        #gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [2])
+        gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [2])
         # Apply matrix multiplication
-        ##self._statevector = np.einsum(indexes, gate_tensor,
-        #                              self._statevector,
-        #                              dtype=complex,
-        #                              casting='no')
-        
-        ts = self._statevector.copy()
-        self._statevector = np.array([[ts[0,0],ts[1,1],ts[2,1],ts[3,0]],[ts[0,1],ts[1,0],ts[2,0],ts[3,1]],[ts[3,2],ts[2,3],-ts[1,3],ts[0,2]],[ts[3,3],-ts[2,2],ts[1,2],ts[0,3]]])
-        print(self._statevector)
+        self._statevector = np.einsum(indexes, gate_tensor,
+                                      self._statevector,
+                                      dtype=complex,
+                                       casting='no')
+    
 
     def _get_measure_outcome(self, qubit):
         """Simulate the outcome of measurement of a qubit.
@@ -286,7 +283,7 @@ class DmSimulatorPy(BaseBackend):
             return
         # Check statevector is correct length for number of qubits
         length = len(self._initial_statevector)
-        required_dim = 2 ** self._number_of_qubits
+        required_dim = 4 * self._number_of_qubits
         if length != required_dim:
             raise BasicAerError('initial statevector is incorrect length: ' +
                                 '{} != {}'.format(length, required_dim))
@@ -326,9 +323,9 @@ class DmSimulatorPy(BaseBackend):
             # Set to default state of all qubits in |0>
             #self._statevector = np.zeros(4 ** self._number_of_qubits,
             #                             dtype=float)
-            self._statevector = [1,0,0,-1]
+            self._statevector = [1,0,0,1]
             for i in range(self._number_of_qubits-1):
-                self._statevector = np.kron(self._statevector,[1,0,0,-1])
+                self._statevector = np.kron(self._statevector[1,0,0,1])
         else:
             self._statevector = self._initial_statevector.copy()
         # Reshape to rank-N tensor
@@ -534,7 +531,7 @@ class DmSimulatorPy(BaseBackend):
                 if operation.name in ('U', 'u1', 'u2', 'u3'):
                     params = getattr(operation, 'params', None)
                     qubit = operation.qubits[0]
-                    gate = single_gate_matrix(operation.name, params)
+                    gate = single_gate_dm_matrix(operation.name, params)
                     self._add_unitary_single(gate, qubit)
                 # Check if CX gate
                 elif operation.name in ('id', 'u0'):
@@ -543,7 +540,7 @@ class DmSimulatorPy(BaseBackend):
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
                     gate = operation.name
-                    #gate = cx_gate_matrix()
+                    gate = cx_gate_dm_matrix()
                     self._add_unitary_two(gate, qubit0, qubit1)
                 # Check if reset
                 elif operation.name == 'reset':
