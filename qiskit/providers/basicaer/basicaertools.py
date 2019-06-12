@@ -77,27 +77,31 @@ def single_gate_dm_matrix(gate, params=None):
     # This a is a probable a FIXME since it might show bugs in the simulator.
     (theta, phi, lam) = map(float, single_gate_params(gate, params))
 
-    return np.array([[1,0,0,0],[0,np.sin(lam)*np.sin(phi)+ np.cos(theta)*np.cos(phi)*np.cos(lam),np.cos(theta)*np.cos(phi)*np.sin(lam)- np.cos(lam)*np.sin(phi),np.sin(theta)*np.cos(phi)],[0,np.cos(theta)*np.sin(phi)*np.cos(lam)- np.sin(lam)*np.cos(phi),np.cos(phi)*np.cos(lam) + np.cos(theta)*np.sin(phi)*np.sin(lam), np.sin(theta)*np.sin(phi)],[0,-np.cos(lam)*np.sin(theta), np.sin(theta)*np.sin(lam), np.cos(theta)]])
+    return np.array([[1,0,0,0],
+                    [0,np.sin(lam)*np.sin(phi)+ np.cos(theta)*np.cos(phi)*np.cos(lam),np.cos(theta)*np.cos(phi)*np.sin(lam)- np.cos(lam)*np.sin(phi),np.sin(theta)*np.cos(phi)],
+                    [0,np.cos(theta)*np.sin(phi)*np.cos(lam)- np.sin(lam)*np.cos(phi),np.cos(phi)*np.cos(lam) + np.cos(theta)*np.sin(phi)*np.sin(lam), np.sin(theta)*np.sin(phi)],
+                    [0,-np.cos(lam)*np.sin(theta), np.sin(theta)*np.sin(lam), np.cos(theta)]
+                    ])
 
 
 def cx_gate_dm_matrix():
     """Get the matrix in density matrix formalism for a controlled-NOT gate."""
-    return np.array([1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                     [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],
-                     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-                     [0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0],
-                     [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
-                     [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0],
-                     [0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0],
-                     [0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
-                     [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
-                     [0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0],
-                     [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0],
-                     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
-                     [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0],
-                     [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                     [0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0])
+    return np.array([[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                     [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0], 
+                     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0], 
+                     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
+                     [0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0], 
+                     [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],     
+                     [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0], 
+                     [0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0],    
+                     [0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0], 
+                     [0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0], 
+                     [0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0],    
+                     [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0], 
+                     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0], 
+                     [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0], 
+                     [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0], 
+                     [0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0]], dtype=complex)
 
 
 def cx_gate_matrix():

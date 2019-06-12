@@ -44,15 +44,13 @@ from qiskit.result import Result
 from qiskit.providers import BaseBackend
 from qiskit.providers.basicaer.basicaerjob import BasicAerJob
 from .exceptions import BasicAerError
-from .basicaertools import single_gate_matrix
-from .basicaertools import cx_gate_matrix
-from .basicaertools import einsum_vecmul_index
+from .basicaertools import *
 
 logger = logging.getLogger(__name__)
 
 
 class DmSimulatorPy(BaseBackend):
-    """Python implementation of a qasm simulator."""
+    """Python implementation of a Density Matrix simulator."""
 
     MAX_QUBITS_MEMORY = int(log2(local_hardware_info()['memory'] * (1024 ** 3) / 16))
 
@@ -111,7 +109,7 @@ class DmSimulatorPy(BaseBackend):
 
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the statevector simulator
-    SHOW_FINAL_STATE = False
+    SHOW_FINAL_STATE = True
 
     def __init__(self, configuration=None, provider=None):
         super().__init__(configuration=(
@@ -162,7 +160,7 @@ class DmSimulatorPy(BaseBackend):
         # Compute einsum index string for 1-qubit matrix multiplication
         indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
         # Convert to complex rank-4 tensor
-        gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [2])
+        gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [4])
         # Apply matrix multiplication
         self._statevector = np.einsum(indexes, gate_tensor,
                                       self._statevector,
@@ -247,7 +245,7 @@ class DmSimulatorPy(BaseBackend):
             regbit = 1 << cregbit
             self._classical_register = \
                 (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
-
+        print(outcome)
         # update quantum state
         if outcome == '0':
             update_diag = [[1 / np.sqrt(probability), 0], [0, 0]]
@@ -269,6 +267,7 @@ class DmSimulatorPy(BaseBackend):
         # get measure outcome
         outcome, probability = self._get_measure_outcome(qubit)
         # update quantum state
+        
         if outcome == '0':
             update = [[1 / np.sqrt(probability), 0], [0, 0]]
             self._add_unitary_single(update, qubit)
@@ -321,21 +320,20 @@ class DmSimulatorPy(BaseBackend):
         """Set the initial statevector for simulation"""
         if self._initial_statevector is None:
             # Set to default state of all qubits in |0>
-            #self._statevector = np.zeros(4 ** self._number_of_qubits,
-            #                             dtype=float)
-            self._statevector = [1,0,0,1]
+            # In Pauli Basis: (I + sigma_3)/2
+            self._statevector = np.array([1,0,0,1], dtype=complex)
             for i in range(self._number_of_qubits-1):
-                self._statevector = np.kron(self._statevector[1,0,0,1])
+                self._statevector = np.kron(self._statevector,[1,0,0,1])
         else:
             self._statevector = self._initial_statevector.copy()
         # Reshape to rank-N tensor
         self._statevector = np.reshape(self._statevector,
                                        self._number_of_qubits * [4])
-        print(self._statevector)
+        #print(self._statevector)
 
     def _get_statevector(self):
         """Return the current statevector in JSON Result spec format"""
-        vec = np.reshape(self._statevector, 2 ** self._number_of_qubits)
+        vec = np.reshape(self._statevector, 4 ** self._number_of_qubits)
         # Expand complex numbers
         vec = np.stack([vec.real, vec.imag], axis=1)
         # Truncate small values
@@ -539,7 +537,7 @@ class DmSimulatorPy(BaseBackend):
                 elif operation.name in ('CX', 'cx'):
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
-                    gate = operation.name
+                    #gate = operation.name
                     gate = cx_gate_dm_matrix()
                     self._add_unitary_two(gate, qubit0, qubit1)
                 # Check if reset
