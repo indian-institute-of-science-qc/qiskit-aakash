@@ -179,11 +179,26 @@ class DmSimulatorPy(BaseBackend):
             probability is the probability of the returned outcome.
         """
         # Axis for numpy.sum to compute probabilities
-        print('Get_Measure')
+        #print('Get_Measure')
         axis = list(range(self._number_of_qubits))
         axis.remove(self._number_of_qubits - 1 - qubit)
         probabilities = np.sum(np.abs(self._densitymatrix) ** 2, axis=tuple(axis))
-        print(probabilities)
+
+        measure_ind = [x for x in itertools.product(
+            [0, 3], repeat=self._number_of_qubits)]
+        operator_ind = [self._densitymatrix[x] for x in measure_ind]
+        operator_mes = np.array([[1, 1], [1, -1]])
+        for i in range(self._number_of_qubits-1):
+            operator_mes = np.kron(np.array([[1, 1], [1, -1]]), operator_mes)
+
+        probabilities = np.reshape((1/2**self._number_of_qubits) * np.array([np.sum(
+            np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
+        #print('Probability Before: ', probabilities)
+
+        probabilities = np.reshape(
+            np.sum(probabilities, axis=tuple(axis)), 2)
+        #print('Probability After: ', probabilities)
+
         # Compute einsum index string for 1-qubit matrix multiplication
         random_number = self._local_random.rand()
         if random_number < probabilities[0]:
@@ -205,7 +220,7 @@ class DmSimulatorPy(BaseBackend):
         # Get unique qubits that are actually measured
         measured_qubits = list({qubit for qubit, cmembit in measure_params})
         num_measured = len(measured_qubits)
-        print('Sample_measure:')
+        #print('Sample_measure:')
         # Axis for numpy.sum to compute probabilities
         axis = list(range(self._number_of_qubits))
         for qubit in reversed(measured_qubits):
@@ -221,11 +236,10 @@ class DmSimulatorPy(BaseBackend):
         
         probabilities = np.reshape((1/2**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
 
-        print('Probability Before: ', probabilities)
-        
+        #print('Probability Before: ', probabilities)
         probabilities = np.reshape(np.sum(probabilities, axis = tuple(axis)), 2**num_measured)
 
-        print('Probability After: ', probabilities)
+        #print('Probability After: ', probabilities)
 
         # Generate samples on measured qubits
         samples = self._local_random.choice(range(2 ** num_measured), num_samples, p=probabilities)
@@ -547,7 +561,7 @@ class DmSimulatorPy(BaseBackend):
                             continue
 
                 # Check if single  gate
-                print('Operation: ', operation.name)
+                #print('Operation: ', operation.name)
                 if operation.name in ('U', 'u1', 'u2', 'u3'):
                     params = getattr(operation, 'params', None)
                     qubit = operation.qubits[0]
