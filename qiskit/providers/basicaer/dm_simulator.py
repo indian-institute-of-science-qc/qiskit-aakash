@@ -219,9 +219,13 @@ class DmSimulatorPy(BaseBackend):
         for i in range(self._number_of_qubits-1):
             operator_mes = np.kron(np.array([[1, 1], [1, -1]]), operator_mes)
         
-        probabilities = (1/2**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes])
+        probabilities = np.reshape((1/2**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
 
-        print('Density Matrix: ', self._densitymatrix, 'Probability: ', probabilities)
+        print('Probability Before: ', probabilities)
+        
+        probabilities = np.reshape(np.sum(probabilities, axis = tuple(axis)), 2**num_measured)
+
+        print('Probability After: ', probabilities)
 
         # Generate samples on measured qubits
         samples = self._local_random.choice(range(2 ** num_measured), num_samples, p=probabilities)
