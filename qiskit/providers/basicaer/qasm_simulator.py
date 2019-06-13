@@ -111,7 +111,7 @@ class QasmSimulatorPy(BaseBackend):
 
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the statevector simulator
-    SHOW_FINAL_STATE = False
+    SHOW_FINAL_STATE = True
 
     def __init__(self, configuration=None, provider=None):
         super().__init__(configuration=(
@@ -179,9 +179,13 @@ class QasmSimulatorPy(BaseBackend):
             probability is the probability of the returned outcome.
         """
         # Axis for numpy.sum to compute probabilities
+        print('Get_Measure')
         axis = list(range(self._number_of_qubits))
+        print('Init Axis: ', axis)
         axis.remove(self._number_of_qubits - 1 - qubit)
+        print('Mod Axis: ', axis)
         probabilities = np.sum(np.abs(self._statevector) ** 2, axis=tuple(axis))
+        print('Statevector: ', np.abs(self._statevector) ** 2, 'Probabilities: ', probabilities)
         # Compute einsum index string for 1-qubit matrix multiplication
         random_number = self._local_random.rand()
         if random_number < probabilities[0]:
@@ -203,18 +207,23 @@ class QasmSimulatorPy(BaseBackend):
         # Get unique qubits that are actually measured
         measured_qubits = list({qubit for qubit, cmembit in measure_params})
         num_measured = len(measured_qubits)
+        print('Sample_measure:')
         # Axis for numpy.sum to compute probabilities
         axis = list(range(self._number_of_qubits))
+        print('Init Axis: ', axis, 'Measured: ', measured_qubits)
         for qubit in reversed(measured_qubits):
             # Remove from largest qubit to smallest so list position is correct
             # with respect to position from end of the list
             axis.remove(self._number_of_qubits - 1 - qubit)
+        print('Mod Axis: ', axis)
         probabilities = np.reshape(np.sum(np.abs(self._statevector) ** 2,
                                           axis=tuple(axis)),
                                    2 ** num_measured)
+        print('Statevector: ', np.abs(self._statevector) ** 2, 'Probabilities: ', probabilities, 'Res: ', 2**num_measured)
         # Generate samples on measured qubits
         samples = self._local_random.choice(range(2 ** num_measured),
                                             num_samples, p=probabilities)
+        print('Samples: ', samples)
         # Convert to bit-strings
         memory = []
         for sample in samples:
@@ -237,6 +246,7 @@ class QasmSimulatorPy(BaseBackend):
         """
         # get measure outcome
         outcome, probability = self._get_measure_outcome(qubit)
+        print('I work', outcome, probability)
         # update classical state
         membit = 1 << cmembit
         self._classical_memory = (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
@@ -245,7 +255,6 @@ class QasmSimulatorPy(BaseBackend):
             regbit = 1 << cregbit
             self._classical_register = \
                 (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
-
         # update quantum state
         if outcome == '0':
             update_diag = [[1 / np.sqrt(probability), 0], [0, 0]]

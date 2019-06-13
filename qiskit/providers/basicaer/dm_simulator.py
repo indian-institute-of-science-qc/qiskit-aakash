@@ -37,6 +37,7 @@ import logging
 from math import log2
 from collections import Counter
 import numpy as np
+import itertools
 
 from qiskit.util import local_hardware_info
 from qiskit.providers.models import QasmBackendConfiguration
@@ -103,12 +104,12 @@ class DmSimulatorPy(BaseBackend):
     }
 
     DEFAULT_OPTIONS = {
-        "initial_statevector": None,
+        "initial_densitymatrix": None,
         "chop_threshold": 1e-15
     }
 
     # Class level variable to return the final state at the end of simulation
-    # This should be set to True for the statevector simulator
+    # This should be set to True for the densitymatrix simulator
     SHOW_FINAL_STATE = True
 
     def __init__(self, configuration=None, provider=None):
@@ -120,12 +121,12 @@ class DmSimulatorPy(BaseBackend):
         self._local_random = np.random.RandomState()
         self._classical_memory = 0
         self._classical_register = 0
-        self._statevector = 0
+        self._densitymatrix = 0
         self._number_of_cmembits = 0
         self._number_of_qubits = 0
         self._shots = 0
         self._memory = False
-        self._initial_statevector = self.DEFAULT_OPTIONS["initial_statevector"]
+        self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
         self._qobj_config = None
         # TEMP
@@ -140,12 +141,12 @@ class DmSimulatorPy(BaseBackend):
         """
         # Compute einsum index string for 1-qubit matrix multiplication
         indexes = einsum_vecmul_index([qubit], self._number_of_qubits)
-        # Convert to complex rank-2 tensor
-        gate_tensor = np.array(gate, dtype=complex)
+        # Convert to float rank-2 tensor
+        gate_tensor = np.array(gate, dtype=float)
         # Apply matrix multiplication
-        self._statevector = np.einsum(indexes, gate_tensor,
-                                      self._statevector,
-                                      dtype=complex,
+        self._densitymatrix = np.einsum(indexes, gate_tensor,
+                                      self._densitymatrix,
+                                      dtype=float,
                                       casting='no')
                                       
 
@@ -159,14 +160,13 @@ class DmSimulatorPy(BaseBackend):
         """
         # Compute einsum index string for 1-qubit matrix multiplication
         indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
-        # Convert to complex rank-4 tensor
-        gate_tensor = np.reshape(np.array(gate, dtype=complex), 4 * [4])
+        # Convert to float rank-4 tensor
+        gate_tensor = np.reshape(np.array(gate, dtype=float), 4 * [4])
         # Apply matrix multiplication
-        self._statevector = np.einsum(indexes, gate_tensor,
-                                      self._statevector,
-                                      dtype=complex,
+        self._densitymatrix = np.einsum(indexes, gate_tensor,
+                                      self._densitymatrix,
+                                      dtype=float,
                                        casting='no')
-    
 
     def _get_measure_outcome(self, qubit):
         """Simulate the outcome of measurement of a qubit.
@@ -179,9 +179,11 @@ class DmSimulatorPy(BaseBackend):
             probability is the probability of the returned outcome.
         """
         # Axis for numpy.sum to compute probabilities
+        print('Get_Measure')
         axis = list(range(self._number_of_qubits))
         axis.remove(self._number_of_qubits - 1 - qubit)
-        probabilities = np.sum(np.abs(self._statevector) ** 2, axis=tuple(axis))
+        probabilities = np.sum(np.abs(self._densitymatrix) ** 2, axis=tuple(axis))
+        print(probabilities)
         # Compute einsum index string for 1-qubit matrix multiplication
         random_number = self._local_random.rand()
         if random_number < probabilities[0]:
@@ -190,7 +192,7 @@ class DmSimulatorPy(BaseBackend):
         return '1', probabilities[1]
 
     def _add_sample_measure(self, measure_params, num_samples):
-        """Generate memory samples from current statevector.
+        """Generate memory samples from current densitymatrix.
 
         Args:
             measure_params (list): List of (qubit, cmembit) values for
@@ -203,18 +205,27 @@ class DmSimulatorPy(BaseBackend):
         # Get unique qubits that are actually measured
         measured_qubits = list({qubit for qubit, cmembit in measure_params})
         num_measured = len(measured_qubits)
+        print('Sample_measure:')
         # Axis for numpy.sum to compute probabilities
         axis = list(range(self._number_of_qubits))
         for qubit in reversed(measured_qubits):
             # Remove from largest qubit to smallest so list position is correct
             # with respect to position from end of the list
             axis.remove(self._number_of_qubits - 1 - qubit)
-        probabilities = np.reshape(np.sum(np.abs(self._statevector) ** 2,
-                                          axis=tuple(axis)),
-                                   2 ** num_measured)
+
+        measure_ind = [x for x in itertools.product([0,3], repeat=self._number_of_qubits)]
+        operator_ind = [self._densitymatrix[x] for x in measure_ind]
+        operator_mes = np.array([[1, 1], [1, -1]])
+        for i in range(self._number_of_qubits-1):
+            operator_mes = np.kron(np.array([[1, 1], [1, -1]]), operator_mes)
+        
+        probabilities = (1/2**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes])
+
+        print('Density Matrix: ', self._densitymatrix, 'Probability: ', probabilities)
+
         # Generate samples on measured qubits
-        samples = self._local_random.choice(range(2 ** num_measured),
-                                            num_samples, p=probabilities)
+        samples = self._local_random.choice(range(2 ** num_measured), num_samples, p=probabilities)
+        
         # Convert to bit-strings
         memory = []
         for sample in samples:
@@ -245,12 +256,12 @@ class DmSimulatorPy(BaseBackend):
             regbit = 1 << cregbit
             self._classical_register = \
                 (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
-        print(outcome)
+
         # update quantum state
         if outcome == '0':
-            update_diag = [[1 / np.sqrt(probability), 0], [0, 0]]
+            update_diag = 1/np.sqrt(probability)*np.array([[1,0,0,0],[0,0,0,0],[0,0,0,0],[1,0,0,0]], dtype=float)
         else:
-            update_diag = [[0, 0], [0, 1 / np.sqrt(probability)]]
+            update_diag = 1/np.sqrt(probability)*np.array([[1,0,0,0],[0,0,0,0],[0,0,0,0],[-1,0,0,0]], dtype=float)
         # update classical state
         self._add_unitary_single(update_diag, qubit)
 
@@ -267,48 +278,52 @@ class DmSimulatorPy(BaseBackend):
         # get measure outcome
         outcome, probability = self._get_measure_outcome(qubit)
         # update quantum state
-        
+
         if outcome == '0':
-            update = [[1 / np.sqrt(probability), 0], [0, 0]]
+            update = 1/np.sqrt(probability)*np.array(
+                [[1,0,0,0],[0,0,0,0],[0,0,0,0],[1,0,0,0]], dtype=float)
             self._add_unitary_single(update, qubit)
         else:
-            update = [[0, 1 / np.sqrt(probability)], [0, 0]]
+            update = 1/np.sqrt(probability)*np.array(
+                [[1,0,0,0], [0,0,0,0], [0,0,0,0], [-1,0,0,0]], dtype=float)
+        # update classical state
             self._add_unitary_single(update, qubit)
 
-    def _validate_initial_statevector(self):
-        """Validate an initial statevector"""
-        # If initial statevector isn't set we don't need to validate
-        if self._initial_statevector is None:
+    def _validate_initial_densitymatrix(self):
+        """Validate an initial densitymatrix"""
+        # If initial densitymatrix isn't set we don't need to validate
+        if self._initial_densitymatrix is None:
             return
-        # Check statevector is correct length for number of qubits
-        length = len(self._initial_statevector)
-        required_dim = 4 * self._number_of_qubits
+        # Check densitymatrix is correct length for number of qubits
+        length = len(self._initial_densitymatrix)
+        required_dim = 4 ** self._number_of_qubits
         if length != required_dim:
-            raise BasicAerError('initial statevector is incorrect length: ' +
-                                '{} != {}'.format(length, required_dim))
+            raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.format(length, required_dim))
+        # Check if Trace is 0
+        if self._densitymatrix[0] != 1:
+            raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._densitymatrix[0], 1))
 
     def _set_options(self, qobj_config=None, backend_options=None):
         """Set the backend options for all experiments in a qobj"""
         # Reset default options
-        self._initial_statevector = self.DEFAULT_OPTIONS["initial_statevector"]
+        self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
         if backend_options is None:
             backend_options = {}
 
-        # Check for custom initial statevector in backend_options first,
+        # Check for custom initial densitymatrix in backend_options first,
         # then config second
-        if 'initial_statevector' in backend_options:
-            self._initial_statevector = np.array(backend_options['initial_statevector'],
-                                                 dtype=complex)
-        elif hasattr(qobj_config, 'initial_statevector'):
-            self._initial_statevector = np.array(qobj_config.initial_statevector,
-                                                 dtype=complex)
-        if self._initial_statevector is not None:
-            # Check the initial statevector is normalized
-            norm = np.linalg.norm(self._initial_statevector)
+        if 'initial_densitymatrix' in backend_options:
+            self._initial_densitymatrix = np.array(backend_options['initial_densitymatrix'],
+                                                 dtype=float)
+        elif hasattr(qobj_config, 'initial_densitymatrix'):
+            self._initial_densitymatrix = np.array(qobj_config.initial_densitymatrix,
+                                                 dtype=float)
+        if self._initial_densitymatrix is not None:
+            # Check the initial densitymatrix is normalized
+            norm = np.linalg.norm(self._initial_densitymatrix)
             if round(norm, 12) != 1:
-                raise BasicAerError('initial statevector is not normalized: ' +
-                                    'norm {} != 1'.format(norm))
+                raise BasicAerError('initial densitymatrix is not normalized: ' + 'norm {} != 1'.format(norm))
         # Check for custom chop threshold
         # Replace with custom options
         if 'chop_threshold' in backend_options:
@@ -316,26 +331,25 @@ class DmSimulatorPy(BaseBackend):
         elif hasattr(qobj_config, 'chop_threshold'):
             self._chop_threshold = qobj_config.chop_threshold
 
-    def _initialize_statevector(self):
-        """Set the initial statevector for simulation"""
-        if self._initial_statevector is None:
+    def _initialize_densitymatrix(self):
+        """Set the initial densitymatrix for simulation"""
+        if self._initial_densitymatrix is None:
             # Set to default state of all qubits in |0>
             # In Pauli Basis: (I + sigma_3)/2
-            self._statevector = np.array([1,0,0,1], dtype=complex)
+            self._densitymatrix = np.array([1,0,0,1], dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._statevector = np.kron(self._statevector,[1,0,0,1])
+                self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
         else:
-            self._statevector = self._initial_statevector.copy()
+            self._densitymatrix = self._initial_densitymatrix.copy()
         # Reshape to rank-N tensor
-        self._statevector = np.reshape(self._statevector,
+        self._densitymatrix = np.reshape(self._densitymatrix,
                                        self._number_of_qubits * [4])
-        #print(self._statevector)
+        #print(self._densitymatrix)
 
-    def _get_statevector(self):
-        """Return the current statevector in JSON Result spec format"""
-        vec = np.reshape(self._statevector, 4 ** self._number_of_qubits)
-        # Expand complex numbers
-        vec = np.stack([vec.real, vec.imag], axis=1)
+    def _get_densitymatrix(self):
+        """Return the current densitymatrix in JSON Result spec format"""
+        vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+        # Expand float numbers
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0
         return vec
@@ -347,8 +361,8 @@ class DmSimulatorPy(BaseBackend):
             experiment (QobjExperiment): a qobj experiment.
         """
         # If shots=1 we should disable measure sampling.
-        # This is also required for statevector simulator to return the
-        # correct final statevector without silently dropping final measurements.
+        # This is also required for densitymatrix simulator to return the
+        # correct final densitymatrix without silently dropping final measurements.
         if self._shots <= 1:
             self._sample_measure = False
             return
@@ -392,17 +406,17 @@ class DmSimulatorPy(BaseBackend):
 
         Additional Information:
             backend_options: Is a dict of options for the backend. It may contain
-                * "initial_statevector": vector_like
+                * "initial_densitymatrix": vector_like
 
-            The "initial_statevector" option specifies a custom initial
-            initial statevector for the simulator to be used instead of the all
+            The "initial_densitymatrix" option specifies a custom initial
+            initial densitymatrix for the simulator to be used instead of the all
             zero state. This size of this vector must be correct for the number
             of qubits in all experiments in the qobj.
 
             Example::
 
                 backend_options = {
-                    "initial_statevector": np.array([1, 0, 0, 1j]) / np.sqrt(2),
+                    "initial_densitymatrix": np.array([1, 0, 0, 1j]) / np.sqrt(2),
                 }
         """
         self._set_options(qobj_config=qobj.config,
@@ -471,12 +485,12 @@ class DmSimulatorPy(BaseBackend):
         start = time.time()
         self._number_of_qubits = experiment.config.n_qubits
         self._number_of_cmembits = experiment.config.memory_slots
-        self._statevector = 0
+        self._densitymatrix = 0
         self._classical_memory = 0
         self._classical_register = 0
         self._sample_measure = False
-        # Validate the dimension of initial statevector if set
-        # self._validate_initial_statevector()
+        # Validate the dimension of initial densitymatrix if set
+        self._validate_initial_densitymatrix()
         # Get the seed looking in circuit, qobj, and then random.
         if hasattr(experiment.config, 'seed_simulator'):
             seed_simulator = experiment.config.seed_simulator
@@ -484,12 +498,13 @@ class DmSimulatorPy(BaseBackend):
             seed_simulator = self._qobj_config.seed_simulator
         else:
             # For compatibility on Windows force dyte to be int32
-            # and set the maximum value to be (2 ** 31) - 1
+            ## TODO
+            # and set the maximum value to be (4 ** 31) - 1
             seed_simulator = np.random.randint(2147483647, dtype='int32')
 
         self._local_random.seed(seed=seed_simulator)
         # Check if measure sampling is supported for current circuit
-        # self._validate_measure_sampling(experiment)
+        self._validate_measure_sampling(experiment)
 
         # List of final counts for all shots
         memory = []
@@ -502,13 +517,15 @@ class DmSimulatorPy(BaseBackend):
             measure_sample_ops = []
         else:
             shots = self._shots
-        print("No error till now")
+        #print("No error till now")
+        #np.asarray()
         print(experiment.instructions)
         for _ in range(shots):
-            self._initialize_statevector()
+            self._initialize_densitymatrix()
             # Initialize classical memory to all 0
             self._classical_memory = 0
             self._classical_register = 0
+            #print(self._densitymatrix)
             for operation in experiment.instructions:
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
@@ -526,6 +543,7 @@ class DmSimulatorPy(BaseBackend):
                             continue
 
                 # Check if single  gate
+                print('Operation: ', operation.name)
                 if operation.name in ('U', 'u1', 'u2', 'u3'):
                     params = getattr(operation, 'params', None)
                     qubit = operation.qubits[0]
@@ -537,7 +555,6 @@ class DmSimulatorPy(BaseBackend):
                 elif operation.name in ('CX', 'cx'):
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
-                    #gate = operation.name
                     gate = cx_gate_dm_matrix()
                     self._add_unitary_two(gate, qubit0, qubit1)
                 # Check if reset
@@ -601,7 +618,7 @@ class DmSimulatorPy(BaseBackend):
             # Add final creg data to memory list
             if self._number_of_cmembits > 0:
                 if self._sample_measure:
-                    # If sampling we generate all shot samples from the final statevector
+                    # If sampling we generate all shot samples from the final densitymatrix
                     memory = self._add_sample_measure(measure_sample_ops, self._shots)
                 else:
                     # Turn classical_memory (int) into bit string and pad zero for unused cmembits
@@ -613,10 +630,10 @@ class DmSimulatorPy(BaseBackend):
         # Optionally add memory list
         if self._memory:
             data['memory'] = memory
-        # Optionally add final statevector
+        # Optionally add final densitymatrix
         if self.SHOW_FINAL_STATE:
-            data['statevector'] = self._get_statevector()
-            # Remove empty counts and memory for statevector simulator
+            data['densitymatrix'] = self._get_densitymatrix()
+            # Remove empty counts and memory for densitymatrix simulator
             if not data['counts']:
                 data.pop('counts')
             if 'memory' in data and not data['memory']:
