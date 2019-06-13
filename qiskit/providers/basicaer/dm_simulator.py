@@ -113,6 +113,7 @@ class DmSimulatorPy(BaseBackend):
     SHOW_FINAL_STATE = True
 
     def __init__(self, configuration=None, provider=None):
+
         super().__init__(configuration=(
             configuration or QasmBackendConfiguration.from_dict(self.DEFAULT_CONFIGURATION)),
                          provider=provider)
@@ -126,6 +127,7 @@ class DmSimulatorPy(BaseBackend):
         self._number_of_qubits = 0
         self._shots = 0
         self._memory = False
+        self._custom_densitymatrix = None
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
         self._qobj_config = None
@@ -313,7 +315,8 @@ class DmSimulatorPy(BaseBackend):
         if self._initial_densitymatrix is None:
             return
         # Check densitymatrix is correct length for number of qubits
-        length = len(self._initial_densitymatrix)
+        length = np.size(self._initial_densitymatrix)
+        #print(length, self._number_of_qubits)
         required_dim = 4 ** self._number_of_qubits
         if length != required_dim:
             raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.format(length, required_dim))
@@ -328,20 +331,23 @@ class DmSimulatorPy(BaseBackend):
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
         if backend_options is None:
             backend_options = {}
-
         # Check for custom initial densitymatrix in backend_options first,
         # then config second
         if 'initial_densitymatrix' in backend_options:
-            self._initial_densitymatrix = np.array(backend_options['initial_densitymatrix'],
-                                                 dtype=float)
+            self._initial_densitymatrix = np.array(backend_options['initial_densitymatrix'], dtype=float)
         elif hasattr(qobj_config, 'initial_densitymatrix'):
             self._initial_densitymatrix = np.array(qobj_config.initial_densitymatrix,
                                                  dtype=float)
-        if self._initial_densitymatrix is not None:
+        
+        if 'custom_densitymatrix' in backend_options:
+            self._custom_densitymatrix = backend_options['custom_densitymatrix']
+
+        #if self._initial_densitymatrix is not None and not isinstance(self._initial_densitymatrix, str):
             # Check the initial densitymatrix is normalized
-            norm = np.linalg.norm(self._initial_densitymatrix)
-            if round(norm, 12) != 1:
-                raise BasicAerError('initial densitymatrix is not normalized: ' + 'norm {} != 1'.format(norm))
+        #    norm = np.linalg.norm(self._initial_densitymatrix)
+        #    if round(norm, 12) != 1:
+        #        raise BasicAerError('initial densitymatrix is not normalized: ' + 'norm {} != 1'.format(norm))
+        print(self._initial_densitymatrix, self._number_of_qubits)
         # Check for custom chop threshold
         # Replace with custom options
         if 'chop_threshold' in backend_options:
@@ -351,18 +357,23 @@ class DmSimulatorPy(BaseBackend):
 
     def _initialize_densitymatrix(self):
         """Set the initial densitymatrix for simulation"""
-        if self._initial_densitymatrix is None:
-            # Set to default state of all qubits in |0>
-            # In Pauli Basis: (I + sigma_3)/2
-            self._densitymatrix = np.array([1,0,0,1], dtype=float)
+        if self._initial_densitymatrix is None and self._custom_densitymatrix is None:
+            self._densitymatrix = 1/2*np.array([1,0,0,1], dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
+                self._densitymatrix = 1/2*np.kron([1,0,0,1],self._densitymatrix)
+        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'maxim_ent':
+            self._densitymatrix = np.array([1,0,0,0], dtype=float)
+            for i in range(self._number_of_qubits-1):
+                self._densitymatrix = np.kron([1,0,0,0], self._densitymatrix)
+        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'unif_super':
+            self._densitymatrix = 1/2*np.array([1,1,0,0], dtype=float)
+            for i in range(self._number_of_qubits-1):
+                self._densitymatrix = 1/2*np.kron([1,1,0,0], self._densitymatrix)
         else:
             self._densitymatrix = self._initial_densitymatrix.copy()
         # Reshape to rank-N tensor
         self._densitymatrix = np.reshape(self._densitymatrix,
                                        self._number_of_qubits * [4])
-        #print(self._densitymatrix)
 
     def _get_densitymatrix(self):
         """Return the current densitymatrix in JSON Result spec format"""
@@ -537,7 +548,7 @@ class DmSimulatorPy(BaseBackend):
             shots = self._shots
         #print("No error till now")
         #np.asarray()
-        print(experiment.instructions)
+        #print(experiment.instructions)
         for _ in range(shots):
             self._initialize_densitymatrix()
             # Initialize classical memory to all 0
@@ -561,6 +572,8 @@ class DmSimulatorPy(BaseBackend):
                             continue
 
                 # Check if single  gate
+                #print(self._initial_densitymatrix)
+                #print(self._densitymatrix)
                 #print('Operation: ', operation.name)
                 if operation.name in ('U', 'u1', 'u2', 'u3'):
                     params = getattr(operation, 'params', None)
