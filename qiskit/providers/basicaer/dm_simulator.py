@@ -305,7 +305,7 @@ class DmSimulatorPy(BaseBackend):
             self._add_unitary_single(update, qubit)
         else:
             update = 1/np.sqrt(probability)*np.array(
-                [[1,0,0,0], [0,0,0,0], [0,0,0,0], [-1,0,0,0]], dtype=float)
+                [[1,0,0,-1], [0,1,0,0], [0,0,1,0], [1,0,0,-1]], dtype=float)
         # update classical state
             self._add_unitary_single(update, qubit)
 
