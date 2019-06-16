@@ -3,7 +3,7 @@ from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit import BasicAer, execute
 
 backend = BasicAer.get_backend('dm_simulator') # run on local simulator by default
-
+options = {}
 # Creating registers
 q = QuantumRegister(2)
 c = ClassicalRegister(2)
@@ -17,7 +17,7 @@ qc.h(q[1])
 qc.cx(q[1], q[0])
 qc.measure(q,c)
 circuits = [qc]
-job = execute(circuits, backend, shots=2)
+job = execute(circuits, backend, shots=2, **options)
 result = job.result()
 print(result)
 
