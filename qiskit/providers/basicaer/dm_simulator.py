@@ -123,6 +123,7 @@ class DmSimulatorPy(BaseBackend):
         self._classical_memory = 0
         self._classical_register = 0
         self._densitymatrix = 0
+        self._probability_of_zero = 0.0
         self._number_of_cmembits = 0
         self._number_of_qubits = 0
         self._shots = 0
@@ -134,23 +135,28 @@ class DmSimulatorPy(BaseBackend):
         # TEMP
         self._sample_measure = False
 
-    def _add_unitary_single(self, gate, qubit):
+    def _add_unitary_single(self, gate, params, qubit):
         """Apply an arbitrary 1-qubit unitary matrix.
 
         Args:
-            gate (matrix_like): a single qubit gate matrix
+            params (list): list of parameters for U1,U2 and U3 gate.
             qubit (int): the qubit to apply gate to
         """
-        # Compute einsum index string for 1-qubit matrix multiplication
-        indexes = einsum_vecmul_index([qubit], self._number_of_qubits)
-        # Convert to float rank-2 tensor
-        gate_tensor = np.array(gate, dtype=float)
-        # Apply matrix multiplication
-        self._densitymatrix = np.einsum(indexes, gate_tensor,
-                                      self._densitymatrix,
-                                      dtype=float,
-                                      casting='no')
-                                      
+        # Getting parameters                              
+        (theta, phi, lam) = map(float, single_gate_params(gate, params))
+        print(theta, phi, lam)
+        
+        # changing density matrix
+        self._densitymatrix = np.reshape(self._densitymatrix,(4**qubit,4,4**(self._number_of_qubits-qubit-1)))
+        
+        for j in range(4**(self._number_of_qubits-qubit-1)):
+            for i in range(4**(qubit)):
+                temp = self._densitymatrix[i,:,j]
+                self._densitymatrix[i,1,j] = temp[1]*(np.sin(lam)*np.sin(phi)+ np.cos(theta)*np.cos(phi)*np.cos(lam))+temp[2]*(np.cos(theta)*np.cos(phi)*np.sin(lam)- np.cos(lam)*np.sin(phi))+temp[3]*(np.sin(theta)*np.cos(phi))
+                self._densitymatrix[i,2,j] = temp[1]*(np.cos(theta)*np.sin(phi)*np.cos(lam)- np.sin(lam)*np.cos(phi))+temp[2]*(np.cos(phi)*np.cos(lam) + np.cos(theta)*np.sin(phi)*np.sin(lam))+ temp[3]*(np.sin(theta)*np.sin(phi))
+                self._densitymatrix[i,3,j] = temp[1]*(-np.cos(lam)*np.sin(theta))+ temp[2]*(np.sin(theta)*np.sin(lam)) + temp[3]*(np.cos(theta))
+
+        self._densitymatrix = np.reshape(self._densitymatrix, 4**(self._number_of_qubits))
 
     def _add_unitary_two(self, gate, qubit0, qubit1):
         """Apply a two-qubit unitary matrix.
@@ -169,6 +175,7 @@ class DmSimulatorPy(BaseBackend):
                                       self._densitymatrix,
                                       dtype=float,
                                        casting='no')
+        #self._densitymatrix = np.reshape(self._densitymatrix,())
 
     def _get_measure_outcome(self, qubit):
         """Simulate the outcome of measurement of a qubit.
@@ -208,82 +215,75 @@ class DmSimulatorPy(BaseBackend):
         # Else outcome was '1'
         return '1', probabilities[1]
 
-    def _add_sample_measure(self, measure_params, num_samples):
-        """Generate memory samples from current densitymatrix.
+    def _add_ensemble_measure(self):
+        """Perform complete computational basis measurement for current densitymatrix.
 
         Args:
-            measure_params (list): List of (qubit, cmembit) values for
-                                   measure instructions to sample.
-            num_samples (int): The number of memory samples to generate.
 
         Returns:
-            list: A list of memory values in hex format.
+            list: Complete list of probabilities. 
         """
-        # Get unique qubits that are actually measured
-        measured_qubits = list({qubit for qubit, cmembit in measure_params})
-        num_measured = len(measured_qubits)
-        #print('Sample_measure:')
-        # Axis for numpy.sum to compute probabilities
-        axis = list(range(self._number_of_qubits))
-        for qubit in reversed(measured_qubits):
-            # Remove from largest qubit to smallest so list position is correct
-            # with respect to position from end of the list
-            axis.remove(self._number_of_qubits - 1 - qubit)
-
         measure_ind = [x for x in itertools.product([0,3], repeat=self._number_of_qubits)]
         operator_ind = [self._densitymatrix[x] for x in measure_ind]
         operator_mes = np.array([[1, 1], [1, -1]])
         for i in range(self._number_of_qubits-1):
             operator_mes = np.kron(np.array([[1, 1], [1, -1]]), operator_mes)
         
-        probabilities = np.reshape((1/2**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
+        probabilities = np.reshape((0.5**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
+        return probabilities
 
-        #print('Probability Before: ', probabilities)
-        probabilities = np.reshape(np.sum(probabilities, axis = tuple(axis)), 2**num_measured)
+    def _add_bell_basis_measure(self, qubit_1, qubit_2):
+        """
+        Apply a Bell basisi measure instruction to two qubits.
+        Post measurement density matrix is returned in the same array.
 
-        #print('Probability After: ', probabilities)
-
-        # Generate samples on measured qubits
-        samples = self._local_random.choice(range(2 ** num_measured), num_samples, p=probabilities)
+        Args:
+            qubit_1 (int): first qubit of Bell pair.
+            qubit_2 (int): second qubit of Bell pair.
         
-        # Convert to bit-strings
-        memory = []
-        for sample in samples:
-            classical_memory = self._classical_memory
-            for count, (qubit, cmembit) in enumerate(sorted(measure_params)):
-                qubit_outcome = int((sample & (1 << count)) >> count)
-                membit = 1 << cmembit
-                classical_memory = (classical_memory & (~membit)) | (qubit_outcome << cmembit)
-            value = bin(classical_memory)[2:]
-            memory.append(hex(int(value, 2)))
-        return memory
+        Returns:
+            Four probabilities in the (|00>+|11>,|00>-|11>,|01>+|10>,|01>-|10>) basis.
+        """
+        q_1 = min(qubit_1, qubit_2)
+        q_2 = max(qubit_1, qubit_2)
 
-    def _add_qasm_measure(self, qubit, cmembit, cregbit=None):
-        """Apply a measure instruction to a qubit.
+        #update density matrix
+        self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
+        bell_probabilities = [0,0,0,0]
+        for i in range(4**(self._number_of_qubits-q_2-1)):
+            for j in range(4**(q_2-q_1-1)):
+                for k in range(4**q_1):
+                    for l in range(4):
+                        for m in range(4):
+                            if l != m:
+                                self._densitymatrix[i,l,j,m,k] = 0
+                    bell_probabilities[0] += 0.25*(self._densitymatrix[i,0,j,0,k] + self._densitymatrix[i,1,j,1,k] - self._densitymatrix[i,2,j,2,k] + self._densitymatrix[i,3,j,3,k])
+                    bell_probabilities[1] += 0.25*(self._densitymatrix[i,0,j,0,k] - self._densitymatrix[i,1,j,1,k] + self._densitymatrix[i,2,j,2,k] + self._densitymatrix[i,3,j,3,k])
+                    bell_probabilities[2] += 0.25*(self._densitymatrix[i,0,j,0,k] + self._densitymatrix[i,1,j,1,k] + self._densitymatrix[i,2,j,2,k] - self._densitymatrix[i,3,j,3,k])
+                    bell_probabilities[3] += 0.25*(self._densitymatrix[i,0,j,0,k] - self._densitymatrix[i,1,j,1,k] - self._densitymatrix[i,2,j,2,k] - self._densitymatrix[i,3,j,3,k])
+        return bell_probabilities
+
+    def _add_qasm_measure(self, qubit, probability_of_zero):
+        """Apply a computational basis measure instruction to a qubit. 
+        Post-measurement density matrix is returned in the same array.
 
         Args:
             qubit (int): qubit is the qubit measured.
-            cmembit (int): is the classical memory bit to store outcome in.
-            cregbit (int, optional): is the classical register bit to store outcome in.
+            probability_of_zero (float): is the probability of getting zero state as outcome.
         """
-        # get measure outcome
-        outcome, probability = self._get_measure_outcome(qubit)
-        # update classical state
-        membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
 
-        if cregbit is not None:
-            regbit = 1 << cregbit
-            self._classical_register = \
-                (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
-
-        # update quantum state
-        if outcome == '0':
-            update_diag = 1/np.sqrt(probability)*np.array([[1,0,0,0],[0,0,0,0],[0,0,0,0],[1,0,0,0]], dtype=float)
-        else:
-            update_diag = 1/np.sqrt(probability)*np.array([[1,0,0,0],[0,0,0,0],[0,0,0,0],[-1,0,0,0]], dtype=float)
-        # update classical state
-        self._add_unitary_single(update_diag, qubit)
+        # update density matrix
+        self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
+        p_0 = 0.0
+        p_1 = 0.0
+        for j in range(4**(self._number_of_qubits-qubit-1)):
+            for i in range(4**(qubit)):
+                self._densitymatrix[i,1,j] = 0
+                self._densitymatrix[i,2,j] = 0
+                p_0 += 0.5*(self._densitymatrix[i,0,j] + self._densitymatrix[i,3,j])
+                p_1 += 0.5*(self._densitymatrix[i,0,j] - self._densitymatrix[i,3,j])
+        probability_of_zero = p_0
+        print(p_0,p_1)
 
     def _add_qasm_reset(self, qubit):
         """Apply a reset instruction to a qubit.
@@ -358,22 +358,22 @@ class DmSimulatorPy(BaseBackend):
     def _initialize_densitymatrix(self):
         """Set the initial densitymatrix for simulation"""
         if self._initial_densitymatrix is None and self._custom_densitymatrix is None:
-            self._densitymatrix = 1/2*np.array([1,0,0,1], dtype=float)
+            self._densitymatrix = 0.5*np.array([1,0,0,1], dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._densitymatrix = 1/2*np.kron([1,0,0,1],self._densitymatrix)
-        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'maxim_ent':
-            self._densitymatrix = np.array([1,0,0,0], dtype=float)
+                self._densitymatrix = 0.5*np.kron([1,0,0,1],self._densitymatrix)
+        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'max_mixed':
+            self._densitymatrix = 0.5*np.array([1,0,0,0], dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._densitymatrix = np.kron([1,0,0,0], self._densitymatrix)
-        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'unif_super':
-            self._densitymatrix = 1/2*np.array([1,1,0,0], dtype=float)
+                self._densitymatrix = 0.5*np.kron([1,0,0,0], self._densitymatrix)
+        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'uniform_superpos':
+            self._densitymatrix = 0.5*np.array([1,1,0,0], dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._densitymatrix = 1/2*np.kron([1,1,0,0], self._densitymatrix)
+                self._densitymatrix = 0.5*np.kron([1,1,0,0], self._densitymatrix)
         else:
             self._densitymatrix = self._initial_densitymatrix.copy()
         # Reshape to rank-N tensor
-        self._densitymatrix = np.reshape(self._densitymatrix,
-                                       self._number_of_qubits * [4])
+        # self._densitymatrix = np.reshape(self._densitymatrix,
+        #                               self._number_of_qubits * [4])
 
     def _get_densitymatrix(self):
         """Return the current densitymatrix in JSON Result spec format"""
@@ -517,7 +517,7 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = 0
         self._classical_memory = 0
         self._classical_register = 0
-        self._sample_measure = False
+        #self._sample_measure = False
         # Validate the dimension of initial densitymatrix if set
         self._validate_initial_densitymatrix()
         # Get the seed looking in circuit, qobj, and then random.
@@ -533,7 +533,7 @@ class DmSimulatorPy(BaseBackend):
 
         self._local_random.seed(seed=seed_simulator)
         # Check if measure sampling is supported for current circuit
-        self._validate_measure_sampling(experiment)
+        #self._validate_measure_sampling(experiment)
 
         # List of final counts for all shots
         memory = []
@@ -578,16 +578,16 @@ class DmSimulatorPy(BaseBackend):
                 if operation.name in ('U', 'u1', 'u2', 'u3'):
                     params = getattr(operation, 'params', None)
                     qubit = operation.qubits[0]
-                    gate = single_gate_dm_matrix(operation.name, params)
-                    self._add_unitary_single(gate, qubit)
+                    #gate = single_gate_dm_matrix(operation.name, params)
+                    self._add_unitary_single(operation.name, params, qubit)
                 # Check if CX gate
                 elif operation.name in ('id', 'u0'):
                     pass
                 elif operation.name in ('CX', 'cx'):
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
-                    gate = cx_gate_dm_matrix()
-                    self._add_unitary_two(gate, qubit0, qubit1)
+                    #gate = cx_gate_dm_matrix()
+                    self._add_unitary_two(qubit0, qubit1)
                 # Check if reset
                 elif operation.name == 'reset':
                     qubit = operation.qubits[0]
@@ -607,7 +607,7 @@ class DmSimulatorPy(BaseBackend):
                         measure_sample_ops.append((qubit, cmembit))
                     else:
                         # If not sampling perform measurement as normal
-                        self._add_qasm_measure(qubit, cmembit, cregbit)
+                        self._add_qasm_measure(qubit, self._probability_of_zero)
                 elif operation.name == 'bfunc':
                     mask = int(operation.mask, 16)
                     relation = operation.relation
