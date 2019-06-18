@@ -18,12 +18,15 @@
 T=sqrt(S) phase gate or its inverse.
 """
 import numpy
+import math
 from qiskit.circuit import CompositeGate
 from qiskit.circuit import Gate
 from qiskit.circuit import QuantumCircuit
 from qiskit.circuit import QuantumRegister
 from qiskit.qasm import pi
 from qiskit.extensions.standard.u1 import U1Gate
+from qiskit.extensions.standard.rz import rz
+
 
 
 class TGate(Gate):
@@ -88,12 +91,14 @@ class TdgGate(Gate):
 
 def t(self, q):
     """Apply T to q."""
-    return self.append(TGate(), [q], [])
+   # return self.append(TGate(), [q], [])
+   rz(self,(math.pi)/8,q)
 
 
 def tdg(self, q):
     """Apply Tdg to q."""
-    return self.append(TdgGate(), [q], [])
+   # return self.append(TdgGate(), [q], [])
+   rz(self,-(math.pi)/8,q)
 
 
 QuantumCircuit.t = t
