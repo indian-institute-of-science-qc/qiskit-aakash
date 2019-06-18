@@ -58,14 +58,14 @@ def z(self, q):
         Density matrix remains in the same register.
         Args:
             q (int): q is the qubit where the gate Z is applied.
-        """
+    """
 
         # update density matrix
-        self._densitymatrix = np.reshape(self._densitymatrix,(4**(q),4,4**(self._number_of_qubits-q-1)))
-        for j in range(4**(self._number_of_qubits-q-1)):
-            for i in range(4**(q)):
-                self._densitymatrix[i,1,j] = -self._densitymatrix[i,1,j]
-                self._densitymatrix[i,2,j] = -self._densitymatrix[i,2,j]
+    self._densitymatrix = np.reshape(self._densitymatrix,(4**(q),4,4**(self._number_of_qubits-q-1)))
+    for j in range(4**(self._number_of_qubits-q-1)):
+        for i in range(4**(q)):
+            self._densitymatrix[i,1,j] = -self._densitymatrix[i,1,j]
+            self._densitymatrix[i,2,j] = -self._densitymatrix[i,2,j]
 
 QuantumCircuit.z = z
 CompositeGate.z = z

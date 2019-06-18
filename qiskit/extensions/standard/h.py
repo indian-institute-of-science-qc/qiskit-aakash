@@ -64,18 +64,12 @@ def h(self, q):
         Density matrix remains in the same register.
         Args:
             q (int): q is the qubit where the gate H is applied.
-        """
+    """
+    for j in range(4**(self._number_of_qubits-q-1)):
+        for i in range(4**(q)):
+            temp = self._densitymatrix[i,1,j].copy()
+            self._densitymatrix[i,1,j] = self._densitymatrix[i,3,j]
+            self._densitymatrix[i,3,j] = temp
 
-<<<<<<< HEAD
-=======
-        # update density matrix
-        self._densitymatrix = np.reshape(self._densitymatrix,(4**(q),4,4**(self._number_of_qubits-q-1)))
-        for j in range(4**(self._number_of_qubits-q-1)):
-            for i in range(4**(q)):
-                temp = self._densitymatrix[i,1,j].copy()
-                self._densitymatrix[i,1,j] = self._densitymatrix[i,3,j]
-                self._densitymatrix[i,3,j] = temp
-
->>>>>>> 7b3c40c38bc45c997de31083ca90365eb0bd086f
 QuantumCircuit.h = h
 CompositeGate.h = h
