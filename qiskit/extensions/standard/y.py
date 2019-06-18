@@ -52,9 +52,21 @@ class YGate(Gate):
 
 
 def y(self, q):
-    """Apply Y to q."""
-    return self.append(YGate(), [q], [])
+    
+   # return self.append(YGate(), [q], [])
+    """
+        Apply Y to qubit q in density matrix register self.
+        Density matrix remains in the same register.
+        Args:
+            q (int): q is the qubit where the gate Y is applied.
+        """
 
+        # update density matrix
+        self._densitymatrix = np.reshape(self._densitymatrix,(4**(q),4,4**(self._number_of_qubits-q-1)))
+        for j in range(4**(self._number_of_qubits-q-1)):
+            for i in range(4**(q)):
+                self._densitymatrix[i,1,j] = -self._densitymatrix[i,1,j]
+                self._densitymatrix[i,3,j] = -self._densitymatrix[i,3,j]
 
 QuantumCircuit.y = y
 CompositeGate.y = y
