@@ -61,6 +61,6 @@ def h(self, q):
     """Apply H to q."""
     return self.append(HGate(), [q], [])
 
-
+print("hi")
 QuantumCircuit.h = h
 CompositeGate.h = h
