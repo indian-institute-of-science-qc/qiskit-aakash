@@ -358,27 +358,6 @@ class DmSimulatorPy(BaseBackend):
     def _initialize_densitymatrix(self):
         """Set the initial densitymatrix for simulation"""
         if self._initial_densitymatrix is None and self._custom_densitymatrix is None:
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-            self._densitymatrix = 1/2*np.array([1,0,0,1], dtype=float)
-            for i in range(self._number_of_qubits-1):
-                self._densitymatrix = 1/2*np.kron([1,0,0,1],self._densitymatrix)
-        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'maxim_ent':
-            self._densitymatrix = np.array([1,0,0,0], dtype=float)
-            for i in range(self._number_of_qubits-1):
-                self._densitymatrix = np.kron([1,0,0,0], self._densitymatrix)
-        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'unif_super':
-            self._densitymatrix = 1/2*np.array([1,1,0,0], dtype=float)
-            for i in range(self._number_of_qubits-1):
-                self._densitymatrix = 1/2*np.kron([1,1,0,0], self._densitymatrix)
-        else:
-            self._densitymatrix = self._initial_densitymatrix.copy()
-        # Reshape to rank-N tensor
-        self._densitymatrix = np.reshape(self._densitymatrix,
-                                       self._number_of_qubits * [4])
-=======
->>>>>>> 2c9be4de3729b957758f620493fc37bc960fe509
             self._densitymatrix = 0.5*np.array([1,0,0,1], dtype=float)
             for i in range(self._number_of_qubits-1):
                 self._densitymatrix = 0.5*np.kron([1,0,0,1],self._densitymatrix)
@@ -395,10 +374,7 @@ class DmSimulatorPy(BaseBackend):
         # Reshape to rank-N tensor
         # self._densitymatrix = np.reshape(self._densitymatrix,
         #                               self._number_of_qubits * [4])
-<<<<<<< HEAD
-=======
->>>>>>> c635886b55f3d015d9970460bee79df9fdf77619
->>>>>>> 2c9be4de3729b957758f620493fc37bc960fe509
+
 
     def _get_densitymatrix(self):
         """Return the current densitymatrix in JSON Result spec format"""
