@@ -22,10 +22,6 @@ from qiskit.circuit import Gate
 from qiskit.circuit import QuantumCircuit
 from qiskit.circuit import QuantumRegister
 from qiskit.extensions.standard.ubase import UBase
-from qiskit.extensions.standard.rz import rz
-from qiskit.extensions.standard.ry import ry
-
-
 
 class U3Gate(Gate):
     """Two-pulse single-qubit gate."""
@@ -67,19 +63,19 @@ class U3Gate(Gate):
 
 
 def u3(self, theta, phi, lam, q):
-    #  return self.append(U3Gate(theta, phi, lam), [q], [])
+    return self.append(U3Gate(theta, phi, lam), [q], [])
     """
         Apply general unitary gate U3 to qubit q in density matrix register self.
         Density matrix remains in the same register.
         Args:
             q (int): q is the qubit where U3 is applied.
             theta,phi,lam: Rotation angles in Euler parametrization.
-    """
 
     # update density matrix
     rz(self,lam,q)
     ry(self,phi,q)
     rz(self,theta,q)
+    """
        
 QuantumCircuit.u3 = u3
 CompositeGate.u3 = u3

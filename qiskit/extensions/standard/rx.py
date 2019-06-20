@@ -54,14 +54,13 @@ class RXGate(Gate):
 
 
 def rx(self, theta, q):
-    #return self.append(RXGate(theta), [q], [])
+    return self.append(RXGate(theta), [q], [])
     """
         Apply RX to qubit q in density matrix register self.
         Density matrix remains in the same register.
         Args:
             q (int): q is the qubit where the gate RX is applied.
             theta: Rotation angle is theta.
-    """
 
     # update density matrix
     c = np.cos(2*theta)
@@ -73,6 +72,7 @@ def rx(self, theta, q):
             temp2 = self._densitymatrix[i,3,j].copy()
             self._densitymatrix[i,2,j] = c*temp1 - s*temp2
             self._densitymatrix[i,3,j] = c*temp2 + s*temp1
+    """
 
 QuantumCircuit.rx = rx
 CompositeGate.rx = rx

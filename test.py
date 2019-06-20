@@ -14,7 +14,7 @@ qc.x(q[0])
 qc.measure(q[0], c[0])
 qc.h(q[1])
 #qc.measure(q[1], c[1])
-qc.cx(q[1], q[0])
+#qc.cx(q[1], q[0])
 qc.measure(q,c)
 circuits = [qc]
 job = execute(circuits, backend, shots=2, **options)

@@ -91,14 +91,14 @@ class TdgGate(Gate):
 
 def t(self, q):
     """Apply T to q."""
-   # return self.append(TGate(), [q], [])
-   rz(self,(math.pi)/8,q)
+    return self.append(TGate(), [q], [])
+    #rz(self,(math.pi)/8,q)
 
 
 def tdg(self, q):
     """Apply Tdg to q."""
-   # return self.append(TdgGate(), [q], [])
-   rz(self,-(math.pi)/8,q)
+    return self.append(TdgGate(), [q], [])
+    #rz(self,-(math.pi)/8,q)
 
 
 QuantumCircuit.t = t

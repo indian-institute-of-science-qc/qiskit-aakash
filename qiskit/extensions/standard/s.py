@@ -87,31 +87,30 @@ class SdgGate(Gate):
 
 
 def s(self, q):
-    #return self.append(SGate(), [q], [])
-     """
-        Apply S to qubit q in density matrix register self.
-        Density matrix remains in the same register.
-        Args:
-            q (int): q is the qubit where the gate S is applied.
-        """
+    return self.append(SGate(), [q], [])
+    """
+    Apply S to qubit q in density matrix register self.
+    Density matrix remains in the same register.
+    Args:
+        q (int): q is the qubit where the gate S is applied.
 
-        # update density matrix
-        self._densitymatrix = np.reshape(self._densitymatrix,(4**(q),4,4**(self._number_of_qubits-q-1)))
-        for j in range(4**(self._number_of_qubits-q-1)):
-            for i in range(4**(q)):
-                temp = self._densitymatrix[i,1,j].copy()
-                self._densitymatrix[i,1,j] = -(self._densitymatrix[i,2,j].copy())
-                self._densitymatrix[i,2,j] = temp
+    # update density matrix
+    self._densitymatrix = np.reshape(self._densitymatrix,(4**(q),4,4**(self._number_of_qubits-q-1)))
+    for j in range(4**(self._number_of_qubits-q-1)):
+        for i in range(4**(q)):
+            temp = self._densitymatrix[i,1,j].copy()
+            self._densitymatrix[i,1,j] = -(self._densitymatrix[i,2,j].copy())
+            self._densitymatrix[i,2,j] = temp
+    """
 
 
 def sdg(self, q):
-   # return self.append(SdgGate(), [q], [])
-   """
+    return self.append(SdgGate(), [q], [])
+    """
         Apply S to qubit q in density matrix register self.
         Density matrix remains in the same register.
         Args:
             q (int): q is the qubit where the gate S is applied.
-    """
     # update density matrix
     self._densitymatrix = np.reshape(self._densitymatrix,(4**(q),4,4**(self._number_of_qubits-q-1)))
     for j in range(4**(self._number_of_qubits-q-1)):
@@ -119,6 +118,7 @@ def sdg(self, q):
             temp = self._densitymatrix[i,1,j].copy()
             self._densitymatrix[i,1,j] = self._densitymatrix[i,2,j]
             self._densitymatrix[i,2,j] = -temp
+    """
 
 
 QuantumCircuit.s = s

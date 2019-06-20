@@ -135,7 +135,7 @@ class DmSimulatorPy(BaseBackend):
         # TEMP
         self._sample_measure = False
 
-    def _add_unitary_single(self, gate, params, qubit):
+    def _add_unitary_single(self, gate, qubit):
         """Apply an arbitrary 1-qubit unitary matrix.
 
         Args:
@@ -143,20 +143,29 @@ class DmSimulatorPy(BaseBackend):
             qubit (int): the qubit to apply gate to
         """
         # Getting parameters                              
-        (theta, phi, lam) = map(float, single_gate_params(gate, params))
-        print(theta, phi, lam)
+        #(theta, phi, lam) = map(float, single_gate_params(gate, params))
+        #print(theta, phi, lam)
         
         # changing density matrix
-        self._densitymatrix = np.reshape(self._densitymatrix,(4**qubit,4,4**(self._number_of_qubits-qubit-1)))
+        #self._densitymatrix = np.reshape(self._densitymatrix,(4**qubit,4,4**(self._number_of_qubits-qubit-1)))
+        temp_dens = np.reshape(
+            self._densitymatrix.copy(), (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
+
+        for idx in gate:
+            temp_dens = rt_gate_dm_matrix(idx[0], idx[1], temp_dens, qubit, self._number_of_qubits)
+
+        self._densitymatrix = np.reshape(temp_dens.copy(),
+                                            self._number_of_qubits * [4])
         
+        temp_dens = None
+        '''
         for j in range(4**(self._number_of_qubits-qubit-1)):
             for i in range(4**(qubit)):
                 temp = self._densitymatrix[i,:,j]
                 self._densitymatrix[i,1,j] = temp[1]*(np.sin(lam)*np.sin(phi)+ np.cos(theta)*np.cos(phi)*np.cos(lam))+temp[2]*(np.cos(theta)*np.cos(phi)*np.sin(lam)- np.cos(lam)*np.sin(phi))+temp[3]*(np.sin(theta)*np.cos(phi))
                 self._densitymatrix[i,2,j] = temp[1]*(np.cos(theta)*np.sin(phi)*np.cos(lam)- np.sin(lam)*np.cos(phi))+temp[2]*(np.cos(phi)*np.cos(lam) + np.cos(theta)*np.sin(phi)*np.sin(lam))+ temp[3]*(np.sin(theta)*np.sin(phi))
                 self._densitymatrix[i,3,j] = temp[1]*(-np.cos(lam)*np.sin(theta))+ temp[2]*(np.sin(theta)*np.sin(lam)) + temp[3]*(np.cos(theta))
-
-        self._densitymatrix = np.reshape(self._densitymatrix, 4**(self._number_of_qubits))
+        '''
 
     def _add_unitary_two(self, gate, qubit0, qubit1):
         """Apply a two-qubit unitary matrix.
@@ -372,8 +381,8 @@ class DmSimulatorPy(BaseBackend):
         else:
             self._densitymatrix = self._initial_densitymatrix.copy()
         # Reshape to rank-N tensor
-        # self._densitymatrix = np.reshape(self._densitymatrix,
-        #                               self._number_of_qubits * [4])
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                       self._number_of_qubits * [4])
 
 
     def _get_densitymatrix(self):
@@ -547,9 +556,7 @@ class DmSimulatorPy(BaseBackend):
             measure_sample_ops = []
         else:
             shots = self._shots
-        #print("No error till now")
-        #np.asarray()
-        #print(experiment.instructions)
+
         for _ in range(shots):
             self._initialize_densitymatrix()
             # Initialize classical memory to all 0
@@ -578,9 +585,9 @@ class DmSimulatorPy(BaseBackend):
                 #print('Operation: ', operation.name)
                 if operation.name in ('U', 'u1', 'u2', 'u3'):
                     params = getattr(operation, 'params', None)
+                    gate = single_gate_dm_matrix(operation.name, params)
                     qubit = operation.qubits[0]
-                    #gate = single_gate_dm_matrix(operation.name, params)
-                    self._add_unitary_single(operation.name, params, qubit)
+                    self._add_unitary_single(gate, qubit)
                 # Check if CX gate
                 elif operation.name in ('id', 'u0'):
                     pass

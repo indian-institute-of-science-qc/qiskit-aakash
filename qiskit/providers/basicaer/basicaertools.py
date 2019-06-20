@@ -55,7 +55,7 @@ def single_gate_matrix(gate, params=None):
 
     # Converting sym to floats improves the performance of the simulator 10x.
     # This a is a probable a FIXME since it might show bugs in the simulator.
-    (theta, phi, lam) = map(float, single_gate_params(gate, params))
+    (theta, phi, lam) = map(float, single_gate_params(gate, params)) 
 
     return np.array([[np.cos(theta / 2),
                       -np.exp(1j * lam) * np.sin(theta / 2)],
@@ -75,14 +75,46 @@ def single_gate_dm_matrix(gate, params=None):
 
     # Converting sym to floats improves the performance of the simulator 10x.
     # This a is a probable a FIXME since it might show bugs in the simulator.
-    (theta, phi, lam) = map(float, single_gate_params(gate, params))
+    #(theta, phi, lam) = map(float, single_gate_params(gate, params))
+    
+    param = list(map(float, single_gate_params(gate, params)))
+    decomp_gate = []
+    decomp = ['rz', 'ry', 'rz']
+    
+    for idx, op in enumerate(decomp):
+        decomp_gate.append([op, param[-idx]])
 
+    return decomp_gate
+    
+    '''
     return np.array([[1,0,0,0],
                     [0,np.sin(lam)*np.sin(phi)+ np.cos(theta)*np.cos(phi)*np.cos(lam),np.cos(theta)*np.cos(phi)*np.sin(lam)- np.cos(lam)*np.sin(phi),np.sin(theta)*np.cos(phi)],
                     [0,np.cos(theta)*np.sin(phi)*np.cos(lam)- np.sin(lam)*np.cos(phi),np.cos(phi)*np.cos(lam) + np.cos(theta)*np.sin(phi)*np.sin(lam), np.sin(theta)*np.sin(phi)],
                     [0,-np.cos(lam)*np.sin(theta), np.sin(theta)*np.sin(lam), np.cos(theta)]
                     ])
+    '''
+def rt_gate_dm_matrix(gate, param, state, q, num_qubits):
+    
+    c = np.cos(2*param)
+    s = np.sin(2*param)
 
+    if gate == 'rz':
+        k = [1,2]
+    elif gate  == 'ry':
+        k = [3,1]
+    elif gate == 'rx':
+        k = [2,3]
+    else:
+        raise QiskitError('Gate is not among the valid decomposition types: %s' % gate)   
+
+    for j in range(4**(num_qubits-q-1)):
+        for i in range(4**(q)):
+            temp1 = state[i, k[0], j]
+            temp2 = state[i, k[1], j]
+            state[i, k[0], j] = c*temp1 - s*temp2
+            state[i, k[1], j] = c*temp2 + s*temp1
+    
+    return state
 
 def cx_gate_dm_matrix():
     """Get the matrix in density matrix formalism for a controlled-NOT gate."""

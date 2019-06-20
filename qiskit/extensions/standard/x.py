@@ -17,7 +17,6 @@ Pauli X (bit-flip) gate.
 """
 
 import numpy
-
 from qiskit.circuit import CompositeGate
 from qiskit.circuit import Gate
 from qiskit.circuit import QuantumCircuit
@@ -59,21 +58,21 @@ class XGate(Gate):
 
 
 def x(self, q):
-    
-    #return self.append(XGate(), [q], [])
-     """
+    return self.append(XGate(), [q], [])
+    """
         Apply X to qubit q in density matrix register self.
         Density matrix remains in the same register.
         Args:
             q (int): q is the qubit where the gate X is applied.
-    """
 
         # update density matrix
-    self._densitymatrix = np.reshape(self._densitymatrix,(4**(q),4,4**(self._number_of_qubits-q-1)))
-    for j in range(4**(self._number_of_qubits-q-1)):
-        for i in range(4**(q)):
+    q_ = q[0]
+    self._densitymatrix = np.reshape(self._densitymatrix,(4**(int(q_),4,4**(self._number_of_qubits-int(q_)-1))))
+    for j in range(4**(self._number_of_qubits-int(q_)-1)):
+        for i in range(4**(int(q_))):
             self._densitymatrix[i,2,j] = -self._densitymatrix[i,2,j]
             self._densitymatrix[i,3,j] = -self._densitymatrix[i,3,j]
+    """
         
 QuantumCircuit.x = x
 CompositeGate.x = x

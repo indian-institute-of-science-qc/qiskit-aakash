@@ -38,7 +38,7 @@ class RZGate(Gate):
         definition = []
         q = QuantumRegister(1, "q")
         rule = [
-            (U1Gate(self.params[0]), [q[0]], [])
+        (U1Gate(self.params[0]), [q[0]], [])
         ]
         for inst in rule:
             definition.append(inst)
@@ -53,14 +53,13 @@ class RZGate(Gate):
 
 
 def rz(self, phi, q):
-    #return self.append(RZGate(phi), [q], [])
+    return self.append(RZGate(phi), [q], [])
     """
         Apply RZ to qubit q in density matrix register self.
         Density matrix remains in the same register.
         Args:
             q (int): q is the qubit where the gate RZ is applied.
             phi: Rotation angle is phi.
-    """
 
     # update density matrix
     c = np.cos(2*phi)
@@ -72,6 +71,7 @@ def rz(self, phi, q):
             temp2 = self._densitymatrix[i,2,j].copy()
             self._densitymatrix[i,1,j] = c*temp1 - s*temp2
             self._densitymatrix[i,2,j] = c*temp2 + s*temp1
+    """
 
 QuantumCircuit.rz = rz
 CompositeGate.rz = rz
