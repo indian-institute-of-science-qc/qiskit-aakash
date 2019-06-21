@@ -142,22 +142,18 @@ class DmSimulatorPy(BaseBackend):
             params (list): list of parameters for U1,U2 and U3 gate.
             qubit (int): the qubit to apply gate to
         """
-        # Getting parameters                              
-        #(theta, phi, lam) = map(float, single_gate_params(gate, params))
-        #print(theta, phi, lam)
         
         # changing density matrix
-        #self._densitymatrix = np.reshape(self._densitymatrix,(4**qubit,4,4**(self._number_of_qubits-qubit-1)))
-        temp_dens = np.reshape(
-            self._densitymatrix.copy(), (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
+        self._densitymatrix = np.reshape(
+            self._densitymatrix, (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
 
         for idx in gate:
-            temp_dens = rt_gate_dm_matrix(idx[0], idx[1], temp_dens, qubit, self._number_of_qubits)
+            self._densitymatrix = rt_gate_dm_matrix(
+                idx[0], idx[1], self._densitymatrix, qubit, self._number_of_qubits)
 
-        self._densitymatrix = np.reshape(temp_dens.copy(),
+        self._densitymatrix = np.reshape(self._densitymatrix,
                                             self._number_of_qubits * [4])
-        
-        temp_dens = None
+
         '''
         for j in range(4**(self._number_of_qubits-qubit-1)):
             for i in range(4**(qubit)):
@@ -167,24 +163,20 @@ class DmSimulatorPy(BaseBackend):
                 self._densitymatrix[i,3,j] = temp[1]*(-np.cos(lam)*np.sin(theta))+ temp[2]*(np.sin(theta)*np.sin(lam)) + temp[3]*(np.cos(theta))
         '''
 
-    def _add_unitary_two(self, gate, qubit0, qubit1):
+    def _add_unitary_two(self, qubit0, qubit1):
         """Apply a two-qubit unitary matrix.
 
         Args:
             gate (matrix_like): a the two-qubit gate matrix
             qubit0 (int): gate qubit-0
             qubit1 (int): gate qubit-1
-        """
-        # Compute einsum index string for 1-qubit matrix multiplication
-        indexes = einsum_vecmul_index([qubit0, qubit1], self._number_of_qubits)
-        # Convert to float rank-4 tensor
-        gate_tensor = np.reshape(np.array(gate, dtype=float), 4 * [4])
-        # Apply matrix multiplication
-        self._densitymatrix = np.einsum(indexes, gate_tensor,
-                                      self._densitymatrix,
-                                      dtype=float,
-                                       casting='no')
-        #self._densitymatrix = np.reshape(self._densitymatrix,())
+        """ 
+        
+        self._densitymatrix = cx_gate_dm_matrix(self._densitymatrix,
+                                                qubit0, qubit1, self._number_of_qubits)
+        
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                        self._number_of_qubits * [4])
 
     def _get_measure_outcome(self, qubit):
         """Simulate the outcome of measurement of a qubit.
@@ -278,7 +270,7 @@ class DmSimulatorPy(BaseBackend):
 
         Args:
             qubit (int): qubit is the qubit measured.
-            probability_of_zero (float): is the probability of getting zero state as outcome.
+            probability_of_zero (float): is the probability of getting zero state as outcome.   
         """
 
         # update density matrix
@@ -292,7 +284,7 @@ class DmSimulatorPy(BaseBackend):
                 p_0 += 0.5*(self._densitymatrix[i,0,j] + self._densitymatrix[i,3,j])
                 p_1 += 0.5*(self._densitymatrix[i,0,j] - self._densitymatrix[i,3,j])
         probability_of_zero = p_0
-        print(p_0,p_1)
+        #print(p_0,p_1)
 
     def _add_qasm_reset(self, qubit):
         """Apply a reset instruction to a qubit.
@@ -356,7 +348,7 @@ class DmSimulatorPy(BaseBackend):
         #    norm = np.linalg.norm(self._initial_densitymatrix)
         #    if round(norm, 12) != 1:
         #        raise BasicAerError('initial densitymatrix is not normalized: ' + 'norm {} != 1'.format(norm))
-        print(self._initial_densitymatrix, self._number_of_qubits)
+        #print(self._initial_densitymatrix, self._number_of_qubits)
         # Check for custom chop threshold
         # Replace with custom options
         if 'chop_threshold' in backend_options:
@@ -588,13 +580,12 @@ class DmSimulatorPy(BaseBackend):
                     gate = single_gate_dm_matrix(operation.name, params)
                     qubit = operation.qubits[0]
                     self._add_unitary_single(gate, qubit)
-                # Check if CX gate
                 elif operation.name in ('id', 'u0'):
                     pass
+                # Check if CX gate
                 elif operation.name in ('CX', 'cx'):
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
-                    #gate = cx_gate_dm_matrix()
                     self._add_unitary_two(qubit0, qubit1)
                 # Check if reset
                 elif operation.name == 'reset':
