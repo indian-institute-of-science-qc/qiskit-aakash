@@ -127,6 +127,7 @@ class DmSimulatorPy(BaseBackend):
         self._number_of_cmembits = 0
         self._number_of_qubits = 0
         self._shots = 0
+        self._error_params = None
         self._memory = False
         self._custom_densitymatrix = None
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
@@ -149,7 +150,7 @@ class DmSimulatorPy(BaseBackend):
 
         for idx in gate:
             self._densitymatrix = rt_gate_dm_matrix(
-                idx[0], idx[1], self._densitymatrix, qubit, self._number_of_qubits)
+                idx[0], idx[1], self._error_params['single_gate'], self._densitymatrix, qubit, self._number_of_qubits)
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                             self._number_of_qubits * [4])
@@ -330,6 +331,10 @@ class DmSimulatorPy(BaseBackend):
         # Reset default options
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
+        if 'error_params' in backend_options:
+            self._error_params = backend_options['error_params']
+        else:
+            self._error_params = { 'single_gate' : [0,0] }
         if backend_options is None:
             backend_options = {}
         # Check for custom initial densitymatrix in backend_options first,

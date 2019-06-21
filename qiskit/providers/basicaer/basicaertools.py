@@ -155,7 +155,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
         q_2 (int): Target qubit"""
     
     if (q_1 == q_2) or (q_1>=num_qubits) or (q_2>=num_qubits):
-        raise TypeError('Qubit Labels out of bound in CX Gate')
+        raise QiskitError('Qubit Labels out of bound in CX Gate')
     elif q_1 > q_2:            
         # Reshape Density Matrix  
         state = np.reshape(state, (4**(num_qubits-q_1-1), 
