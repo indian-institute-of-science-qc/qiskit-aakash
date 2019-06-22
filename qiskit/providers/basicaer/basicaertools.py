@@ -116,8 +116,8 @@ def rt_gate_dm_matrix(gate, param, state, q, num_qubits):
     
     return state
 
-def cx_gate_dm_matrix():
-    """Get the matrix in density matrix formalism for a controlled-NOT gate."""
+'''def cx_gate_dm_matrix():
+    """C-NOT  matrix in density matrix formalism."""
     return np.array([[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
                      [0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0], 
                      [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0], 
@@ -133,8 +133,70 @@ def cx_gate_dm_matrix():
                      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
                      [0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0], 
                      [0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0], 
-                     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]], dtype=float)
+                     [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]], dtype=float)'''
 
+def cx_gate_dm_matrix(self, state, q_1, q_2, _number_of_qubits):
+    """Apply C-NOT gate in density matrix formalism.
+
+        Args:
+        state - density matrix
+        q_1 (int): Control qubit 
+        q_2 (int): Target qubit"""
+
+    if q_1 > q_2:            
+        #update density matrix  
+        state = np.reshape(state,(4**(_number_of_qubits-q_1-1), 4, 4**(q_1-q_2-1), 4, 4**q_2))
+        temp_dm = state.copy()
+        for i in range(4**(_number_of_qubits-q_1-1)):
+            for j in range(4**(q_1-q_2-1)):
+                for k in range(4**q_2):
+                    state[i, 0 ,j, 2 ,k] =  temp_dm[i, 3 ,j, 2 ,k]
+                    state[i, 0 ,j, 3 ,k] =  temp_dm[i, 3 ,j, 3 ,k]
+                    state[i, 1 ,j, 0 ,k] =  temp_dm[i, 1 ,j, 1 ,k]
+                    state[i, 1 ,j, 1 ,k] =  temp_dm[i, 1 ,j, 0 ,k]
+                    state[i, 1 ,j, 2 ,k] =  temp_dm[i, 2 ,j, 3 ,k]
+                    state[i, 1 ,j, 3 ,k] =  -temp_dm[i, 2 ,j, 2 ,k]
+                    state[i, 2 ,j, 0 ,k] =  temp_dm[i, 2 ,j, 1 ,k]
+                    state[i, 2 ,j, 1 ,k] =  temp_dm[i, 2 ,j, 0 ,k]
+                    state[i, 2 ,j, 2 ,k] =  -temp_dm[i, 1 ,j, 3 ,k]
+                    state[i, 2 ,j, 3 ,k] =  temp_dm[i, 1 ,j, 2 ,k]
+                    state[i, 3 ,j, 2 ,k] =  temp_dm[i, 0 ,j, 2 ,k]
+                    state[i, 3 ,j, 3 ,k] =  temp_dm[i, 0 ,j, 3 ,k]
+    else:
+        #update density matrix  
+        state = np.reshape(state,(4**(_number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
+        temp_dm = state.copy()
+        for i in range(4**(_number_of_qubits-q_2-1)):
+            for j in range(4**(q_2-q_1-1)):
+                for k in range(4**q_1):
+                    state[i, 2 ,j, 0 ,k] =  temp_dm[i, 2 ,j, 3 ,k]
+                    state[i, 3 ,j, 0 ,k] =  temp_dm[i, 3 ,j, 3 ,k]
+                    state[i, 0 ,j, 1 ,k] =  temp_dm[i, 1 ,j, 1 ,k]
+                    state[i, 1 ,j, 1 ,k] =  temp_dm[i, 0 ,j, 1 ,k]
+                    state[i, 2 ,j, 1 ,k] =  temp_dm[i, 3 ,j, 2 ,k]
+                    state[i, 3 ,j, 1 ,k] =  -temp_dm[i, 2 ,j, 2 ,k]
+                    state[i, 0 ,j, 2 ,k] =  temp_dm[i, 1 ,j, 2 ,k]
+                    state[i, 1 ,j, 2 ,k] =  temp_dm[i, 0 ,j, 2 ,k]
+                    state[i, 2 ,j, 2 ,k] =  -temp_dm[i, 3 ,j, 1 ,k]
+                    state[i, 3 ,j, 2 ,k] =  temp_dm[i, 2 ,j, 1 ,k]
+                    state[i, 2 ,j, 3 ,k] =  temp_dm[i, 2 ,j, 0 ,k]
+                    state[i, 3 ,j, 3 ,k] =  temp_dm[i, 3 ,j, 0 ,k]
+    return state
+
+'''
+def cx_gate_dm_matrix(self, state, qubit_1, qubit_2, _number_of_qubits):
+    t = 0 if qubit_1>qubit_2 else 1
+    q_1,q_2 = max(qubit_1, qubit_2),min(qubit_1, qubit_2)
+    state = np.reshape(state,(4**(_number_of_qubits-q_1-1), 4, 4**(q_1-q_2-1), 4, 4**q_2))
+    d,L  = state.copy() , np.array([[[0,2],[0,3],[1,0],[1,2],[1,3,],[2,0]],[[3,2],[3,3],[1,1],[2,3],[2,2,],[2,1]]])
+    for i in range(4**(_number_of_qubits-q_1-1)):
+        for j in range(4**(q_1-q_2-1)):
+            for k in range(4**q_2):
+                for c in range(6):
+                    s = -1 if c == 4 else 1
+                    (d[i,L[0,c,(0+t)%2],j,L[0,c,(1+t)%2],k],d[i,L[1,c,(0+t)%2],j,L[1,c,(1+t)%2],k]) = (s*d[i,L[1,c,(0+t)%2],j,L[1,c,(1+t)%2],k],s*d[i,L[0,c,(0+t)%2],j,L[0,c,(1+t)%2],k])
+    return d
+'''
 
 def cx_gate_matrix():
     """Get the matrix for a controlled-NOT gate."""
