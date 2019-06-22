@@ -40,7 +40,8 @@ def single_gate_params(gate, params=None):
         return 0, 0, params[0]
     elif gate == 'id':
         return 0, 0, 0
-    raise QiskitError('Gate is not among the valid types: %s' % gate)
+    else:
+        raise QiskitError('Gate is not among the valid types: %s' % gate)
 
 
 def single_gate_matrix(gate, params=None):
@@ -145,6 +146,202 @@ def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
                          [0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0], 
                          [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]], dtype=float)
     '''
+
+def U3_merge(theta, phi, lamb, tol):
+    """Performs merge operation when both the gates are U3 by transforming the Y-Z decomposition of the gates to the Z-Y decomposition.
+        Args:
+            theta   (float) :  Ry(theta2) 
+            phi     (float) :  Rz(theta1)
+            lamb    (float) :  Rz(theta3)
+            tol     (float) :  Tolerance limit
+        Return
+            [β, α, γ] (list, type:float ):  {Rz(α) , Ry(β) , Rz(γ)}
+    """
+
+    xi = phi
+    theta1 = theta
+    theta2 = lamb
+    atol = 1e-8
+    # for storing all the solutions
+    solutions = []
+
+    if np.abs(np.cos(xi)) < tol:
+        return [theta2-theta1, xi, 0]
+    elif np.abs(np.sin(theta1+theta2)) < tol:
+        phi_minus_lambda = [np.pi/2, 3*np.pi/2, np.pi/2, 3*np.pi/2]
+        stheta_1 =  np.arcsin(np.sin(xi) * np.sin(-theta1 + theta2))
+        stheta_2 = -stheta_1
+        stheta_3 =  np.pi - stheta_1
+        stheta_4 =  np.pi - stheta_2
+        stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
+        phi_plus_lambda = list(map(lambda x:
+                                   np.arccos(np.cos(theta1 + theta2) *
+                                            np.cos(xi) / np.cos(x)),
+                                            stheta))
+        sphi = [(term[0] + term[1]) / 2 for term in
+                zip(phi_plus_lambda, phi_minus_lambda)]
+        slam = [(term[0] - term[1]) / 2 for term in
+                zip(phi_plus_lambda, phi_minus_lambda)]
+        solutions = list(zip(stheta, sphi, slam))
+    elif np.abs(np.cos(theta1+theta2)) < tol:
+        phi_plus_lambda = [np.pi/2, 3*np.pi/2, np.pi/2, 3*np.pi/2]
+        stheta_1 =  np.arccos(np.sin(xi) * np.cos(theta1 - theta2))
+        stheta_2 =  stheta_1
+        stheta_3 = -stheta_1
+        stheta_4 = -stheta_2
+        stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
+        phi_minus_lambda = list(map(lambda x:
+                                    np.arccos(np.sin(theta1 + theta2) *
+                                             np.cos(xi) / np.sin(x)),
+                                             stheta))
+        sphi = [(term[0] + term[1]) / 2 for term in
+                zip(phi_plus_lambda, phi_minus_lambda)]
+        slam = [(term[0] - term[1]) / 2 for term in
+                zip(phi_plus_lambda, phi_minus_lambda)]
+        solutions = list(zip(stheta, sphi, slam))
+    else:
+        sinxi = np.sin(xi)
+        cosxi = np.cos(xi)
+        costheta12 = np.cos(theta1 + theta2)
+        phi_plus_lambda = np.arctan(sinxi * np.cos(theta1 - theta2) /
+                                     (cosxi * costheta12))
+        phi_minus_lambda = np.arctan(sinxi * np.sin(-theta1 +
+                                                        theta2) /
+                                      (cosxi * np.sin(theta1 +
+                                                         theta2)))
+        sphi = (phi_plus_lambda + phi_minus_lambda) / 2
+        slam = (phi_plus_lambda - phi_minus_lambda) / 2
+        cossphislam = np.cos(sphi + slam)
+        arccos = np.arccos(cosxi * costheta12 / cossphislam)
+        solutions.append((arccos, sphi, slam))
+        solutions.append((arccos, sphi + np.pi / 2, slam + np.pi / 2))
+        solutions.append((arccos, sphi + np.pi / 2, slam - np.pi / 2))
+        solutions.append((arccos, sphi + np.pi, slam))
+    
+    # Choose the first solution with desired accuracy
+    for ans in solutions:
+
+        sinxi = np.sin(xi)
+        cosxi = np.cos(xi)
+        sintheta = np.sin(ans[0])
+        costheta = np.cos(ans[0])
+        cost1 = ans[1] + ans[2]
+        cost2 = ans[1] - ans[2]
+        sint1 = theta1 + theta2 
+        sint2 = theta1 - theta2
+
+        delta1 = np.abs(np.cos(cost1) * costheta - cosxi * np.cos(sint1))
+        if delta1 > tol:
+            continue
+        
+        delta2 = np.abs(np.sin(cost1) * costheta - sinxi * np.cos(sint2))
+        if delta2 > tol:
+            continue
+
+        delta3 = np.abs(np.cos(cost2) * sintheta - cosxi * np.sin(sint1))
+        if delta3 > tol:
+            continue
+
+        delta4 = np.abs(np.sin(cost2) * sintheta - sinxi * np.sin(-sint2))
+        if delta4 > tol:
+            continue
+
+        return ans
+
+def mergeU(gate1, gate2):
+    """
+    Merges Unitary Gates acting consecutively on a same qubit within in partions
+    Args:
+        Gate1   ([Inst, index])
+        Gate2   ([Inst, index])
+    Return:
+        Gate    ([Inst, index])
+    """
+
+    temp = None
+    # To preserve the sequencing we choose the smaller index while merging.
+    
+    if gate1[1] < gate2[1]:
+        temp = gate1
+    else:
+        temp = gate2
+
+    if gate1[0].name == 'u1' and gate2[0].name == 'u1':
+        temp[0].params[0] = gate1[0].params[0] + gate2[0].params[0] 
+    elif gate1[0].name == 'u1' and gate2[0].name == 'u3':
+        temp[0].params[0] = gate2[0].params[0]
+        temp[0].params[1] = gate1[0].params[0] + gate2[0].params[1]
+        temp[0].params[2] = gate2[0].params[2]
+    elif gate1[0].name == 'u3' and gate2[0].name == 'u1':
+        temp[0].params[0] = gate1[0].params[0]
+        temp[0].params[1] = gate1[0].params[1] 
+        temp[0].params[2] = gate1[0].params[2] + gate2[0].params[0]
+    elif gate1[0].name == 'u3' and gate2[0].name == 'u3':
+        atol = 1e-8
+        theta = float(gate1[0].params[0]) * 0.5
+        phi = float(gate1[0].params[2] + gate2[0].params[1]) * 0.5
+        lamb = float(gate2[0].params[0]) * 0.5
+        
+        res = U3_merge(theta, phi, lamb, atol)        
+
+        temp[0].params[0] = 2*res[0]
+        temp[0].params[1] = gate1[0].params[1] + 2*res[1]
+        temp[0].params[2] = gate2[0].params[2] + 2*res[2]
+    else:
+        raise QiskitError('Encountered unrecognized instructions: %s, %s' % gate1[0].name, gate2[0].name)
+    return temp
+
+def merge_gates(inst):
+    """
+    To merge unitary gate calls the helper function iteratively on the pair of consecutive qubits.
+    Args:
+        Inst [[inst, index]]:   Instructions to be merged
+    Return
+        Inst [Qasm Inst]:       Merged List
+    """
+
+    parameters = []
+
+    if len(inst) < 2:
+        return inst[0][0]
+    else:
+        temp = mergeU(inst[0], inst[1])
+        for idx in range(2, len(inst)):
+            param = []
+            temp = mergeU(temp, inst[idx])
+        return temp[0]
+
+
+def single_gate_merge(inst, num_qubits):
+    """
+        Merges the single gates applied consecutively on a circuit
+        Args:
+            inst [QASM Inst]:   List of instructions (original)
+        Return
+            inst [QASM Inst]:   List of instructions with merging
+    """
+
+    single_gt = [[] for x in range(num_qubits)]
+    inst_merged = []
+    for ind, op in enumerate(inst):
+        # To preserve the sequencing of the instruments
+        opx = [op, ind]
+        # Check if non-unitary gate marks a partition
+        if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset'):
+            for idx, sg in enumerate(single_gt):
+                if sg:
+                    inst_merged.append(merge_gates(sg))
+                    single_gt[idx] = []
+            inst_merged.append(opx[0])
+        # Unitary gates are appended to their respective qubits
+        elif opx[0].name in ('U', 'u1', 'u2', 'u3'):
+            if opx[0].name == 'u2':
+                opx[0].name = 'u3'
+                opx[0].params.insert(0, np.pi/2)
+            single_gt[op.qubits[0]].append(opx)
+        else:
+            raise QiskitError('Encountered unrecognized instruction: %s' % op)
+    return inst_merged
 
 def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
     """Apply C-NOT gate in density matrix formalism.
