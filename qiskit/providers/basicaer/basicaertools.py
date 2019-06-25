@@ -529,3 +529,66 @@ def _einsum_matmul_index_helper(gate_indices, number_of_qubits):
     # Combine indices into matrix multiplication string format
     # for numpy.einsum function
     return mat_left, mat_right, tens_in, tens_out
+
+# TODO
+# Check level = level + 1
+# Check count reset 
+def partition_pass(i_set, num_of_qubits, limit):
+    level, look, sequence = 0, 0, [[]]
+    count = [0 for _ in range(num_of_qubits)]
+    while i_set:
+        gate = i_set[look]
+        if is_single(gate) and count[gate.qubit[look]] <= limit :
+            sequence[level].append(gate)
+            count[gate.qubit[look]] += 1
+            i_set.pop(look)
+        elif is_cx(gate):
+            if count[gate.qubit[0]] >= limit or count[gate.qubit[1]] >= limit:
+                look += 1
+                continue
+            lookahead, buffer_cx = 1, [i_set[look]]
+            while is_cx(i_set[lookahead]):
+                buffer_cx.append(i_set[lookahead])
+                lookahead = lookahead + 1
+            lookahead = lookahead + 1
+            independent_cx, count = check_cx_independence(buffer_cx,count,limit)
+            sequence[level].extend(independent_cx)
+            i_set = i_set[len(independent_cx):]
+            
+            buffer_unitary = []
+            while is_single(i_set[lookahead]):
+                buffer_unitary.append(i_set[lookahead])
+                lookahead = lookahead + 1 
+            cx_check = sequence[level][-1]
+            independent_u, count = check_unitary_indpendence(cx_check,buffer_unitary,count,limit)
+            sequence[level].extend(independent_u)
+            i_set = i_set[len(independent_u):]
+            level = level + 1 
+            look = look - 1
+
+def check_unitary_indpendence(cx_check,buffer_unitary,count,limit):
+    independent = []
+    for unitary in buffer_unitary:
+        if not cx_check.qubits[0] == unitary.qubits[0] and not cx_check.qubits[1] ==  unitary.qubits[0]:
+            if count[unitary.qubits[0] <= limit:
+                independent.append(unitary)
+                count[unitary.qubits[0]] += 1
+    return independent, count
+
+def check_cx_independence(buffer_cx,count,limit):
+    independent = []
+    i_L = [[i, buffer_cx[i].qubits] for i in range(len(buffer_cx))]
+    for i in range(len(i_L)):
+        for r in range(i,len(i_L)):
+            if not i_L[i][1][0] == i_L[r][1][0] or not i_L[i][1][1] == i_L[r][1][1]:
+                if count[i_L[i][1][0]] >= limit or count[i_L[i][1][1]] >= limit:
+                    continue
+                independent.append(i_L(i))
+                count[i_L[i][1][0]] += 1 
+                count[i_L[i][1][1]] += 1  
+    return independent, count  
+#TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
+def is_single(gate):
+    return True if len(gate.qubits) == 1 else False
+def is_cx(gate):
+    return True if gate.name == 'cx' else False
