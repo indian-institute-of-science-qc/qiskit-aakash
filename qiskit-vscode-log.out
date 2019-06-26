@@ -1,0 +1,32 @@
+verbose - Object: Activating qiskit-vscode extension...
+verbose - Object: ✨ Activating qiskit-vscode extension... ✨
+verbose - Object: Checking for Python dependencies...
+verbose - Object: Package: python Version: 3.6.8
+verbose - Object: Package: pip Version: 19.0.3
+verbose - Object: Check for required python packages...
+debug - PackageManager: Checking package qiskit 0.6.0 installation
+debug - PackageManager: Checking package qiskit-aqua 0.4.0 installation
+debug - PackageManager: Checking package qiskit-chemistry 0.4.2 installation
+debug - PackageManager: Checking package IBMQuantumExperience 2.0.4 installation
+verbose - unknown: Qiskit VSCode Extension dependencies found! 👌 python v 3.6.8
+👌 pip v 19.0.3
+
+verbose - Object: qiskit-vscode extension successfully loaded!
+verbose - Object: 🚀 qiskit-vscode extension loaded! 🚀
+verbose - PackageManager: Starting non-mandatory update process for qiskit-aqua ...
+verbose - PackageManager: qiskit-aqua is already installed
+info - Object: Go to update qiskit-aqua
+verbose - Object: 👌 qiskit-aqua is already installed
+verbose - PackageManager: Starting non-mandatory update process for qiskit-chemistry ...
+verbose - PackageManager: Starting non-mandatory update process for IBMQuantumExperience ...
+verbose - PackageManager: qiskit-chemistry is already installed
+info - Object: Go to update qiskit-chemistry
+verbose - Object: 👌 qiskit-chemistry is already installed
+verbose - PackageManager: Starting non-mandatory update process for qiskit ...
+verbose - PackageManager: IBMQuantumExperience is already installed
+info - Object: Go to update IBMQuantumExperience
+verbose - Object: 👌 IBMQuantumExperience is already installed
+verbose - PackageManager: qiskit is already installed
+info - Object: Go to update qiskit
+verbose - Object: 👌 qiskit is already installed
+verbose - Object: Deactivating Qiskit extension ...

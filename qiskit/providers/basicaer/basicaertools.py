@@ -529,3 +529,132 @@ def _einsum_matmul_index_helper(gate_indices, number_of_qubits):
     # Combine indices into matrix multiplication string format
     # for numpy.einsum function
     return mat_left, mat_right, tens_in, tens_out
+
+'''def partition_pass(i_set, num_of_qubits, limit):
+    level, look, processed, sequence, = 0, 0, 0, [[]]
+    count = [0 for _ in range(num_of_qubits)]
+    while i_set:
+        gate = i_set[look]
+        if is_single(gate) and count[gate.qubit[look]] <= limit :
+            sequence[level].append(gate)
+            count[gate.qubits[0]] += 1
+            i_set.pop(look)
+            processed = processed + 1
+        elif is_cx(gate):
+
+            if processed == 0 and is_single(i_set[look+1]):
+                sequence[level].append(gate)
+                count[gate.qubits[0]] += 1
+                count[gate.qubits[1]] += 1
+                i_set.pop(look)
+            else:
+                if count[gate.qubit[0]] >= limit or count[gate.qubit[1]] >= limit:
+                    look += 1
+                    continue
+                lookahead, buffer_cx = 1, [i_set[look]]
+                while is_cx(i_set[lookahead]):
+                    buffer_cx.append(i_set[lookahead])
+                    lookahead = lookahead + 1
+                lookahead = lookahead + 1
+                independent_cx, count = check_cx_independence(buffer_cx,count,limit)
+                sequence[level].extend(independent_cx)
+                i_set = i_set[len(independent_cx):]
+                processed = processed + len(independent_cx)
+                
+                buffer_unitary = []
+                while is_single(i_set[lookahead]):
+                    buffer_unitary.append(i_set[lookahead])
+                    lookahead = lookahead + 1 
+                cx_check = sequence[level][-1]
+                independent_u, count = check_unitary_indpendence(cx_check,buffer_unitary,count,limit)
+                sequence[level].extend(independent_u)
+                i_set = i_set[len(independent_u):]
+                processed = processed + independent_u
+                level = level + 1 
+                look = look - 1
+
+def check_unitary_indpendence(cx_check,buffer_unitary,count,limit):
+    independent = []
+    for unitary in buffer_unitary:
+        if not cx_check.qubits[0] == unitary.qubits[0] and not cx_check.qubits[1] ==  unitary.qubits[0]:
+            if count[unitary.qubits[0] <= limit:
+                independent.append(unitary)
+                count[unitary.qubits[0]] += 1
+    return independent, count
+
+def check_cx_independence(buffer_cx,count,limit):
+    independent = []
+    i_L = [[i, buffer_cx[i].qubits] for i in range(len(buffer_cx))]
+    for i in range(len(i_L)):
+        for r in range(i,len(i_L)):
+            if not i_L[i][1][0] == i_L[r][1][0] or not i_L[i][1][1] == i_L[r][1][1]:
+                if count[i_L[i][1][0]] >= limit or count[i_L[i][1][1]] >= limit:
+                    continue
+                independent.append(i_L(i))
+                count[i_L[i][1][0]] += 1 
+                count[i_L[i][1][1]] += 1  
+    return independent, count  '''
+
+def is_single(gate):
+    return True if gate.name in ['u3','u1'] else False
+def is_cx(gate):
+    return True if gate.name == 'cx' else False
+def is_measure(gate):
+    return True if gate.name in ['measure','reset'] else False
+def is_dummy(gate):
+    return True if gate.name == 'dummy_measure_or_reset' else False
+
+
+def qubit_stack(i_set, num_of_qubits):
+    instruction_set = [[] for _ in range(num_of_qubits)]
+    for instruction in i_set:
+            if not is_measure(instruction):
+                for qubit in instruction.qubits:
+                    instruction_set[qubit].append(instruction)
+            else:
+                if not is_dummy(instruction_set[instruction.qubits[0]][-1]):
+                    instruction_set[instruction.qubits[0]].append(instruction)
+                    dummy = instruction
+                    dummy.name = 'dummy_measure_or_reset'
+                    for qubit in set(range(num_of_qubits)).difference(set(gate.qubits)):
+                        instruction_set[qubit].append(dummy)
+                else:
+                    instruction_set[instruction.qubits[0]][-1] = instruction
+    stack_depth = max([len(stack) for stack in instruction_set])
+    return instruction_set, stack_depth
+
+def partition(i_set,num_of_qubits):
+    i_stack, depth = qubit_stack(i_set, num_of_qubits)
+    level, sequence = 0, [[] for _ in range(depth)]
+    while i_set:    
+        for qubit in range(num_of_qubits):
+            gate = i_stack[qubit][0]
+            if is_dummy(gate):
+                continue
+            elif is_single(gate):
+                sequence[level].append(gate)
+                i_set.remove(gate)
+                i_stack[qubit].pop(0)
+            elif is_cx(gate):
+                second_qubit = list(set(gate.qubits).difference(set([qubit])))
+                buffer_gate = i_stack[second_qubit][0]
+                if gate == buffer_gate:
+                    sequence[level].append(gate)
+                    i_set.remove(gate)
+                    i_stack[qubit].pop(0)
+                    i_stack[second_qubit].pop(0)
+                else:
+                    continue
+            elif is_measure(gate):
+                all_dummy = True
+                for x in range(num_of_qubits):
+                    if not is_measure(i_stack[x][0]) or not is_dummy(i_stack[x][0]):
+                        all_dummy = False
+                        break
+                if all_dummy:
+                    for x in range(num_of_qubits):
+                        if is_measure(i_stack[x][0]):
+                            sequence[level].append(i_stack[x][0])
+                            i_set.remove(i_stack[x][0])
+                        i_stack[x].pop(0)
+        level = level + 1
