@@ -97,7 +97,7 @@ def single_gate_dm_matrix(gate, params=None):
                     [0,-np.cos(lam)*np.sin(theta), np.sin(theta)*np.sin(lam), np.cos(theta)]
                     ])
     '''
-def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
+def rt_gate_dm_matrix(gate, param,   err_param, state, q, num_qubits):
 
     """   
     The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
@@ -270,12 +270,12 @@ def mergeU(gate1, gate2):
         temp[0].params[0] = gate1[0].params[0] + gate2[0].params[0] 
     elif gate1[0].name == 'u1' and gate2[0].name == 'u3':
         temp[0].params[0] = gate2[0].params[0]
-        temp[0].params[1] = gate1[0].params[0] + gate2[0].params[1]
-        temp[0].params[2] = gate2[0].params[2]
+        temp[0].params[1] = gate1[0].params[0] 
+        temp[0].params[2] = gate2[0].params[2] + gate2[0].params[1]
     elif gate1[0].name == 'u3' and gate2[0].name == 'u1':
         temp[0].params[0] = gate1[0].params[0]
-        temp[0].params[1] = gate1[0].params[1] 
-        temp[0].params[2] = gate1[0].params[2] + gate2[0].params[0]
+        temp[0].params[1] = gate1[0].params[1] + gate2[0].params[0]
+        temp[0].params[2] = gate1[0].params[2] 
     elif gate1[0].name == 'u3' and gate2[0].name == 'u3':
         atol = 1e-8
         theta = float(gate1[0].params[0]) * 0.5

@@ -129,6 +129,9 @@ class DmSimulatorPy(BaseBackend):
         self._shots = 0
         self._error_params = None
         self._memory = False
+        self._thermal_factor = 0        # p
+        self._decoherence_factor = 1    # f
+        self._decay_factor = 1          # g
         self._custom_densitymatrix = None
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
@@ -147,8 +150,10 @@ class DmSimulatorPy(BaseBackend):
         # changing density matrix
         self._densitymatrix = np.reshape(
             self._densitymatrix, (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
-
-        for idx in gate:
+        
+        # After doing a ZY decomposition of unitary gate, we iteratively apply the rotation gates
+        
+        for idx in gate: # For Rotations in the Decomposed Gate list
             self._densitymatrix = rt_gate_dm_matrix(
                 idx[0], idx[1], self._error_params['single_gate'], self._densitymatrix, qubit, self._number_of_qubits)
 
@@ -178,6 +183,61 @@ class DmSimulatorPy(BaseBackend):
         
         self._densitymatrix = np.reshape(self._densitymatrix,
                                         self._number_of_qubits * [4])
+   
+    #TODO Combine the decoherence and decay (1. Off-Diagonal elements multiplied by sqrt(g)*f)
+    
+    def _add_decoherence(self, level, f):
+        """ Apply decoherence transformation independently to all the qubits.
+            Off-diagonal elements of the density matrix get contracted by a factor 'f'.
+        
+        Args:
+            level (int):    Clock cycle number
+            f     (float):  Contraction of diagonal elements due to T_2 (coherence time)
+        """
+
+        for qb in range(self._number_of_qubits):
+            # changing density matrix
+            self._densitymatrix = np.reshape(
+                self._densitymatrix, (4**qb, 4, 4**(self._number_of_qubits-qb-1)))
+            
+            temp = self._densitymatrix.copy()
+
+            for j in range(4**(self._number_of_qubits-qb-1)):
+                for i in range(4**(qb)):
+                    self._densitymatrix[i, 1, j] = f*temp[i,1,j]
+                    self._densitymatrix[i, 2, j] = f*temp[i,2,j]
+
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                            self._number_of_qubits * [4])
+
+    def _add_amplitude_decay(self, level, p, g):
+        """ Apply amplitude decay transformation independently to all the qubits.
+            Off-diagonal elements of the density matrix get contracted by a factor ''.
+            Diagonal elements decay towards the thermal state
+
+        Args:
+            level (int):    Clock cycle number
+            p     (float):  Thermal factor corresponding to the asymptotic state
+            g     (float):  Decay rate for the excited state component
+        """
+        sg = np.sqrt(g) #Square root of g
+        dc = (1-g)*(1-2*p) #Decay Rate parameter
+
+        for qb in range(self._number_of_qubits):
+            # changing density matrix
+            self._densitymatrix = np.reshape(
+                self._densitymatrix, (4**qb, 4, 4**(self._number_of_qubits-qb-1)))
+            
+            temp = self._densitymatrix.copy()
+
+            for j in range(4**(self._number_of_qubits-qb-1)):
+                for i in range(4**(qb)):
+                    self._densitymatrix[i, 1, j] = sg*temp[i, 1, j]
+                    self._densitymatrix[i, 2, j] = sg*temp[i, 2, j]
+                    self._densitymatrix[i, 3, j] = g*temp[i, 3, j] + dc*temp[i, 0, j]
+
+        self._densitymatrix = np.reshape(self._densitymatrix, 
+                                            self._number_of_qubits * [4])
 
     def _get_measure_outcome(self, qubit):
         """Simulate the outcome of measurement of a qubit.
@@ -348,6 +408,19 @@ class DmSimulatorPy(BaseBackend):
         if 'custom_densitymatrix' in backend_options:
             self._custom_densitymatrix = backend_options['custom_densitymatrix']
 
+        if 'thermal_factor' in backend_options:
+            self._thermal_factor = backend_options['thermal_factor']
+
+        if 'decoherence_factor' in backend_options:
+            del_T = backend_options['decoherence_factor'][0]
+            T_2 = backend_options['decoherence_factor'][1]
+            self._decoherence_factor = np.exp(-del_T/T_2)
+
+        if 'decay_factor' in backend_options:
+            del_T = backend_options['decay_factor'][0]
+            T_1 = backend_options['decay_factor'][1]
+            self._decay_factor = np.exp(-del_T/T_1)
+
         #if self._initial_densitymatrix is not None and not isinstance(self._initial_densitymatrix, str):
             # Check the initial densitymatrix is normalized
         #    norm = np.linalg.norm(self._initial_densitymatrix)
@@ -362,7 +435,16 @@ class DmSimulatorPy(BaseBackend):
             self._chop_threshold = qobj_config.chop_threshold
 
     def _initialize_densitymatrix(self):
-        """Set the initial densitymatrix for simulation"""
+        """
+            Set the initial densitymatrix for simulation
+            Default: All Zero [((I+sigma(3))/2)**num_qubits]
+            Custom: max_mixed - Maximally Mixed [(I/2)**num_qubits]
+                    uniform_superpos - Uniform Superposition [((I+sigma(1))/2)**num_qubits]
+                    thermal_state - Thermalized State 
+                    [([[1-p, 0],[0, p]])**num_qubits]
+            ** -> Tensor product.
+       """
+
         if self._initial_densitymatrix is None and self._custom_densitymatrix is None:
             self._densitymatrix = 0.5*np.array([1,0,0,1], dtype=float)
             for i in range(self._number_of_qubits-1):
@@ -375,6 +457,12 @@ class DmSimulatorPy(BaseBackend):
             self._densitymatrix = 0.5*np.array([1,1,0,0], dtype=float)
             for i in range(self._number_of_qubits-1):
                 self._densitymatrix = 0.5*np.kron([1,1,0,0], self._densitymatrix)
+        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'thermal_state':
+            self._densitymatrix = 0.5*np.array([1,0,0,1-2*self._thermal_factor], 
+                                                dtype=float)
+            for i in range(self._number_of_qubits-1):
+                self._densitymatrix = 0.5*np.kron([1,0,0,1-2*self._thermal_factor],
+                                                    self._densitymatrix)
         else:
             self._densitymatrix = self._initial_densitymatrix.copy()
         # Reshape to rank-N tensor
@@ -560,7 +648,7 @@ class DmSimulatorPy(BaseBackend):
         
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
-        
+        print(experiment.instructions)
         for operation in experiment.instructions:
             conditional = getattr(operation, 'conditional', None)
             if isinstance(conditional, int):
