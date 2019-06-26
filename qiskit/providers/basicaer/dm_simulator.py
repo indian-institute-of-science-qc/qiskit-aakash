@@ -421,14 +421,6 @@ class DmSimulatorPy(BaseBackend):
             T_1 = backend_options['decay_factor'][1]
             self._decay_factor = np.exp(-del_T/T_1)
 
-        #if self._initial_densitymatrix is not None and not isinstance(self._initial_densitymatrix, str):
-            # Check the initial densitymatrix is normalized
-        #    norm = np.linalg.norm(self._initial_densitymatrix)
-        #    if round(norm, 12) != 1:
-        #        raise BasicAerError('initial densitymatrix is not normalized: ' + 'norm {} != 1'.format(norm))
-        #print(self._initial_densitymatrix, self._number_of_qubits)
-        # Check for custom chop threshold
-        # Replace with custom options
         if 'chop_threshold' in backend_options:
             self._chop_threshold = backend_options['chop_threshold']
         elif hasattr(qobj_config, 'chop_threshold'):
@@ -576,7 +568,7 @@ class DmSimulatorPy(BaseBackend):
                   'results': result_list,
                   'status': 'COMPLETED',
                   'success': True,
-                  'time_taken': (end - start),
+                  'time_taken': end-start,
                   'header': qobj.header.as_dict()}
 
         return Result.from_dict(result)
@@ -606,7 +598,7 @@ class DmSimulatorPy(BaseBackend):
         Raises:
             BasicAerError: if an error occurred.
         """
-        start = time.time()
+        start_processing = time.time()
         self._number_of_qubits = experiment.config.n_qubits
         self._number_of_cmembits = experiment.config.memory_slots
         self._densitymatrix = 0
@@ -646,92 +638,109 @@ class DmSimulatorPy(BaseBackend):
         self._classical_memory = 0
         self._classical_register = 0
         
+        print('Initial: ', experiment.instructions)
+        
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
-        print(experiment.instructions)
-        for operation in experiment.instructions:
-            conditional = getattr(operation, 'conditional', None)
-            if isinstance(conditional, int):
-                conditional_bit_set = (self._classical_register >> conditional) & 1
-                if not conditional_bit_set:
-                    continue
-            elif conditional is not None:
-                mask = int(operation.conditional.mask, 16)
-                if mask > 0:
-                    value = self._classical_memory & mask
-                    while (mask & 0x1) == 0:
-                        mask >>= 1
-                        value >>= 1
-                    if value != int(operation.conditional.val, 16):
+        print('Merged: ', experiment.instructions)
+
+        partitioned_instructions, levels = partition(experiment.instructions, 
+                                                self._number_of_qubits)
+        
+        print('Partitioned: ', partitioned_instructions)
+        
+        end_processing = time.time()
+        start_runtime = time.time()
+
+        for clock in range(levels):
+
+            for operation in partitioned_instructions[clock]:
+                conditional = getattr(operation, 'conditional', None)
+                if isinstance(conditional, int):
+                    conditional_bit_set = (self._classical_register >> conditional) & 1
+                    if not conditional_bit_set:
                         continue
-            # Check if single  gate
-            #print(self._initial_densitymatrix)
-            #print(self._densitymatrix)
-            #print('Operation: ', operation.name)
-            if operation.name in ('U', 'u1', 'u2', 'u3'):
-                params = getattr(operation, 'params', None)
-                gate = single_gate_dm_matrix(operation.name, params)
-                qubit = operation.qubits[0]
-                self._add_unitary_single(gate, qubit)
-            elif operation.name in ('id', 'u0'):
-                pass
-            # Check if CX gate
-            elif operation.name in ('CX', 'cx'):
-                qubit0 = operation.qubits[0]
-                qubit1 = operation.qubits[1]
-                self._add_unitary_two(qubit0, qubit1)
-            # Check if reset
-            elif operation.name == 'reset':
-                qubit = operation.qubits[0]
-                self._add_qasm_reset(qubit)
-            # Check if barrier
-            elif operation.name == 'barrier':
-                pass
-            # Check if measure
-            elif operation.name == 'measure':
-                qubit = operation.qubits[0]
-                cmembit = operation.memory[0]
-                cregbit = operation.register[0] if hasattr(operation, 'register') else None
-                if self._sample_measure:
-                    # If sampling measurements record the qubit and cmembit
-                    # for this measurement for later sampling
-                    measure_sample_ops.append((qubit, cmembit))
+                elif conditional is not None:
+                    mask = int(operation.conditional.mask, 16)
+                    if mask > 0:
+                        value = self._classical_memory & mask
+                        while (mask & 0x1) == 0:
+                            mask >>= 1
+                            value >>= 1
+                        if value != int(operation.conditional.val, 16):
+                            continue
+    
+                if operation.name in ('U', 'u1', 'u2', 'u3'):
+                    params = getattr(operation, 'params', None)
+                    gate = single_gate_dm_matrix(operation.name, params)
+                    qubit = operation.qubits[0]
+                    self._add_unitary_single(gate, qubit)
+                elif operation.name in ('id', 'u0'):
+                    pass
+                # Check if CX gate
+                elif operation.name in ('CX', 'cx'):
+                    qubit0 = operation.qubits[0]
+                    qubit1 = operation.qubits[1]
+                    self._add_unitary_two(qubit0, qubit1)
+                # Check if reset
+                elif operation.name == 'reset':
+                    qubit = operation.qubits[0]
+                    self._add_qasm_reset(qubit)
+                # Check if barrier
+                elif operation.name == 'barrier':
+                    pass
+                # Check if measure
+                elif operation.name == 'measure':
+                    qubit = operation.qubits[0]
+                    cmembit = operation.memory[0]
+                    cregbit = operation.register[0] if hasattr(operation, 'register') else None
+                    if self._sample_measure:
+                        # If sampling measurements record the qubit and cmembit
+                        # for this measurement for later sampling
+                        measure_sample_ops.append((qubit, cmembit))
+                    else:
+                        # If not sampling perform measurement as normal
+                        self._add_qasm_measure(qubit, self._probability_of_zero)
+                elif operation.name == 'bfunc':
+                    mask = int(operation.mask, 16)
+                    relation = operation.relation
+                    val = int(operation.val, 16)
+                    cregbit = operation.register
+                    cmembit = operation.memory if hasattr(operation, 'memory') else None
+                    compared = (self._classical_register & mask) - val
+                    if relation == '==':
+                        outcome = (compared == 0)
+                    elif relation == '!=':
+                        outcome = (compared != 0)
+                    elif relation == '<':
+                        outcome = (compared < 0)
+                    elif relation == '<=':
+                        outcome = (compared <= 0)
+                    elif relation == '>':
+                        outcome = (compared > 0)
+                    elif relation == '>=':
+                        outcome = (compared >= 0)
+                    else:
+                        raise BasicAerError('Invalid boolean function relation.')
+                    # Store outcome in register and optionally memory slot
+                    regbit = 1 << cregbit
+                    self._classical_register = \
+                        (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
+                    if cmembit is not None:
+                        membit = 1 << cmembit
+                        self._classical_memory = \
+                            (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
                 else:
-                    # If not sampling perform measurement as normal
-                    self._add_qasm_measure(qubit, self._probability_of_zero)
-            elif operation.name == 'bfunc':
-                mask = int(operation.mask, 16)
-                relation = operation.relation
-                val = int(operation.val, 16)
-                cregbit = operation.register
-                cmembit = operation.memory if hasattr(operation, 'memory') else None
-                compared = (self._classical_register & mask) - val
-                if relation == '==':
-                    outcome = (compared == 0)
-                elif relation == '!=':
-                    outcome = (compared != 0)
-                elif relation == '<':
-                    outcome = (compared < 0)
-                elif relation == '<=':
-                    outcome = (compared <= 0)
-                elif relation == '>':
-                    outcome = (compared > 0)
-                elif relation == '>=':
-                    outcome = (compared >= 0)
-                else:
-                    raise BasicAerError('Invalid boolean function relation.')
-                # Store outcome in register and optionally memory slot
-                regbit = 1 << cregbit
-                self._classical_register = \
-                    (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
-                if cmembit is not None:
-                    membit = 1 << cmembit
-                    self._classical_memory = \
-                        (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
-            else:
-                backend = self.name()
-                err_msg = '{0} encountered unrecognized operation "{1}"'
-                raise BasicAerError(err_msg.format(backend, operation.name))
+                    backend = self.name()
+                    err_msg = '{0} encountered unrecognized operation "{1}"'
+                    raise BasicAerError(err_msg.format(backend, operation.name))
+
+            # Add Memory errors at the end of each clock cycle
+            for qb in range(self._number_of_qubits):
+                self._add_decoherence(clock, self._decoherence_factor)
+                self._add_amplitude_decay(clock, self._thermal_factor, 
+                                            self._decay_factor)
+
         # Add final creg data to memory list
         if self._number_of_cmembits > 0:
             if self._sample_measure:
@@ -755,14 +764,15 @@ class DmSimulatorPy(BaseBackend):
                 data.pop('counts')
             if 'memory' in data and not data['memory']:
                 data.pop('memory')
-        end = time.time()
+        end_runtime = time.time()
         return {'name': experiment.header.name,
                 'seed_simulator': seed_simulator,
                 'shots': self._shots,
                 'data': data,
                 'status': 'DONE',
                 'success': True,
-                'time_taken': (end - start),
+                'processing_time_taken': -start_processing+end_processing,
+                'running_time_taken': -start_runtime+end_runtime,
                 'header': experiment.header.as_dict()}
 
     def _validate(self, qobj):

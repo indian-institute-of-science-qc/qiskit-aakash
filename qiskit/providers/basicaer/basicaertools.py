@@ -18,6 +18,7 @@
 
 from string import ascii_uppercase, ascii_lowercase
 import numpy as np
+from copy import deepcopy
 from qiskit.exceptions import QiskitError
 
 
@@ -81,12 +82,15 @@ def single_gate_dm_matrix(gate, params=None):
     decomp_gate = []
     param = list(map(float, single_gate_params(gate, params)))
     
-    if param[1]:
-        decomp_gate.append(['rz', param[1]])
-    if param[0]:
-        decomp_gate.append(['ry', param[0]])
-    if param[2]:
+    # Decomposition is Rz(Phi)Ry(Theta)Rz(Lamb) 
+    # Order of application goes Right to Left
+ 
+    if param[2]:    # Lamb
         decomp_gate.append(['rz', param[2]])
+    if param[0]:    # Theta
+        decomp_gate.append(['ry', param[0]])
+    if param[1]:    # Phi
+        decomp_gate.append(['rz', param[1]])
 
     return decomp_gate
     
@@ -126,40 +130,34 @@ def rt_gate_dm_matrix(gate, param,   err_param, state, q, num_qubits):
     
     return state
 
-    '''
-    def cx_gate_dm_matrix():
-        """C-NOT  matrix in density matrix formalism."""
-        return np.array([[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                         [0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0], 
-                         [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0], 
-                         [0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0], 
-                         [0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0], 
-                         [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],     
-                         [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0], 
-                         [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],    
-                         [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0], 
-                         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0], 
-                         [0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0],    
-                         [0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0], 
-                         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1], 
-                         [0,0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0], 
-                         [0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0], 
-                         [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0]], dtype=float)
-    '''
-
 def U3_merge(theta, phi, lamb, tol):
     """Performs merge operation when both the gates are U3 by transforming the Y-Z decomposition of the gates to the Z-Y decomposition.
         Args:
-            theta   (float) :  Ry(theta2) 
-            phi     (float) :  Rz(theta1)
+            theta   (float) :  Ry(theta1) 
+            phi     (float) :  Rz(theta2)
             lamb    (float) :  Rz(theta3)
             tol     (float) :  Tolerance limit
         Return
             [β, α, γ] (list, type:float ):  {Rz(α) , Ry(β) , Rz(γ)}
+    
+    Matrix Form
+    {
+        E^(-((I xi)/2))*cos[theta1/2]*cos[theta2/2] - 
+        E^((I xi)/2)*sin[theta1/2]*sim[theta2/2]	(1,1)
+       
+       -E^(((I xi)/2))*cos[theta2/2]*sin[theta1/2] - 
+        E^(-((I xi)/2))*cos[theta1/2]*sin[theta2/2]  (1,2)
+       
+        E^(-((I xi)/2))*cos[theta2/2]*sin[theta1/2] + 
+        E^((I xi)/2)*cos[theta1/2]*sin[theta2/2]	(2,1)
+       
+        E^((I xi)/2)*cos[theta1/2]*cos[theta2/2] - 
+        E^(-((I xi)/2))*sin[theta1/2]*sin[theta2/2]  (2,2)
+    }
+    
     """
-
-    xi = phi
-    theta1 = theta
+    xi = theta
+    theta1 = phi
     theta2 = lamb
     atol = 1e-8
     # for storing all the solutions
@@ -270,23 +268,26 @@ def mergeU(gate1, gate2):
         temp[0].params[0] = gate1[0].params[0] + gate2[0].params[0] 
     elif gate1[0].name == 'u1' and gate2[0].name == 'u3':
         temp[0].params[0] = gate2[0].params[0]
-        temp[0].params[1] = gate1[0].params[0] 
-        temp[0].params[2] = gate2[0].params[2] + gate2[0].params[1]
+        temp[0].params[1] = gate2[0].params[0] 
+        temp[0].params[2] = gate2[0].params[2] + gate1[0].params[0]
     elif gate1[0].name == 'u3' and gate2[0].name == 'u1':
         temp[0].params[0] = gate1[0].params[0]
         temp[0].params[1] = gate1[0].params[1] + gate2[0].params[0]
         temp[0].params[2] = gate1[0].params[2] 
     elif gate1[0].name == 'u3' and gate2[0].name == 'u3':
         atol = 1e-8
-        theta = float(gate1[0].params[0]) * 0.5
-        phi = float(gate1[0].params[2] + gate2[0].params[1]) * 0.5
-        lamb = float(gate2[0].params[0]) * 0.5
-        
+        #phi = float(gate1[0].params[0]) * 0.5
+        #theta = float(gate1[0].params[2] + gate2[0].params[1]) * 0.5
+        #lamb = float(gate2[0].params[0]) * 0.5
+        theta = float(gate2[0].params[2] + gate1[0].params[1]) * 0.5
+        phi = float(gate2[0].params[0]) * 0.5
+        lamb = float(gate1[0].params[0]) * 0.5
+
         res = U3_merge(theta, phi, lamb, atol)        
 
         temp[0].params[0] = 2*res[0]
-        temp[0].params[1] = gate1[0].params[1] + 2*res[1]
-        temp[0].params[2] = gate2[0].params[2] + 2*res[2]
+        temp[0].params[1] = gate2[0].params[1] + 2*res[1]
+        temp[0].params[2] = gate1[0].params[2] + 2*res[2]
     else:
         raise QiskitError('Encountered unrecognized instructions: %s, %s' % gate1[0].name, gate2[0].name)
     return temp
@@ -398,21 +399,6 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
                     state[i, 2, j, 3, k] =  temp_dm[i, 2, j, 0, k]
                     state[i, 3, j, 3, k] =  temp_dm[i, 3, j, 0, k]
     return state
-
-    '''
-    def cx_gate_dm_matrix(self, state, qubit_1, qubit_2, num_qubits):
-        t = 0 if qubit_1>qubit_2 else 1
-        q_1,q_2 = max(qubit_1, qubit_2),min(qubit_1, qubit_2)
-        state = np.reshape(state,(4**(num_qubits-q_1-1), 4, 4**(q_1-q_2-1), 4, 4**q_2))
-        d,L  = state.copy() , np.array([[[0,2],[0,3],[1,0],[1,2],[1,3,],[2,0]],[[3,2],[3,3],[1,1],[2,3],[2,2,],[2,1]]])
-        for i in range(4**(num_qubits-q_1-1)):
-            for j in range(4**(q_1-q_2-1)):
-                for k in range(4**q_2):
-                    for c in range(6):
-                        s = -1 if c == 4 else 1
-                        (d[i,L[0,c,(0+t)%2],j,L[0,c,(1+t)%2],k],d[i,L[1,c,(0+t)%2],j,L[1,c,(1+t)%2],k]) = (s*d[i,L[1,c,(0+t)%2],j,L[1,c,(1+t)%2],   k],s*d[i,L[0,c,(0+t)%2],j,L[0,c,(1+t)%2],k])
-        return d    
-    '''
 
 def cx_gate_matrix():
     """Get the matrix for a controlled-NOT gate."""
@@ -530,131 +516,103 @@ def _einsum_matmul_index_helper(gate_indices, number_of_qubits):
     # for numpy.einsum function
     return mat_left, mat_right, tens_in, tens_out
 
-'''def partition_pass(i_set, num_of_qubits, limit):
-    level, look, processed, sequence, = 0, 0, 0, [[]]
-    count = [0 for _ in range(num_of_qubits)]
-    while i_set:
-        gate = i_set[look]
-        if is_single(gate) and count[gate.qubit[look]] <= limit :
-            sequence[level].append(gate)
-            count[gate.qubits[0]] += 1
-            i_set.pop(look)
-            processed = processed + 1
-        elif is_cx(gate):
-
-            if processed == 0 and is_single(i_set[look+1]):
-                sequence[level].append(gate)
-                count[gate.qubits[0]] += 1
-                count[gate.qubits[1]] += 1
-                i_set.pop(look)
-            else:
-                if count[gate.qubit[0]] >= limit or count[gate.qubit[1]] >= limit:
-                    look += 1
-                    continue
-                lookahead, buffer_cx = 1, [i_set[look]]
-                while is_cx(i_set[lookahead]):
-                    buffer_cx.append(i_set[lookahead])
-                    lookahead = lookahead + 1
-                lookahead = lookahead + 1
-                independent_cx, count = check_cx_independence(buffer_cx,count,limit)
-                sequence[level].extend(independent_cx)
-                i_set = i_set[len(independent_cx):]
-                processed = processed + len(independent_cx)
-                
-                buffer_unitary = []
-                while is_single(i_set[lookahead]):
-                    buffer_unitary.append(i_set[lookahead])
-                    lookahead = lookahead + 1 
-                cx_check = sequence[level][-1]
-                independent_u, count = check_unitary_indpendence(cx_check,buffer_unitary,count,limit)
-                sequence[level].extend(independent_u)
-                i_set = i_set[len(independent_u):]
-                processed = processed + independent_u
-                level = level + 1 
-                look = look - 1
-
-def check_unitary_indpendence(cx_check,buffer_unitary,count,limit):
-    independent = []
-    for unitary in buffer_unitary:
-        if not cx_check.qubits[0] == unitary.qubits[0] and not cx_check.qubits[1] ==  unitary.qubits[0]:
-            if count[unitary.qubits[0] <= limit:
-                independent.append(unitary)
-                count[unitary.qubits[0]] += 1
-    return independent, count
-
-def check_cx_independence(buffer_cx,count,limit):
-    independent = []
-    i_L = [[i, buffer_cx[i].qubits] for i in range(len(buffer_cx))]
-    for i in range(len(i_L)):
-        for r in range(i,len(i_L)):
-            if not i_L[i][1][0] == i_L[r][1][0] or not i_L[i][1][1] == i_L[r][1][1]:
-                if count[i_L[i][1][0]] >= limit or count[i_L[i][1][1]] >= limit:
-                    continue
-                independent.append(i_L(i))
-                count[i_L[i][1][0]] += 1 
-                count[i_L[i][1][1]] += 1  
-    return independent, count  '''
-
 def is_single(gate):
+    # Checks if gate is single
     return True if gate.name in ['u3','u1'] else False
+
 def is_cx(gate):
-    return True if gate.name == 'cx' else False
-def is_measure(gate):
+    # Checks if gate is CX
+    return True if gate.name in ['CX','cx'] else False
+
+def is_measure_reset(gate):
+    # Checks if gate is measure or reset
     return True if gate.name in ['measure','reset'] else False
+
 def is_dummy(gate):
-    return True if gate.name == 'dummy_measure_or_reset' else False
+    # Checks if gate is dummy measure of reset
+    return True if gate.name == 'dummy_measure_reset' else False
 
-
-def qubit_stack(i_set, num_of_qubits):
-    instruction_set = [[] for _ in range(num_of_qubits)]
+def qubit_stack(i_set, num_qubits):
+    instruction_set = [[] for _ in range(num_qubits)]
     for instruction in i_set:
-            if not is_measure(instruction):
-                for qubit in instruction.qubits:
-                    instruction_set[qubit].append(instruction)
+        #print('Inst: ', instruction)
+        if not is_measure_reset(instruction):
+            for qubit in instruction.qubits:
+                instruction_set[qubit].append(instruction)
+        else:
+            if not is_dummy(instruction_set[instruction.qubits[0]][-1]):
+                instruction_set[instruction.qubits[0]].append(instruction)
+                dummy = deepcopy(instruction)   
+                dummy.name = 'dummy_measure_reset'
+                for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
+                    instruction_set[qubit].append(dummy)
             else:
-                if not is_dummy(instruction_set[instruction.qubits[0]][-1]):
-                    instruction_set[instruction.qubits[0]].append(instruction)
-                    dummy = instruction
-                    dummy.name = 'dummy_measure_or_reset'
-                    for qubit in set(range(num_of_qubits)).difference(set(gate.qubits)):
-                        instruction_set[qubit].append(dummy)
-                else:
-                    instruction_set[instruction.qubits[0]][-1] = instruction
+                instruction_set[instruction.qubits[0]][-1] = instruction
+#        for idx, st in enumerate(instruction_set):
+#            print('Stack for Qubit: ', idx, st)
     stack_depth = max([len(stack) for stack in instruction_set])
     return instruction_set, stack_depth
 
-def partition(i_set,num_of_qubits):
-    i_stack, depth = qubit_stack(i_set, num_of_qubits)
+def partition(i_set,num_qubits):
+    i_stack, depth = qubit_stack(i_set, num_qubits)
     level, sequence = 0, [[] for _ in range(depth)]
-    while i_set:    
-        for qubit in range(num_of_qubits):
+    #print('Stacked: ', i_stack)
+    #for idx, st in enumerate(i_stack):
+    #    print('Stack for Qubit: ', idx, st)
+    while i_set:
+        for qubit in range(num_qubits):
             gate = i_stack[qubit][0]
+            #print(gate, qubit)
+            # Check for dummy gate
             if is_dummy(gate):
                 continue
+            # Check for single gate
             elif is_single(gate):
                 sequence[level].append(gate)
-                i_set.remove(gate)
-                i_stack[qubit].pop(0)
+                i_set.remove(gate)      # Remove from Set
+                i_stack[qubit].pop(0)   # Remove from Stack
+            # Check for CX gate
             elif is_cx(gate):
-                second_qubit = list(set(gate.qubits).difference(set([qubit])))
-                buffer_gate = i_stack[second_qubit][0]
+                #print(set(gate.qubits))
+                #print(set(gate.qubits).difference(set([qubit])))
+                second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
+                buffer_gate = i_stack[second_qubit][0] 
+                # Check if CX is top in stacks of both of its indexes. 
                 if gate == buffer_gate:
                     sequence[level].append(gate)
                     i_set.remove(gate)
                     i_stack[qubit].pop(0)
                     i_stack[second_qubit].pop(0)
+                # If not then don't add it.
                 else:
                     continue
-            elif is_measure(gate):
+            elif is_measure_reset(gate):
                 all_dummy = True
-                for x in range(num_of_qubits):
-                    if not is_measure(i_stack[x][0]) or not is_dummy(i_stack[x][0]):
+                for x in range(num_qubits):
+                    # Intersection of both should be used 
+                    if not is_measure_reset(i_stack[x][0]) and not is_dummy(i_stack[x][0]):
+                        #print('MEOW: ', x)
+                        #print(i_stack[x][0])
+                        #print(is_measure_reset(i_stack[x][0]))
                         all_dummy = False
-                        break
+                        break 
+
                 if all_dummy:
-                    for x in range(num_of_qubits):
-                        if is_measure(i_stack[x][0]):
+                    # Check if current level already has gates
+                    if sequence[level]:
+                        level += 1 # Increment the level
+
+                    for x in range(num_qubits):
+                        # Check if measure
+                        if is_measure_reset(i_stack[x][0]):
                             sequence[level].append(i_stack[x][0])
-                            i_set.remove(i_stack[x][0])
+                            i_set.remove(i_stack[x][0]) # Remove from Instruction list
                         i_stack[x].pop(0)
-        level = level + 1
+                    break # To restart the Qubit loop from 0
+            
+            # Check if the instruction list is empty
+            if not i_set:
+                break
+
+        level += 1
+    return sequence, level
