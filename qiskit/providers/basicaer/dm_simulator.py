@@ -653,7 +653,8 @@ class DmSimulatorPy(BaseBackend):
         start_runtime = time.time()
 
         for clock in range(levels):
-
+            
+            print('Level: ', clock, partitioned_instructions[clock])
             for operation in partitioned_instructions[clock]:
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):

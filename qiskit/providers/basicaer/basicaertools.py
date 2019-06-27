@@ -264,14 +264,12 @@ def mergeU(gate1, gate2):
     else:
         temp = deepcopy(gate2)
 
-    print("HIIIIIIIIIIIIIIIIII: ", gate1, gate2)
-    
-
     if gate1[0].name == 'u1' and gate2[0].name == 'u1':
         temp[0].params[0] = gate1[0].params[0] + gate2[0].params[0] 
     elif gate1[0].name == 'u1' or gate2[0].name == 'u1':   
         # If first gate is U1
         if temp[0].name == 'u1':
+            temp[0].name = 'u3'
             for i in range(2):
                 temp[0].params.append(0)
 
@@ -533,32 +531,56 @@ def is_cx(gate):
     # Checks if gate is CX
     return True if gate.name in ['CX','cx'] else False
 
-def is_measure_reset(gate):
-    # Checks if gate is measure or reset
-    return True if gate.name in ['measure','reset'] else False
+def is_measure(gate): #TODO Seperate Them
+    # Checks if gate is measure
+    return True if gate.name == 'measure' else False
 
-def is_dummy(gate):
-    # Checks if gate is dummy measure of reset
-    return True if gate.name == 'dummy_measure_reset' else False
+def is_reset(gate):
+    # Checks if gate is reset
+    return True if gate.name == 'reset' else False
+
+def is_measure_dummy(gate):
+    # Checks if gate is dummy measure
+    return True if gate.name == 'dummy_measure' else False
+
+def is_reset_dummy(gate):
+    # Checks if gate is dummy reset
+    return True if gate.name == 'dummy_reset' else False
 
 def qubit_stack(i_set, num_qubits):
     instruction_set = [[] for _ in range(num_qubits)]
     for instruction in i_set:
         #print('Inst: ', instruction)
-        if not is_measure_reset(instruction):
+        if not is_measure(instruction) and not is_reset(instruction):
             for qubit in instruction.qubits:
                 instruction_set[qubit].append(instruction)
-        else:
-            if not is_dummy(instruction_set[instruction.qubits[0]][-1]):
+        elif is_measure(instruction):
+            if not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
                 instruction_set[instruction.qubits[0]].append(instruction)
-                dummy = deepcopy(instruction)   
-                dummy.name = 'dummy_measure_reset'
+                dummy = deepcopy(instruction)
+                dummy.name = 'dummy_measure'
+                dummy.qubits[0] = -1
                 for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
                     instruction_set[qubit].append(dummy)
             else:
-                instruction_set[instruction.qubits[0]][-1] = instruction
-#        for idx, st in enumerate(instruction_set):
-#            print('Stack for Qubit: ', idx, st)
+                if instruction_set[instruction.qubits[0]]: # Checks if the first instruction is measure
+                    instruction_set[instruction.qubits[0]][-1] = instruction
+                else:
+                    instruction_set[instruction.qubits[0]].append(instruction)
+        elif is_reset(instruction):
+            if not is_reset_dummy(instruction_set[instruction.qubits[0]][-1]):
+                instruction_set[instruction.qubits[0]].append(instruction)
+                dummy = deepcopy(instruction)
+                dummy.name = 'dummy_reset'
+                dummy.qubits[0] = -1
+                for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
+                    instruction_set[qubit].append(dummy)
+            else:
+                if instruction_set[instruction.qubits[0]]:
+                    instruction_set[instruction.qubits[0]][-1] = instruction
+                else:
+                    instruction_set[instruction.qubits[0]].append(instruction)
+
     stack_depth = max([len(stack) for stack in instruction_set])
     return instruction_set, stack_depth
 
@@ -571,9 +593,9 @@ def partition(i_set,num_qubits):
     while i_set:
         for qubit in range(num_qubits):
             gate = i_stack[qubit][0]
-            #print(gate, qubit)
+
             # Check for dummy gate
-            if is_dummy(gate):
+            if is_measure_dummy(gate) or is_reset_dummy(gate):
                 continue
             # Check for single gate
             elif is_single(gate):
@@ -595,14 +617,11 @@ def partition(i_set,num_qubits):
                 # If not then don't add it.
                 else:
                     continue
-            elif is_measure_reset(gate):
+            elif is_measure(gate):
                 all_dummy = True
                 for x in range(num_qubits):
                     # Intersection of both should be used 
-                    if not is_measure_reset(i_stack[x][0]) and not is_dummy(i_stack[x][0]):
-                        #print('MEOW: ', x)
-                        #print(i_stack[x][0])
-                        #print(is_measure_reset(i_stack[x][0]))
+                    if not is_measure(i_stack[x][0]) and not is_measure_dummy(i_stack[x][0]):
                         all_dummy = False
                         break 
 
@@ -613,12 +632,33 @@ def partition(i_set,num_qubits):
 
                     for x in range(num_qubits):
                         # Check if measure
-                        if is_measure_reset(i_stack[x][0]):
+                        if is_measure(i_stack[x][0]):
                             sequence[level].append(i_stack[x][0])
                             i_set.remove(i_stack[x][0]) # Remove from Instruction list
                         i_stack[x].pop(0)
                     break # To restart the Qubit loop from 0
-            
+            elif is_reset(gate):
+                all_dummy=True
+                for x in range(num_qubits):
+                    # Intersection of both should be used
+                    if not is_reset(i_stack[x][0]) and not is_reset_dummy(i_stack[x][0]):
+                        all_dummy=False
+                        break
+
+                if all_dummy:
+                    # Check if current level already has gates
+                    if sequence[level]:
+                        level += 1  # Increment the level
+
+                    for x in range(num_qubits):
+                        # Check if measure
+                        if is_reset(i_stack[x][0]):
+                            sequence[level].append(i_stack[x][0])
+                            # Remove from Instruction list
+                            i_set.remove(i_stack[x][0])
+                        i_stack[x].pop(0)
+                    break  # To restart the Qubit loop from 0
+        
             # Check if the instruction list is empty
             if not i_set:
                 break
