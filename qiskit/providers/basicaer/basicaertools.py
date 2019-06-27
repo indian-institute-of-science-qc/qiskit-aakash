@@ -616,7 +616,7 @@ def qubit_stack(i_set, num_of_qubits):
                     instruction_set[instruction.qubits[0]].append(instruction)
                     dummy = instruction
                     dummy.name = 'dummy_measure_or_reset'
-                    for qubit in set(range(num_of_qubits)).difference(set(gate.qubits)):
+                    for qubit in list(set(range(num_of_qubits)).difference(set(gate.qubits))):
                         instruction_set[qubit].append(dummy)
                 else:
                     instruction_set[instruction.qubits[0]][-1] = instruction
@@ -637,7 +637,7 @@ def partition(i_set,num_of_qubits):
                 i_stack[qubit].pop(0)
             elif is_cx(gate):
                 second_qubit = list(set(gate.qubits).difference(set([qubit])))
-                buffer_gate = i_stack[second_qubit][0]
+                buffer_gate = i_stack[second_qubit[0]][0]
                 if gate == buffer_gate:
                     sequence[level].append(gate)
                     i_set.remove(gate)
