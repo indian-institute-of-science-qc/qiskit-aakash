@@ -260,20 +260,29 @@ def mergeU(gate1, gate2):
     # To preserve the sequencing we choose the smaller index while merging.
     
     if gate1[1] < gate2[1]:
-        temp = gate1
+        temp = deepcopy(gate1)
     else:
-        temp = gate2
+        temp = deepcopy(gate2)
+
+    print("HIIIIIIIIIIIIIIIIII: ", gate1, gate2)
+    
 
     if gate1[0].name == 'u1' and gate2[0].name == 'u1':
         temp[0].params[0] = gate1[0].params[0] + gate2[0].params[0] 
-    elif gate1[0].name == 'u1' and gate2[0].name == 'u3':
-        temp[0].params[0] = gate2[0].params[0]
-        temp[0].params[1] = gate2[0].params[0] 
-        temp[0].params[2] = gate2[0].params[2] + gate1[0].params[0]
-    elif gate1[0].name == 'u3' and gate2[0].name == 'u1':
-        temp[0].params[0] = gate1[0].params[0]
-        temp[0].params[1] = gate1[0].params[1] + gate2[0].params[0]
-        temp[0].params[2] = gate1[0].params[2] 
+    elif gate1[0].name == 'u1' or gate2[0].name == 'u1':   
+        # If first gate is U1
+        if temp[0].name == 'u1':
+            for i in range(2):
+                temp[0].params.append(0)
+
+        if gate1[0].name == 'u1' and gate2[0].name == 'u3':
+            temp[0].params[0] = gate2[0].params[0]
+            temp[0].params[1] = gate2[0].params[1] 
+            temp[0].params[2] = gate2[0].params[2] + gate1[0].params[0]
+        elif gate1[0].name == 'u3' and gate2[0].name == 'u1':
+            temp[0].params[0] = gate1[0].params[0]
+            temp[0].params[1] = gate1[0].params[1] + gate2[0].params[0]
+            temp[0].params[2] = gate1[0].params[2]
     elif gate1[0].name == 'u3' and gate2[0].name == 'u3':
         atol = 1e-8
         #phi = float(gate1[0].params[0]) * 0.5
@@ -284,7 +293,7 @@ def mergeU(gate1, gate2):
         lamb = float(gate1[0].params[0]) * 0.5
 
         res = U3_merge(theta, phi, lamb, atol)        
-
+        
         temp[0].params[0] = 2*res[0]
         temp[0].params[1] = gate2[0].params[1] + 2*res[1]
         temp[0].params[2] = gate1[0].params[2] + 2*res[2]
