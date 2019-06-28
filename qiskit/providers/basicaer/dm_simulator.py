@@ -152,13 +152,19 @@ class DmSimulatorPy(BaseBackend):
             self._densitymatrix, (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
         
         # After doing a ZY decomposition of unitary gate, we iteratively apply the rotation gates
-        
+        print(gate)
+
         for idx in gate: # For Rotations in the Decomposed Gate list
+            #print(idx, self._densitymatrix)
+    
             self._densitymatrix = rt_gate_dm_matrix(
                 idx[0], idx[1], self._error_params['single_gate'], self._densitymatrix, qubit, self._number_of_qubits)
+            
+            #print(self._densitymatrix, idx, self._error_params['single_gate'])
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                             self._number_of_qubits * [4])
+        print(self._densitymatrix)
 
         '''
         for j in range(4**(self._number_of_qubits-qubit-1)):
@@ -394,7 +400,8 @@ class DmSimulatorPy(BaseBackend):
         if 'error_params' in backend_options:
             self._error_params = backend_options['error_params']
         else:
-            self._error_params = { 'single_gate' : [0,0] }
+            # Default Value - Has no effect
+            self._error_params = { 'single_gate' : [1, 0] } 
         if backend_options is None:
             backend_options = {}
         # Check for custom initial densitymatrix in backend_options first,
@@ -437,26 +444,33 @@ class DmSimulatorPy(BaseBackend):
             ** -> Tensor product.
        """
 
+
         if self._initial_densitymatrix is None and self._custom_densitymatrix is None:
-            self._densitymatrix = 0.5*np.array([1,0,0,1], dtype=float)
+            self._densitymatrix = np.array([1,0,0,1], dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._densitymatrix = 0.5*np.kron([1,0,0,1],self._densitymatrix)
+                self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
         elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'max_mixed':
-            self._densitymatrix = 0.5*np.array([1,0,0,0], dtype=float)
+            self._densitymatrix = np.array([1,0,0,0], dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._densitymatrix = 0.5*np.kron([1,0,0,0], self._densitymatrix)
+                self._densitymatrix = np.kron([1,0,0,0], self._densitymatrix)
         elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'uniform_superpos':
-            self._densitymatrix = 0.5*np.array([1,1,0,0], dtype=float)
+            self._densitymatrix = np.array([1,1,0,0], dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._densitymatrix = 0.5*np.kron([1,1,0,0], self._densitymatrix)
+                self._densitymatrix = np.kron([1,1,0,0], self._densitymatrix)
         elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'thermal_state':
-            self._densitymatrix = 0.5*np.array([1,0,0,1-2*self._thermal_factor], 
+            tf = 1-2*self._thermal_factor
+            self._densitymatrix = np.array([1,0,0,tf], 
                                                 dtype=float)
             for i in range(self._number_of_qubits-1):
-                self._densitymatrix = 0.5*np.kron([1,0,0,1-2*self._thermal_factor],
+                self._densitymatrix = np.kron([1,0,0,tf],
                                                     self._densitymatrix)
         else:
             self._densitymatrix = self._initial_densitymatrix.copy()
+        
+        # Normalize
+        if self._initial_densitymatrix is None:
+            self._densitymatrix *= 0.5**(self._number_of_qubits)
+        
         # Reshape to rank-N tensor
         self._densitymatrix = np.reshape(self._densitymatrix,
                                        self._number_of_qubits * [4])
@@ -464,11 +478,33 @@ class DmSimulatorPy(BaseBackend):
 
     def _get_densitymatrix(self):
         """Return the current densitymatrix in JSON Result spec format"""
+        # Coefficients
         vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+        
+        p_0 = np.array([[1, 0], [0, 1]], dtype = complex)
+        p_1 = np.array([[0, 1], [1, 0]], dtype=complex)
+        p_2 = np.array([[0, -1j], [1j, 0]], dtype=complex)
+        p_3 = np.array([[1, 0], [0, -1]], dtype = complex)
+        pauli_basis = [p_0, p_1, p_2, p_3]
+        den_creat = [x for x in itertools.product([0,1,2,3], repeat=self._number_of_qubits)]
+        den = []
+        
+        for creat in den_creat:
+            op = pauli_basis[creat[0]]
+            for idx in range(1, len(creat)):
+                op = np.kron(op, pauli_basis[creat[idx]])
+            den.append(op)
+            op = None
+        #print(den)
+
+        densitymatrix = vec[0]*den[0]
+        for i in range(1, 4**self._number_of_qubits):
+            densitymatrix += vec[i]*den[i]
+        
         # Expand float numbers
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0
-        return vec
+        return vec, densitymatrix.real
 
     def _validate_measure_sampling(self, experiment):
         """Determine if measure sampling is allowed for an experiment
@@ -653,7 +689,8 @@ class DmSimulatorPy(BaseBackend):
         start_runtime = time.time()
 
         for clock in range(levels):
-
+            
+            print('Level: ', clock, partitioned_instructions[clock])
             for operation in partitioned_instructions[clock]:
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
@@ -758,7 +795,7 @@ class DmSimulatorPy(BaseBackend):
             data['memory'] = memory
         # Optionally add final densitymatrix
         if self.SHOW_FINAL_STATE:
-            data['densitymatrix'] = self._get_densitymatrix()
+            data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
             # Remove empty counts and memory for densitymatrix simulator
             if not data['counts']:
                 data.pop('counts')

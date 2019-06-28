@@ -77,14 +77,13 @@ def single_gate_dm_matrix(gate, params=None):
 
     # Converting sym to floats improves the performance of the simulator 10x.
     # This a is a probable a FIXME since it might show bugs in the simulator.
-    #(theta, phi, lam) = map(float, single_gate_params(gate, params))
     
     decomp_gate = []
     param = list(map(float, single_gate_params(gate, params)))
-    
+
     # Decomposition is Rz(Phi)Ry(Theta)Rz(Lamb) 
     # Order of application goes Right to Left
- 
+
     if param[2]:    # Lamb
         decomp_gate.append(['rz', param[2]])
     if param[0]:    # Theta
@@ -109,25 +108,30 @@ def rt_gate_dm_matrix(gate, param,   err_param, state, q, num_qubits):
         err_param[1] is the mean error in the angle param.
         err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param.
     """
-    c = err_param[0]*np.cos(param + err_param[1])
-    s = err_param[0]*np.sin(param + err_param[1])
+    c = err_param[0] * np.cos(param + err_param[1])
+    s = err_param[0] * np.sin(param + err_param[1])
 
     if gate == 'rz':
-        k = [1,2]
+        k = [1, 2]
     elif gate  == 'ry':
-        k = [3,1]
+        k = [3, 1]
     elif gate == 'rx':
-        k = [2,3]
+        k = [2, 3]
     else:
         raise QiskitError('Gate is not among the valid decomposition types: %s' % gate)   
+    
+    #print(gate, state, 4**(num_qubits-q-1), 4**q)
 
     for j in range(4**(num_qubits-q-1)):
         for i in range(4**(q)):
-            temp1 = state[i, k[0], j]
+
+            temp1 = state[i, k[0], j] 
             temp2 = state[i, k[1], j]
+            
             state[i, k[0], j] = c*temp1 - s*temp2
             state[i, k[1], j] = c*temp2 + s*temp1
-    
+
+    #print(state[0,0,0], state[0,1,0], state[0,2,0], state[0,3,0])
     return state
 
 def U3_merge(theta, phi, lamb, tol):
@@ -264,14 +268,12 @@ def mergeU(gate1, gate2):
     else:
         temp = deepcopy(gate2)
 
-    print("HIIIIIIIIIIIIIIIIII: ", gate1, gate2)
-    
-
     if gate1[0].name == 'u1' and gate2[0].name == 'u1':
         temp[0].params[0] = gate1[0].params[0] + gate2[0].params[0] 
     elif gate1[0].name == 'u1' or gate2[0].name == 'u1':   
         # If first gate is U1
         if temp[0].name == 'u1':
+            temp[0].name = 'u3'
             for i in range(2):
                 temp[0].params.append(0)
 
@@ -310,8 +312,6 @@ def merge_gates(inst):
         Inst [Qasm Inst]:       Merged List
     """
 
-    parameters = []
-
     if len(inst) < 2:
         return inst[0][0]
     else:
@@ -333,6 +333,7 @@ def single_gate_merge(inst, num_qubits):
 
     single_gt = [[] for x in range(num_qubits)]
     inst_merged = []
+
     for ind, op in enumerate(inst):
         # To preserve the sequencing of the instruments
         opx = [op, ind]
@@ -351,6 +352,12 @@ def single_gate_merge(inst, num_qubits):
             single_gt[op.qubits[0]].append(opx)
         else:
             raise QiskitError('Encountered unrecognized instruction: %s' % op)
+
+    # To merge the final left out gates 
+    for gts in single_gt:
+        if gts:
+            inst_merged.append(merge_gates(gts))
+
     return inst_merged
 
 def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
@@ -368,11 +375,12 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
         state = np.reshape(state, (4**(num_qubits-q_1-1), 
                                    4, 4**(q_1-q_2-1), 4, 4**q_2))
         temp_dm = state.copy()
-        
+        #print(state)
         # Update Density Matrix
         for i in range(4**(num_qubits-q_1-1)):
             for j in range(4**(q_1-q_2-1)):
                 for k in range(4**q_2):
+                    #print(i,j,k)
                     state[i, 0, j, 2, k] =  temp_dm[i, 3, j, 2, k]
                     state[i, 0, j, 3, k] =  temp_dm[i, 3, j, 3, k]
                     state[i, 1, j, 0, k] =  temp_dm[i, 1, j, 1, k]
@@ -390,11 +398,13 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
         state = np.reshape(state, (4**(num_qubits-q_2-1),
                                    4, 4**(q_2-q_1-1), 4, 4**q_1))
         temp_dm = state.copy()
-        
+        #print(state)
         # Update Density Matrix
         for i in range(4**(num_qubits-q_2-1)):
             for j in range(4**(q_2-q_1-1)):
                 for k in range(4**q_1):
+                    #print(i, j, k)
+                    #print(temp_dm[i, 2, j, 2, k], temp_dm[i, 3, j, 1, k])
                     state[i, 2, j, 0, k] =  temp_dm[i, 2, j, 3, k]
                     state[i, 3, j, 0, k] =  temp_dm[i, 3, j, 3, k]
                     state[i, 0, j, 1, k] =  temp_dm[i, 1, j, 1, k]
@@ -533,32 +543,56 @@ def is_cx(gate):
     # Checks if gate is CX
     return True if gate.name in ['CX','cx'] else False
 
-def is_measure_reset(gate):
-    # Checks if gate is measure or reset
-    return True if gate.name in ['measure','reset'] else False
+def is_measure(gate): #TODO Seperate Them
+    # Checks if gate is measure
+    return True if gate.name == 'measure' else False
 
-def is_dummy(gate):
-    # Checks if gate is dummy measure of reset
-    return True if gate.name == 'dummy_measure_reset' else False
+def is_reset(gate):
+    # Checks if gate is reset
+    return True if gate.name == 'reset' else False
+
+def is_measure_dummy(gate):
+    # Checks if gate is dummy measure
+    return True if gate.name == 'dummy_measure' else False
+
+def is_reset_dummy(gate):
+    # Checks if gate is dummy reset
+    return True if gate.name == 'dummy_reset' else False
 
 def qubit_stack(i_set, num_qubits):
     instruction_set = [[] for _ in range(num_qubits)]
     for instruction in i_set:
         #print('Inst: ', instruction)
-        if not is_measure_reset(instruction):
+        if not is_measure(instruction) and not is_reset(instruction):
             for qubit in instruction.qubits:
                 instruction_set[qubit].append(instruction)
-        else:
-            if not is_dummy(instruction_set[instruction.qubits[0]][-1]):
+        elif is_measure(instruction):
+            if not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
                 instruction_set[instruction.qubits[0]].append(instruction)
-                dummy = deepcopy(instruction)   
-                dummy.name = 'dummy_measure_reset'
+                dummy = deepcopy(instruction)
+                dummy.name = 'dummy_measure'
+                dummy.qubits[0] = -1
                 for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
                     instruction_set[qubit].append(dummy)
             else:
-                instruction_set[instruction.qubits[0]][-1] = instruction
-#        for idx, st in enumerate(instruction_set):
-#            print('Stack for Qubit: ', idx, st)
+                if instruction_set[instruction.qubits[0]]: # Checks if the first instruction is measure
+                    instruction_set[instruction.qubits[0]][-1] = instruction
+                else:
+                    instruction_set[instruction.qubits[0]].append(instruction)
+        elif is_reset(instruction):
+            if not is_reset_dummy(instruction_set[instruction.qubits[0]][-1]):
+                instruction_set[instruction.qubits[0]].append(instruction)
+                dummy = deepcopy(instruction)
+                dummy.name = 'dummy_reset'
+                dummy.qubits[0] = -1
+                for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
+                    instruction_set[qubit].append(dummy)
+            else:
+                if instruction_set[instruction.qubits[0]]:
+                    instruction_set[instruction.qubits[0]][-1] = instruction
+                else:
+                    instruction_set[instruction.qubits[0]].append(instruction)
+
     stack_depth = max([len(stack) for stack in instruction_set])
     return instruction_set, stack_depth
 
@@ -569,15 +603,18 @@ def partition(i_set,num_qubits):
     #for idx, st in enumerate(i_stack):
     #    print('Stack for Qubit: ', idx, st)
     while i_set:
+        # Qubits included in the partition
+        qubit_included = [] 
         for qubit in range(num_qubits):
             gate = i_stack[qubit][0]
-            #print(gate, qubit)
+
             # Check for dummy gate
-            if is_dummy(gate):
+            if is_measure_dummy(gate) or is_reset_dummy(gate):
                 continue
             # Check for single gate
             elif is_single(gate):
                 sequence[level].append(gate)
+                qubit_included.append(qubit)
                 i_set.remove(gate)      # Remove from Set
                 i_stack[qubit].pop(0)   # Remove from Stack
             # Check for CX gate
@@ -586,8 +623,15 @@ def partition(i_set,num_qubits):
                 #print(set(gate.qubits).difference(set([qubit])))
                 second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
                 buffer_gate = i_stack[second_qubit][0] 
+
+                # Checks if gate already included in the partition
+                if qubit in qubit_included or second_qubit in qubit_included:
+                    continue
+                
                 # Check if CX is top in stacks of both of its indexes. 
                 if gate == buffer_gate:
+                    qubit_included.append(qubit)
+                    qubit_included.append(second_qubit)
                     sequence[level].append(gate)
                     i_set.remove(gate)
                     i_stack[qubit].pop(0)
@@ -595,30 +639,52 @@ def partition(i_set,num_qubits):
                 # If not then don't add it.
                 else:
                     continue
-            elif is_measure_reset(gate):
+            elif is_measure(gate):
                 all_dummy = True
                 for x in range(num_qubits):
                     # Intersection of both should be used 
-                    if not is_measure_reset(i_stack[x][0]) and not is_dummy(i_stack[x][0]):
-                        #print('MEOW: ', x)
-                        #print(i_stack[x][0])
-                        #print(is_measure_reset(i_stack[x][0]))
+                    if not is_measure(i_stack[x][0]) and not is_measure_dummy(i_stack[x][0]):
                         all_dummy = False
                         break 
 
                 if all_dummy:
                     # Check if current level already has gates
                     if sequence[level]:
+                        qubit_included = []
                         level += 1 # Increment the level
 
                     for x in range(num_qubits):
                         # Check if measure
-                        if is_measure_reset(i_stack[x][0]):
+                        if is_measure(i_stack[x][0]):
+                            qubit_included.append(x)
                             sequence[level].append(i_stack[x][0])
                             i_set.remove(i_stack[x][0]) # Remove from Instruction list
                         i_stack[x].pop(0)
                     break # To restart the Qubit loop from 0
-            
+            elif is_reset(gate):
+                all_dummy=True
+                for x in range(num_qubits):
+                    # Intersection of both should be used
+                    if not is_reset(i_stack[x][0]) and not is_reset_dummy(i_stack[x][0]):
+                        all_dummy=False
+                        break
+
+                if all_dummy:
+                    # Check if current level already has gates
+                    if sequence[level]:
+                        qubit_included = []
+                        level += 1  # Increment the level
+
+                    for x in range(num_qubits):
+                        # Check if measure
+                        if is_reset(i_stack[x][0]):
+                            qubit_included.append(x)
+                            sequence[level].append(i_stack[x][0])
+                            # Remove from Instruction list
+                            i_set.remove(i_stack[x][0])
+                        i_stack[x].pop(0)
+                    break  # To restart the Qubit loop from 0
+        
             # Check if the instruction list is empty
             if not i_set:
                 break
