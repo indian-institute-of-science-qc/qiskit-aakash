@@ -100,7 +100,7 @@ def single_gate_dm_matrix(gate, params=None):
                     [0,-np.cos(lam)*np.sin(theta), np.sin(theta)*np.sin(lam), np.cos(theta)]
                     ])
     '''
-def rt_gate_dm_matrix(gate, param,   err_param, state, q, num_qubits):
+def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
     """   
     The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
