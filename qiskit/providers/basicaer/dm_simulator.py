@@ -129,9 +129,13 @@ class DmSimulatorPy(BaseBackend):
         self._shots = 0
         self._error_params = None
         self._memory = False
+        self._rotation_err_mean = 0     # Rotation Gates
+        self._rotation_err_fluc = 1     # Rotation Gates
         self._thermal_factor = 0        # p
         self._decoherence_factor = 1    # f
         self._decay_factor = 1          # g
+        # (Bit flip and Depolarization have the same effect)
+        self._depolarization_factor = 1 # During Measurement 
         self._custom_densitymatrix = None
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
@@ -283,19 +287,19 @@ class DmSimulatorPy(BaseBackend):
         # Else outcome was '1'
         return '1', probabilities[1]
 
-    def _add_ensemble_measure(self):
+    def _add_ensemble_measure(self, err_param):
         """Perform complete computational basis measurement for current densitymatrix.
 
         Args:
-
+            err_param   (float): Reduction in polarization during measurement
         Returns:
             list: Complete list of probabilities. 
         """
         measure_ind = [x for x in itertools.product([0,3], repeat=self._number_of_qubits)]
         operator_ind = [self._densitymatrix[x] for x in measure_ind]
-        operator_mes = np.array([[1, 1], [1, -1]])
+        operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
         for i in range(self._number_of_qubits-1):
-            operator_mes = np.kron(np.array([[1, 1], [1, -1]]), operator_mes)
+            operator_mes = np.kron(np.array([[1, err_param], [1, -err_param]]), operator_mes)
         
         probabilities = np.reshape((0.5**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
         return probabilities
@@ -331,27 +335,114 @@ class DmSimulatorPy(BaseBackend):
                     bell_probabilities[3] += 0.25*(self._densitymatrix[i,0,j,0,k] - self._densitymatrix[i,1,j,1,k] - self._densitymatrix[i,2,j,2,k] - self._densitymatrix[i,3,j,3,k])
         return bell_probabilities
 
-    def _add_qasm_measure(self, qubit, probability_of_zero):
-        """Apply a computational basis measure instruction to a qubit. 
+    def _add_qasm_measure_Z(self, qubit, err_param):
+        """Apply a Z basis measure instruction to a qubit. 
         Post-measurement density matrix is returned in the same array.
 
         Args:
             qubit (int): qubit is the qubit measured.
+            err_param   (float): Reduction in polarization during measurement
+        Return
             probability_of_zero (float): is the probability of getting zero state as outcome.   
         """
 
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
-        p_0 = 0.0
-        p_1 = 0.0
+        p_3 = 0.0
         for j in range(4**(self._number_of_qubits-qubit-1)):
             for i in range(4**(qubit)):
                 self._densitymatrix[i,1,j] = 0
                 self._densitymatrix[i,2,j] = 0
-                p_0 += 0.5*(self._densitymatrix[i,0,j] + self._densitymatrix[i,3,j])
-                p_1 += 0.5*(self._densitymatrix[i,0,j] - self._densitymatrix[i,3,j])
-        probability_of_zero = p_0
-        #print(p_0,p_1)
+                self._densitymatrix[1,3,j] *= err_param
+                p_3 += self._densitymatrix[i,3,j]
+        
+        probability_of_zero = 0.5 * (1 + p_3)
+        probability_of_one = 1 - probability_of_zero
+        return probability_of_zero
+    
+    def _add_qasm_measure_X(self, qubit, err_param):
+        """Apply a X basis measure instruction to a qubit. 
+        Post-measurement density matrix is returned in the same array.
+
+        Args:
+            qubit (int): qubit is the qubit measured.
+            err_param   (float): Reduction in polarization during measurement
+        Return
+            probability_of_zero (float): is the probability of getting zero state as outcome.   
+        """
+
+        # update density matrix
+        self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
+        p_1 = 0.0
+        for j in range(4**(self._number_of_qubits-qubit-1)):
+            for i in range(4**(qubit)):
+                self._densitymatrix[i,2,j] = 0
+                self._densitymatrix[i,3,j] = 0
+                self._densitymatrix[i,1,j] *= err_param
+                p_1 += self._densitymatrix[i,1,j]
+        
+        probability_of_zero = 0.5 * (1 + p_1)
+        probability_of_one = 1 - probability_of_zero
+        return probability_of_zero
+
+    def _add_qasm_measure_Y(self, qubit, err_param):
+        """Apply a Y basis measure instruction to a qubit. 
+        Post-measurement density matrix is returned in the same array.
+
+        Args:
+            qubit (int): qubit is the qubit measured.
+            err_param   (float): Reduction in polarization during measurement
+        Return
+            probability_of_zero (float): is the probability of getting zero state as outcome.   
+        """
+
+        # update density matrix
+        self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
+        p_2 = 0.0
+        for j in range(4**(self._number_of_qubits-qubit-1)):
+            for i in range(4**(qubit)):
+                self._densitymatrix[i,1,j] = 0
+                self._densitymatrix[i,3,j] = 0
+                self._densitymatrix[i,2,j] *= err_param
+                p_2 += self._densitymatrix[i,2,j]
+        
+        probability_of_zero = 0.5 * (1 + p_2)
+        probability_of_one = 1 - probability_of_zero
+        return probability_of_zero
+
+    def _add_qasm_measure_N(self, qubit, n, err_param):
+        """Apply a general n-axis measure instruction to a qubit. 
+        Post-measurement density matrix is returned in the same array.
+
+        Args:
+            qubit       (int): Qubit is the qubit measured.
+            n           (vec): Axis of measurement.
+            err_param   (float): Reduction in polarization during measurement
+        Return
+            probability_of_zero (float): is the probability of getting zero state as outcome.   
+        """
+
+        # update density matrix
+        self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
+
+        p_n = 0.0
+
+        for j in range(4**(self._number_of_qubits-qubit-1)):
+            for i in range(4**(qubit)):
+                temp = n[0]*self._densitymatrix[i,1,j] + n[1]*self._densitymatrix[i,2,j] + \
+                       n[2]*self._densitymatrix[i,3,j]
+                
+                temp *= err_param
+                
+                self._densitymatrix[i,1,j] = temp*n[0] 
+                self._densitymatrix[i,2,j] = temp*n[1]
+                self._densitymatrix[1,3,j] = temp*n[2]
+
+                p_n +=  temp
+        
+        probability_of_zero = 0.5 * (1 + p_n)
+        probability_of_one = 1 - probability_of_zero
+        return probability_of_zero
 
     def _add_qasm_reset(self, qubit):
         """Apply a reset instruction to a qubit.

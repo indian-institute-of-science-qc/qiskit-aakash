@@ -100,7 +100,7 @@ def single_gate_dm_matrix(gate, params=None):
                     [0,-np.cos(lam)*np.sin(theta), np.sin(theta)*np.sin(lam), np.cos(theta)]
                     ])
     '''
-def rt_gate_dm_matrix(gate, param,   err_param, state, q, num_qubits):
+def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
     """   
     The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
@@ -238,7 +238,7 @@ def U3_merge(theta, phi, lamb, tol):
         
         delta2 = np.abs(np.sin(cost1) * costheta - sinxi * np.cos(sint2))
         if delta2 > tol:
-            continue
+            continueX
 
         delta3 = np.abs(np.cos(cost2) * sintheta - cosxi * np.sin(sint1))
         if delta3 > tol:
@@ -368,6 +368,9 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
         q_1 (int): Control qubit 
         q_2 (int): Target qubit"""
     
+    (q_1,q_2) = (q_2,q_1)
+    print(q_1, q_2)
+
     if (q_1 == q_2) or (q_1>=num_qubits) or (q_2>=num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')
     elif q_1 > q_2:            
@@ -417,6 +420,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
                     state[i, 3, j, 2, k] =  temp_dm[i, 2, j, 1, k]
                     state[i, 2, j, 3, k] =  temp_dm[i, 2, j, 0, k]
                     state[i, 3, j, 3, k] =  temp_dm[i, 3, j, 0, k]
+        print(state)
     return state
 
 def cx_gate_matrix():
