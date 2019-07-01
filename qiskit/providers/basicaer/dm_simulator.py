@@ -577,8 +577,8 @@ class DmSimulatorPy(BaseBackend):
         vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
         
         p_0 = np.array([[1, 0], [0, 1]], dtype = complex)
-        p_1 = np.array([[0, 1], [1, 0]], dtype=complex)
-        p_2 = np.array([[0, -1j], [1j, 0]], dtype=complex)
+        p_1 = np.array([[0, 1], [1, 0]], dtype = complex)
+        p_2 = np.array([[0, -1j], [1j, 0]], dtype = complex)
         p_3 = np.array([[1, 0], [0, -1]], dtype = complex)
         pauli_basis = [p_0, p_1, p_2, p_3]
         den_creat = [x for x in itertools.product([0,1,2,3], repeat=self._number_of_qubits)]
@@ -589,17 +589,19 @@ class DmSimulatorPy(BaseBackend):
             for idx in range(1, len(creat)):
                 op = np.kron(op, pauli_basis[creat[idx]])
             den.append(op)
+            #print(op.dtype)
             op = None
         #print(den)
 
         densitymatrix = vec[0]*den[0]
+        #print(densitymatrix)
         for i in range(1, 4**self._number_of_qubits):
             densitymatrix += vec[i]*den[i]
         
         # Expand float numbers
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0
-        return vec, densitymatrix.real
+        return vec, densitymatrix
 
     def _validate_measure_sampling(self, experiment):
         """Determine if measure sampling is allowed for an experiment

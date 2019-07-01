@@ -608,13 +608,13 @@ def partition(i_set,num_qubits):
     while i_set:
         # Qubits included in the partition
         qubit_included = [] 
-        print(level,'\n')
+        #print(level,'\n')
         
         if level == len(sequence):
             sequence.append([])
         
-        for kt in sequence:
-            print(kt)
+        #for kt in sequence:
+        #    print(kt)
         
         for qubit in range(num_qubits):
 
@@ -673,9 +673,9 @@ def partition(i_set,num_qubits):
                         # Check if measure
                         if is_measure(i_stack[x][0]):
                             qubit_included.append(x)
-                            for kt in sequence:
-                                print(kt,'\n')
-                            print('Hi\n', depth, sequence, len(sequence), level, num_qubits, x)
+                            #for kt in sequence:
+                            #    print(kt,'\n')
+                            #print('Hi\n', depth, sequence, len(sequence)#, level, num_qubits, x)
                             
                             sequence[level].append(i_stack[x][0])
                             i_set.remove(i_stack[x][0]) # Remove from Instruction list
