@@ -419,7 +419,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
                     state[i, 3, j, 2, k] =  temp_dm[i, 2, j, 1, k]
                     state[i, 2, j, 3, k] =  temp_dm[i, 2, j, 0, k]
                     state[i, 3, j, 3, k] =  temp_dm[i, 3, j, 0, k]
-        print(state)
+        #print(state)
     return state
 
 def cx_gate_matrix():
@@ -608,7 +608,16 @@ def partition(i_set,num_qubits):
     while i_set:
         # Qubits included in the partition
         qubit_included = [] 
+        print(level,'\n')
+        
+        if level == len(sequence):
+            sequence.append([])
+        
+        for kt in sequence:
+            print(kt)
+        
         for qubit in range(num_qubits):
+
             gate = i_stack[qubit][0]
 
             # Check for dummy gate
@@ -616,6 +625,8 @@ def partition(i_set,num_qubits):
                 continue
             # Check for single gate
             elif is_single(gate):
+                if qubit in qubit_included:
+                    continue
                 sequence[level].append(gate)
                 qubit_included.append(qubit)
                 i_set.remove(gate)      # Remove from Set
@@ -655,11 +666,17 @@ def partition(i_set,num_qubits):
                     if sequence[level]:
                         qubit_included = []
                         level += 1 # Increment the level
+                        if level == len(sequence):
+                            sequence.append([])
 
                     for x in range(num_qubits):
                         # Check if measure
                         if is_measure(i_stack[x][0]):
                             qubit_included.append(x)
+                            for kt in sequence:
+                                print(kt,'\n')
+                            print('Hi\n', depth, sequence, len(sequence), level, num_qubits, x)
+                            
                             sequence[level].append(i_stack[x][0])
                             i_set.remove(i_stack[x][0]) # Remove from Instruction list
                         i_stack[x].pop(0)
@@ -677,6 +694,8 @@ def partition(i_set,num_qubits):
                     if sequence[level]:
                         qubit_included = []
                         level += 1  # Increment the level
+                        if level == len(sequence):
+                            sequence.append([])
 
                     for x in range(num_qubits):
                         # Check if measure
@@ -691,6 +710,6 @@ def partition(i_set,num_qubits):
             # Check if the instruction list is empty
             if not i_set:
                 break
-
+        #if sequence[level]:
         level += 1
     return sequence, level

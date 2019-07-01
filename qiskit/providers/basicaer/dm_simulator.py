@@ -156,7 +156,7 @@ class DmSimulatorPy(BaseBackend):
             self._densitymatrix, (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
         
         # After doing a ZY decomposition of unitary gate, we iteratively apply the rotation gates
-        print(gate)
+        #print(gate)
 
         for idx in gate: # For Rotations in the Decomposed Gate list
             #print(idx, self._densitymatrix)
@@ -168,7 +168,7 @@ class DmSimulatorPy(BaseBackend):
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                             self._number_of_qubits * [4])
-        print(self._densitymatrix)
+        #print(self._densitymatrix)
 
         '''
         for j in range(4**(self._number_of_qubits-qubit-1)):
@@ -822,6 +822,7 @@ class DmSimulatorPy(BaseBackend):
                 elif operation.name == 'barrier':
                     pass
                 # Check if measure
+                #TODO FIX MEASURE
                 elif operation.name == 'measure':
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
