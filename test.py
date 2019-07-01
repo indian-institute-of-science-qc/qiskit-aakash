@@ -19,11 +19,17 @@ qc.y(q[0])
 qc.h(q[0])
 qc.z(q[0])
 #qc.measure(q[0], c[0])
+<<<<<<< HEAD
 qc.y(q[1])
 qc.h(q[1])
+=======
+#qc.y(q[1])
+#qc.h(q[1])
+#qc.x(q[1])
+>>>>>>> b2180f96bec74a39e7016233e19119f032785177
 qc.x(q[1])
 #qc.measure(q[0], c[1])
-qc.cx(q[0], q[1])
+qc.cx(q[1], q[0])
 #qc.measure(q,c)
 circuits = [qc]
 job = execute(circuits, backend, shots=2, **options)
