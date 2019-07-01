@@ -362,7 +362,11 @@ class DmSimulatorPy(BaseBackend):
         
         probability_of_zero = 0.5 * (1 + p_3)
         probability_of_one = 1 - probability_of_zero
-        return probability_of_zero
+        if probability_of_zero > probability_of_one:
+            return 0, probability_of_zero
+        else:
+            return 1, probability_of_one
+        #return probability_of_zero
     
     def _add_qasm_measure_X(self, qubit, err_param):
         """Apply a X basis measure instruction to a qubit. 
@@ -447,7 +451,27 @@ class DmSimulatorPy(BaseBackend):
         probability_of_zero = 0.5 * (1 + p_n)
         probability_of_one = 1 - probability_of_zero
         return probability_of_zero
+    
+    def _add_qasm_measure(self, qubit, cmembit, cregbit=None):
+        """Apply a measure instruction to a qubit.
+        Args:
+            qubit (int): qubit is the qubit measured.
+            cmembit (int): is the classical memory bit to store outcome in.
+            cregbit (int, optional): is the classical register bit to store outcome in.
+        """
+        # get measure outcome
+        outcome, probability = self._add_qasm_measure_Z(qubit, self._depolarization_factor)
+        # update classical state
+        membit = 1 << cmembit
+        self._classical_memory = (self._classical_memory & (
+            ~membit)) | (int(outcome) << cmembit)
 
+        if cregbit is not None:
+            regbit = 1 << cregbit
+            self._classical_register = \
+                (self._classical_register & (~regbit)) | (
+                    int(outcome) << cregbit)
+    
     def _add_qasm_reset(self, qubit):
         """Apply a reset instruction to a qubit.
 
@@ -506,7 +530,9 @@ class DmSimulatorPy(BaseBackend):
         elif hasattr(qobj_config, 'initial_densitymatrix'):
             self._initial_densitymatrix = np.array(qobj_config.initial_densitymatrix,
                                                  dtype=float)
-        
+
+        #TODO Create coefficient matrix for a custom density matrix
+
         if 'custom_densitymatrix' in backend_options:
             self._custom_densitymatrix = backend_options['custom_densitymatrix']
 
@@ -589,12 +615,10 @@ class DmSimulatorPy(BaseBackend):
             for idx in range(1, len(creat)):
                 op = np.kron(op, pauli_basis[creat[idx]])
             den.append(op)
-            #print(op.dtype)
             op = None
-        #print(den)
 
         densitymatrix = vec[0]*den[0]
-        #print(densitymatrix)
+
         for i in range(1, 4**self._number_of_qubits):
             densitymatrix += vec[i]*den[i]
         
@@ -835,7 +859,8 @@ class DmSimulatorPy(BaseBackend):
                         measure_sample_ops.append((qubit, cmembit))
                     else:
                         # If not sampling perform measurement as normal
-                        self._add_qasm_measure(qubit, self._probability_of_zero)
+                        self._add_qasm_measure(qubit, cmembit, cregbit)
+                        #self._add_qasm_measure_Z(qubit, self._probability_of_zero)
                 elif operation.name == 'bfunc':
                     mask = int(operation.mask, 16)
                     relation = operation.relation

@@ -602,23 +602,18 @@ def qubit_stack(i_set, num_qubits):
 def partition(i_set,num_qubits):
     i_stack, depth = qubit_stack(i_set, num_qubits)
     level, sequence = 0, [[] for _ in range(depth)]
-    #print('Stacked: ', i_stack)
-    #for idx, st in enumerate(i_stack):
-    #    print('Stack for Qubit: ', idx, st)
+
     while i_set:
         # Qubits included in the partition
         qubit_included = [] 
-        #print(level,'\n')
         
         if level == len(sequence):
             sequence.append([])
-        
-        #for kt in sequence:
-        #    print(kt)
-        
+
         for qubit in range(num_qubits):
 
-            gate = i_stack[qubit][0]
+            if i_stack[qubit]:
+                gate = i_stack[qubit][0]
 
             # Check for dummy gate
             if is_measure_dummy(gate) or is_reset_dummy(gate):
@@ -633,8 +628,6 @@ def partition(i_set,num_qubits):
                 i_stack[qubit].pop(0)   # Remove from Stack
             # Check for CX gate
             elif is_cx(gate):
-                #print(set(gate.qubits))
-                #print(set(gate.qubits).difference(set([qubit])))
                 second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
                 buffer_gate = i_stack[second_qubit][0] 
 
@@ -673,10 +666,6 @@ def partition(i_set,num_qubits):
                         # Check if measure
                         if is_measure(i_stack[x][0]):
                             qubit_included.append(x)
-                            #for kt in sequence:
-                            #    print(kt,'\n')
-                            #print('Hi\n', depth, sequence, len(sequence)#, level, num_qubits, x)
-                            
                             sequence[level].append(i_stack[x][0])
                             i_set.remove(i_stack[x][0]) # Remove from Instruction list
                         i_stack[x].pop(0)
@@ -710,6 +699,6 @@ def partition(i_set,num_qubits):
             # Check if the instruction list is empty
             if not i_set:
                 break
-        #if sequence[level]:
+
         level += 1
     return sequence, level

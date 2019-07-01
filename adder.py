@@ -58,7 +58,8 @@ def add(a, b):
 
     job_sim = execute(circuit, backend)
     result_sim = job_sim.result()
+    print(result_sim)
     print(result_sim.get_counts())
 
 
-add("1", "1")
+add("11", "1")
