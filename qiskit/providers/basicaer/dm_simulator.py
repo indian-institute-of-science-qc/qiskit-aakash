@@ -295,12 +295,16 @@ class DmSimulatorPy(BaseBackend):
         Returns:
             list: Complete list of probabilities. 
         """
+        # We get indices used for Probability Measurement via this.
         measure_ind = [x for x in itertools.product([0,3], repeat=self._number_of_qubits)]
+        # We get coefficient values stored at those indices via this. 
         operator_ind = [self._densitymatrix[x] for x in measure_ind]
+        # We get permutations of signs for summing those coefficient values.
         operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
         for i in range(self._number_of_qubits-1):
             operator_mes = np.kron(np.array([[1, err_param], [1, -err_param]]), operator_mes)
-        
+
+        # We get 2**n probabilities via this.
         probabilities = np.reshape((0.5**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
         return probabilities
 

@@ -238,7 +238,7 @@ def U3_merge(theta, phi, lamb, tol):
         
         delta2 = np.abs(np.sin(cost1) * costheta - sinxi * np.cos(sint2))
         if delta2 > tol:
-            continueX
+            continue
 
         delta3 = np.abs(np.cos(cost2) * sintheta - cosxi * np.sin(sint1))
         if delta3 > tol:
@@ -370,7 +370,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
         q_2 (int): Target qubit"""
 
     # Remark - ordering of qubits (MSB right, LSB left)
-    print(q_1, q_2)
+    #print(q_1, q_2)
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')
@@ -379,48 +379,46 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
         state = np.reshape(state, (4**(num_qubits-q_2-1),
                                    4, 4**(q_2-q_1-1), 4, 4**q_1))
         temp_dm = state.copy()
-        #print(state)
+
         # Update Density Matrix
         for i in range(4**(num_qubits-q_2-1)):
             for j in range(4**(q_2-q_1-1)):
                 for k in range(4**q_1):
                     #print(i,j,k)
-                    state[i, 0, j, 2, k] = temp_dm[i, 3, j, 2, k]
-                    state[i, 0, j, 3, k] = temp_dm[i, 3, j, 3, k]
-                    state[i, 1, j, 0, k] = temp_dm[i, 1, j, 1, k]
-                    state[i, 1, j, 1, k] = temp_dm[i, 1, j, 0, k]
-                    state[i, 1, j, 2, k] = temp_dm[i, 2, j, 3, k]
+                    state[i, 0, j, 2, k] =  temp_dm[i, 3, j, 2, k]
+                    state[i, 0, j, 3, k] =  temp_dm[i, 3, j, 3, k]
+                    state[i, 1, j, 0, k] =  temp_dm[i, 1, j, 1, k]
+                    state[i, 1, j, 1, k] =  temp_dm[i, 1, j, 0, k]
+                    state[i, 1, j, 2, k] =  temp_dm[i, 2, j, 3, k]
                     state[i, 1, j, 3, k] = -temp_dm[i, 2, j, 2, k]
-                    state[i, 2, j, 0, k] = temp_dm[i, 2, j, 1, k]
-                    state[i, 2, j, 1, k] = temp_dm[i, 2, j, 0, k]
+                    state[i, 2, j, 0, k] =  temp_dm[i, 2, j, 1, k]
+                    state[i, 2, j, 1, k] =  temp_dm[i, 2, j, 0, k]
                     state[i, 2, j, 2, k] = -temp_dm[i, 1, j, 3, k]
-                    state[i, 2, j, 3, k] = temp_dm[i, 1, j, 2, k]
-                    state[i, 3, j, 2, k] = temp_dm[i, 0, j, 2, k]
-                    state[i, 3, j, 3, k] = temp_dm[i, 0, j, 3, k]
+                    state[i, 2, j, 3, k] =  temp_dm[i, 1, j, 2, k]
+                    state[i, 3, j, 2, k] =  temp_dm[i, 0, j, 2, k]
+                    state[i, 3, j, 3, k] =  temp_dm[i, 0, j, 3, k]
     else:
         # Reshape Density Matrix
         state = np.reshape(state, (4**(num_qubits-q_1-1),
                                    4, 4**(q_1-q_2-1), 4, 4**q_2))
         temp_dm = state.copy()
-        #print(state)
+
         # Update Density Matrix
         for i in range(4**(num_qubits-q_1-1)):
             for j in range(4**(q_1-q_2-1)):
                 for k in range(4**q_2):
-                    #print(i, j, k)
-                    #print(temp_dm[i, 2, j, 2, k], temp_dm[i, 3, j, 1, k])
-                    state[i, 2, j, 0, k] = temp_dm[i, 2, j, 3, k]
-                    state[i, 3, j, 0, k] = temp_dm[i, 3, j, 3, k]
-                    state[i, 0, j, 1, k] = temp_dm[i, 1, j, 1, k]
-                    state[i, 1, j, 1, k] = temp_dm[i, 0, j, 1, k]
-                    state[i, 2, j, 1, k] = temp_dm[i, 3, j, 2, k]
+                    state[i, 2, j, 0, k] =  temp_dm[i, 2, j, 3, k]
+                    state[i, 3, j, 0, k] =  temp_dm[i, 3, j, 3, k]
+                    state[i, 0, j, 1, k] =  temp_dm[i, 1, j, 1, k]
+                    state[i, 1, j, 1, k] =  temp_dm[i, 0, j, 1, k]
+                    state[i, 2, j, 1, k] =  temp_dm[i, 3, j, 2, k]
                     state[i, 3, j, 1, k] = -temp_dm[i, 2, j, 2, k]
-                    state[i, 0, j, 2, k] = temp_dm[i, 1, j, 2, k]
-                    state[i, 1, j, 2, k] = temp_dm[i, 0, j, 2, k]
+                    state[i, 0, j, 2, k] =  temp_dm[i, 1, j, 2, k]
+                    state[i, 1, j, 2, k] =  temp_dm[i, 0, j, 2, k]
                     state[i, 2, j, 2, k] = -temp_dm[i, 3, j, 1, k]
-                    state[i, 3, j, 2, k] = temp_dm[i, 2, j, 1, k]
-                    state[i, 2, j, 3, k] = temp_dm[i, 2, j, 0, k]
-                    state[i, 3, j, 3, k] = temp_dm[i, 3, j, 0, k]
+                    state[i, 3, j, 2, k] =  temp_dm[i, 2, j, 1, k]
+                    state[i, 2, j, 3, k] =  temp_dm[i, 2, j, 0, k]
+                    state[i, 3, j, 3, k] =  temp_dm[i, 3, j, 0, k]
         print(state)
     return state
 
