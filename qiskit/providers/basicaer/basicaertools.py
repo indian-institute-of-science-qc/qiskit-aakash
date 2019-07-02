@@ -84,12 +84,12 @@ def single_gate_dm_matrix(gate, params=None):
     # Decomposition is Rz(Phi)Ry(Theta)Rz(Lamb) 
     # Order of application goes Right to Left
 
-    if param[2]:    # Lamb
-        decomp_gate.append(['rz', param[2]])
-    if param[0]:    # Theta
-        decomp_gate.append(['ry', param[0]])
-    if param[1]:    # Phi
-        decomp_gate.append(['rz', param[1]])
+    #if param[2]:    # Lamb
+    decomp_gate.append(['rz', param[2]])
+    #if param[0]:    # Theta
+    decomp_gate.append(['ry', param[0]])
+    #if param[1]:    # Phi
+    decomp_gate.append(['rz', param[1]])
 
     return decomp_gate
     
@@ -100,6 +100,71 @@ def single_gate_dm_matrix(gate, params=None):
                     [0,-np.cos(lam)*np.sin(theta), np.sin(theta)*np.sin(lam), np.cos(theta)]
                     ])
     '''
+
+
+def rt_gate_dm_matrix_1(gate, err_param, state, q, num_qubits):
+    """   
+    The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
+    Args:
+        err_param[1] is the mean error in the angle param.
+        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param.
+    """
+    lt, mt, rt = q
+    param = []
+    k = []
+    
+    for gt in gate:
+        #print(gt) 
+        if gt[0] == 'rz':  
+            k.append([1, 2])
+        elif gt[0] == 'ry':
+            k.append([3, 1])
+        elif gt[0] == 'rz':
+            k.append([2, 3])
+        else: 
+            raise QiskitError(
+                'Gate is not among the valid decomposition types: %s' % gt)
+        param.append(gt[1])
+    
+    for j in range(rt):
+        for i in range(lt):
+            
+            if param[0]:
+                # Rz(Lamb)
+                transf_ind = k[0]
+                #print(transf_ind,param[0])
+                c1 = err_param[0] * np.cos(param[0] + err_param[1])
+                s1 = err_param[0] * np.sin(param[0] + err_param[1])
+                temp1_1 = state[i, transf_ind[0], j]
+                temp1_2 = state[i, transf_ind[1], j]
+                state[i, transf_ind[0], j] = c1*temp1_1 - s1*temp1_2
+                state[i, transf_ind[1], j] = c1*temp1_2 + s1*temp1_1
+
+            if param[1]:
+                # Ry(Theta)
+                transf_ind = k[1]
+                #print(transf_ind,param[1])
+                c2 = err_param[0] * np.cos(param[1] + err_param[1])
+                s2 = err_param[0] * np.sin(param[1] + err_param[1])
+                temp2_1 = state[i, transf_ind[0], j]
+                temp2_2 = state[i, transf_ind[1], j]
+                state[i, transf_ind[0], j] = c2*temp2_1 - s2*temp2_2
+                state[i, transf_ind[1], j] = c2*temp2_2 + s2*temp2_1
+
+            if param[2]:
+                # Rz(Phi)
+                transf_ind = k[2]
+                #print(transf_ind, param[2])
+                c3 = err_param[0] * np.cos(param[2] + err_param[1])
+                s3 = err_param[0] * np.sin(param[2] + err_param[1])
+                temp3_1 = state[i, transf_ind[0], j]
+                temp3_2 = state[i, transf_ind[1], j]
+                state[i, transf_ind[0], j] = c3*temp3_1 - s3*temp3_2
+                state[i, transf_ind[1], j] = c3*temp3_2 + s3*temp3_1
+
+    return state
+
+'''
 def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
     """   
@@ -133,7 +198,7 @@ def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
     #print(state[0,0,0], state[0,1,0], state[0,2,0], state[0,3,0])
     return state
-
+'''
 def U3_merge(theta, phi, lamb, tol):
     """Performs merge operation when both the gates are U3 by transforming the Y-Z decomposition of the gates to the Z-Y decomposition.
         Args:
@@ -376,14 +441,15 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')
     elif q_2 > q_1:
         # Reshape Density Matrix
-        state = np.reshape(state, (4**(num_qubits-q_2-1),
-                                   4, 4**(q_2-q_1-1), 4, 4**q_1))
+
+        lt, mt1, ct, mt2, rt = 4**(num_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**(q_1)
+        state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
 
         # Update Density Matrix
-        for i in range(4**(num_qubits-q_2-1)):
-            for j in range(4**(q_2-q_1-1)):
-                for k in range(4**q_1):
+        for i in range(lt):
+            for j in range(ct):
+                for k in range(rt):
                     #print(i,j,k)
                     state[i, 0, j, 2, k] =  temp_dm[i, 3, j, 2, k]
                     state[i, 0, j, 3, k] =  temp_dm[i, 3, j, 3, k]
@@ -399,14 +465,15 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
                     state[i, 3, j, 3, k] =  temp_dm[i, 0, j, 3, k]
     else:
         # Reshape Density Matrix
-        state = np.reshape(state, (4**(num_qubits-q_1-1),
-                                   4, 4**(q_1-q_2-1), 4, 4**q_2))
+        lt, mt1, ct, mt2, rt = 4**(num_qubits-q_1-1), 4, 4**(q_1-q_2-1), 4, 4**(q_2)
+
+        state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
 
         # Update Density Matrix
-        for i in range(4**(num_qubits-q_1-1)):
-            for j in range(4**(q_1-q_2-1)):
-                for k in range(4**q_2):
+        for i in range(lt):
+            for j in range(ct):
+                for k in range(rt):
                     state[i, 2, j, 0, k] =  temp_dm[i, 2, j, 3, k]
                     state[i, 3, j, 0, k] =  temp_dm[i, 3, j, 3, k]
                     state[i, 0, j, 1, k] =  temp_dm[i, 1, j, 1, k]

@@ -152,12 +152,20 @@ class DmSimulatorPy(BaseBackend):
         """
         
         # changing density matrix
-        self._densitymatrix = np.reshape(
-            self._densitymatrix, (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
+        lt, mt, rt = 4 ** qubit, 4, 4 ** (self._number_of_qubits-qubit-1)
+        self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt)) 
+        
+        #self._densitymatrix = np.reshape(
+        #    self._densitymatrix, (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
         
         # After doing a ZY decomposition of unitary gate, we iteratively apply the rotation gates
         #print(gate)
 
+        self._densitymatrix = rt_gate_dm_matrix_1(gate = gate, 
+                    err_param = self._error_params['single_gate'], 
+                    state = self._densitymatrix, q = (lt, mt, rt), 
+                    num_qubits = self._number_of_qubits)
+        '''
         for idx in gate: # For Rotations in the Decomposed Gate list
             #print(idx, self._densitymatrix)
     
@@ -165,19 +173,10 @@ class DmSimulatorPy(BaseBackend):
                 idx[0], idx[1], self._error_params['single_gate'], self._densitymatrix, qubit, self._number_of_qubits)
             
             #print(self._densitymatrix, idx, self._error_params['single_gate'])
+        '''
 
         self._densitymatrix = np.reshape(self._densitymatrix,
-                                            self._number_of_qubits * [4])
-        #print(self._densitymatrix)
-
-        '''
-        for j in range(4**(self._number_of_qubits-qubit-1)):
-            for i in range(4**(qubit)):
-                temp = self._densitymatrix[i,:,j]
-                self._densitymatrix[i,1,j] = temp[1]*(np.sin(lam)*np.sin(phi)+ np.cos(theta)*np.cos(phi)*np.cos(lam))+temp[2]*(np.cos(theta)*np.cos(phi)*np.sin(lam)- np.cos(lam)*np.sin(phi))+temp[3]*(np.sin(theta)*np.cos(phi))
-                self._densitymatrix[i,2,j] = temp[1]*(np.cos(theta)*np.sin(phi)*np.cos(lam)- np.sin(lam)*np.cos(phi))+temp[2]*(np.cos(phi)*np.cos(lam) + np.cos(theta)*np.sin(phi)*np.sin(lam))+ temp[3]*(np.sin(theta)*np.sin(phi))
-                self._densitymatrix[i,3,j] = temp[1]*(-np.cos(lam)*np.sin(theta))+ temp[2]*(np.sin(theta)*np.sin(lam)) + temp[3]*(np.cos(theta))
-        '''
+                                    self._number_of_qubits * [4])
 
     def _add_unitary_two(self, qubit0, qubit1):
         """Apply a two-qubit unitary matrix.
@@ -195,7 +194,38 @@ class DmSimulatorPy(BaseBackend):
                                         self._number_of_qubits * [4])
    
     #TODO Combine the decoherence and decay (1. Off-Diagonal elements multiplied by sqrt(g)*f)
-    
+    def _add_decoherence_and_amp_decay(self, level, f, p, g):
+        """ Apply decoherence transofrmation and amplitude decay transformation independently 
+            to all the qubits. Off-diagonal elements of the density get contracted by a factor
+            'f' due to decoherence and 'sqrt(g)' due to amplitude decay. Diagonal elements decay
+            towards the thermal state.
+        Args:
+            level (int):    Clock cycle number
+            f     (float):  Contraction of diagonal elements due to T_2 (coherence time) 
+            p     (float):  Thermal factor corresponding to the asymptotic state
+            g     (float):  Decay rate for the excited state component
+        """ 
+        sg = np.sqrt(g)
+        off_diag_contract = np.sqrt(g) * f
+        diag_decay = (1-g)*(1-2*p)
+
+        for qb in range(self._number_of_qubits):
+
+            lt, mt, rt = 4 ** qb, 4, 4 ** (self._number_of_qubits - qb - 1)
+            self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt))
+            temp = self._densitymatrix.copy()
+            for j in range(rt):
+                for i in range(lt):
+                    self._densitymatrix[i, 1, j] = off_diag_contract * \
+                                                    temp[i, 1, j]
+                    self._densitymatrix[i, 2, j] = off_diag_contract * \
+                                                    temp[i, 2, j]
+                    self._densitymatrix[i, 3, j] =  g * temp[i, 3, j] + \
+                                                    diag_decay * temp[i, 0, j]
+        
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                         self._number_of_qubits * [4])
+    '''
     def _add_decoherence(self, level, f):
         """ Apply decoherence transformation independently to all the qubits.
             Off-diagonal elements of the density matrix get contracted by a factor 'f'.
@@ -248,7 +278,7 @@ class DmSimulatorPy(BaseBackend):
 
         self._densitymatrix = np.reshape(self._densitymatrix, 
                                             self._number_of_qubits * [4])
-
+    '''
     def _get_measure_outcome(self, qubit):
         """Simulate the outcome of measurement of a qubit.
 
@@ -897,9 +927,8 @@ class DmSimulatorPy(BaseBackend):
 
             # Add Memory errors at the end of each clock cycle
             for qb in range(self._number_of_qubits):
-                self._add_decoherence(clock, self._decoherence_factor)
-                self._add_amplitude_decay(clock, self._thermal_factor, 
-                                            self._decay_factor)
+                self._add_decoherence_and_amp_decay(clock, f = self._decoherence_factor, 
+                                        p = self._thermal_factor, g = self._decay_factor)
 
         # Add final creg data to memory list
         if self._number_of_cmembits > 0:
