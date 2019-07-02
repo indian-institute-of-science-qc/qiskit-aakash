@@ -334,7 +334,13 @@ class DmSimulatorPy(BaseBackend):
             operator_mes = np.kron(np.array([[1, err_param], [1, -err_param]]), operator_mes)
 
         # We get 2**n probabilities via this.
-        probabilities = np.reshape((0.5**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
+        probabilities = np.reshape((0.5**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]), 2**self._number_of_qubits)
+        key = [x for x in itertools.product([0,1],repeat = self._number_of_qubits)]
+        prob_key = [''.join(str(y) for y in x) for x in key]
+        prob = {}
+        for i in range(2**self._number_of_qubits):
+            prob.update({prob_key[i]: probabilities[i]})
+        print(prob)    
         return probabilities
 
     def _add_bell_basis_measure(self, qubit_1, qubit_2):
@@ -534,11 +540,11 @@ class DmSimulatorPy(BaseBackend):
         length = np.size(self._initial_densitymatrix)
         #print(length, self._number_of_qubits)
         required_dim = 4 ** self._number_of_qubits
-        if length != required_dim:
-            raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.format(length, required_dim))
+        #if length != required_dim:    #TODO
+            #raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.format(length, required_dim))
         # Check if Trace is 0
-        if self._densitymatrix[0] != 1:
-            raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._densitymatrix[0], 1))
+        #if self._densitymatrix[0] != 1:   #TODO
+            #raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._densitymatrix[0], 1))
 
     def _set_options(self, qobj_config=None, backend_options=None):
         """Set the backend options for all experiments in a qobj"""
@@ -561,9 +567,12 @@ class DmSimulatorPy(BaseBackend):
                                                  dtype=float)
 
         #TODO Create coefficient matrix for a custom density matrix
-
+        print(backend_options)
         if 'custom_densitymatrix' in backend_options:
             self._custom_densitymatrix = backend_options['custom_densitymatrix']
+            if self._custom_densitymatrix == 'binary_string':
+                self._initial_densitymatrix = backend_options['initial_densitymatrix']
+
 
         if 'thermal_factor' in backend_options:
             self._thermal_factor = backend_options['thermal_factor']
@@ -614,6 +623,22 @@ class DmSimulatorPy(BaseBackend):
             for i in range(self._number_of_qubits-1):
                 self._densitymatrix = np.kron([1,0,0,tf],
                                                     self._densitymatrix)
+        elif self._initial_densitymatrix is not None and self._custom_densitymatrix == 'binary_string':
+            print(self._initial_densitymatrix)
+            print(self._custom_densitymatrix)
+            if len(self._initial_densitymatrix) != self._number_of_qubits:
+                raise BasicAerError('Wrong input binary string length')
+            if self._initial_densitymatrix[-1] == '0':
+                self._densitymatrix = np.array([1,0,0,1], dtype=float)
+            else:
+                self._densitymatrix = np.array([1,0,0,-1], dtype=float) 
+            for idx in reversed(self._initial_densitymatrix[:-1]):
+                if idx == '0':
+                    self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
+                else:
+                    self._densitymatrix = np.kron([1,0,0,-1],self._densitymatrix)
+            self._initialize_densitymatrix = None      #For Normalization        
+                                                          
         else:
             self._densitymatrix = self._initial_densitymatrix.copy()
         
@@ -837,9 +862,11 @@ class DmSimulatorPy(BaseBackend):
         
         end_processing = time.time()
         start_runtime = time.time()
+        
 
+        self._add_ensemble_measure(0.99)
         for clock in range(levels):
-            
+
             print('Level: ', clock, partitioned_instructions[clock])
             for operation in partitioned_instructions[clock]:
                 conditional = getattr(operation, 'conditional', None)
