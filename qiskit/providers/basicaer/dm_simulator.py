@@ -290,7 +290,6 @@ class DmSimulatorPy(BaseBackend):
             probability is the probability of the returned outcome.
         """
         # Axis for numpy.sum to compute probabilities
-        #print('Get_Measure')
         axis = list(range(self._number_of_qubits))
         axis.remove(self._number_of_qubits - 1 - qubit)
         probabilities = np.sum(np.abs(self._densitymatrix) ** 2, axis=tuple(axis))

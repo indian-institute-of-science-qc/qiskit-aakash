@@ -352,9 +352,6 @@ def mergeU(gate1, gate2):
             temp[0].params[2] = gate1[0].params[2]
     elif gate1[0].name == 'u3' and gate2[0].name == 'u3':
         atol = 1e-8
-        #phi = float(gate1[0].params[0]) * 0.5
-        #theta = float(gate1[0].params[2] + gate2[0].params[1]) * 0.5
-        #lamb = float(gate2[0].params[0]) * 0.5
         theta = float(gate2[0].params[2] + gate1[0].params[1]) * 0.5
         phi = float(gate2[0].params[0]) * 0.5
         lamb = float(gate1[0].params[0]) * 0.5
@@ -681,6 +678,8 @@ def partition(i_set,num_qubits):
 
             if i_stack[qubit]:
                 gate = i_stack[qubit][0]
+            else:
+                continue
 
             # Check for dummy gate
             if is_measure_dummy(gate) or is_reset_dummy(gate):
