@@ -3,6 +3,9 @@ from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit import BasicAer, execute
 
 backend = BasicAer.get_backend('dm_simulator') # run on local simulator by default
+#binary_stri = 
+#custom = 
+#options = {'custom_de':'bin', 'init_de':binar}
 options = {}
 # Creating registers
 q = QuantumRegister(2)
@@ -23,7 +26,7 @@ qc.z(q[0])
 #qc.h(q[1])
 qc.x(q[1])
 #qc.x(q[1])
-#qc.measure(q[0], c[1])
+qc.measure(q, c)
 #qc.cx(q[1], q[0])
 #qc.cx(q[0],q[2])
 #qc.measure(q,c)

@@ -62,4 +62,4 @@ def add(a, b):
     print(result_sim.get_counts())
 
 
-add("1111", "111")
+add("11", "1")

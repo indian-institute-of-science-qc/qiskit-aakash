@@ -213,7 +213,7 @@ class DmSimulatorPy(BaseBackend):
 
             lt, mt, rt = 4 ** qb, 4, 4 ** (self._number_of_qubits - qb - 1)
             self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt))
-            temp = self._densitymatrix.copy()
+            temp = self._densitymatrix.copy()  # qc.measure(q[0], c[0])
             for j in range(rt):
                 for i in range(lt):
                     self._densitymatrix[i, 1, j] = off_diag_contract * \
@@ -882,14 +882,19 @@ class DmSimulatorPy(BaseBackend):
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
                     cregbit = operation.register[0] if hasattr(operation, 'register') else None
-                    if self._sample_measure:
+                    
+                    if len(partitioned_instructions[clock]) == 1:
+                        self._add_qasm_measure_Z(qubit, self._probability_of_zero)
+                    else:
+                        self._add_ensemble_measure(1)
+                    
+                    #if self._sample_measure:
                         # If sampling measurements record the qubit and cmembit
                         # for this measurement for later sampling
-                        measure_sample_ops.append((qubit, cmembit))
-                    else:
+                        # measure_sample_ops.append((qubit, cmembit))
+                    #else:
                         # If not sampling perform measurement as normal
-                        self._add_qasm_measure(qubit, cmembit, cregbit)
-                        #self._add_qasm_measure_Z(qubit, self._probability_of_zero)
+                        #self._add_qasm_measure(qubit, cmembit, cregbit)
                 elif operation.name == 'bfunc':
                     mask = int(operation.mask, 16)
                     relation = operation.relation
