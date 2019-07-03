@@ -3,19 +3,23 @@ import random
 from random import randint
 noq = 4
 l = ['u1','u2','u3','cx','ccx']
-for i in range(random.randint(1,1000)):
+for i in range(1000):
     x = random.randint(0,4)
     if x == 0:
-        print('qc.{}({},q[{}])'.format((l[x]),(random.randint(1,100)),(random.randint(0,noq-1))))
+        print('qc.{}({},q[{}])'.format((l[x]), round(random.uniform(0, 2*np.pi),5), 
+        (random.randint(0, noq-1))))
     elif x == 1:
-        print('qc.{}({},{},q[{}])'.format((l[x]),(random.randint(1,100)),(random.randint(1,100)),(random.randint(0,noq-1))))
+        print('qc.{}({},{},q[{}])'.format((l[x]), round(random.uniform(0, 2*np.pi),5), 
+        round(random.uniform(0, 2*np.pi),5), random.randint(0, noq-1)))
     elif x == 2:
-         print('qc.{}({},{},{},q[{}])'.format(l[x],random.randint(1,100),random.randint(1,100),random.randint(1,100),random.randint(0,noq-1)))
+        print('qc.{}({},{},{},q[{}])'.format(l[x], round(random.uniform(0, np.pi),5), 
+        round(random.uniform(0, 2*np.pi),5), round(random.uniform(0, 2*np.pi),5), random.randint(0, noq-1)))
     elif x == 3:
-        print('qc.{}(q[{}],q[{}])'.format(l[x],random.randint(0,noq-1),random.randint(0,noq-1)))
-        break
+        a, b = random.sample(range(noq), 2)
+        print('qc.{}(q[{}],q[{}])'.format(l[x],a,b))
     elif x == 4:
-        print('qc.{}(q[{}],q[{}],q[{}])'.format(l[x],random.randint(0,noq-1),random.randint(0,noq-1),random.randint(0,noq-1)))
+        a, b, c = random.sample(range(noq),3)
+        print('qc.{}(q[{}],q[{}],q[{}])'.format(l[x], a, b, c))
 
 
 

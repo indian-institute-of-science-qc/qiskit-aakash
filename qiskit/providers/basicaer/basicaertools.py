@@ -232,20 +232,20 @@ def U3_merge(theta, phi, lamb, tol):
     atol = 1e-8
     # for storing all the solutions
     solutions = []
-
     if np.abs(np.cos(xi)) < tol:
         return [theta2-theta1, xi, 0]
     elif np.abs(np.sin(theta1+theta2)) < tol:
         phi_minus_lambda = [np.pi/2, 3*np.pi/2, np.pi/2, 3*np.pi/2]
+        
         stheta_1 = np.arcsin(np.sin(xi) * np.sin(-theta1 + theta2))
         stheta_2 = -stheta_1
         stheta_3 = np.pi - stheta_1
         stheta_4 = np.pi - stheta_2
         stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
+        cthet = [round(np.cos(xi)/np.cos(x), 10) for x in stheta]
         phi_plus_lambda = list(map(lambda x:
-                                   np.arccos(np.cos(theta1 + theta2) *
-                                             np.cos(xi) / np.cos(x)),
-                                   stheta))
+                                   np.arccos(np.cos(theta1 + theta2) * x), cthet))
+
         sphi = [(term[0] + term[1]) / 2 for term in
                 zip(phi_plus_lambda, phi_minus_lambda)]
         slam = [(term[0] - term[1]) / 2 for term in
@@ -253,15 +253,18 @@ def U3_merge(theta, phi, lamb, tol):
         solutions = list(zip(stheta, sphi, slam))
     elif np.abs(np.cos(theta1+theta2)) < tol:
         phi_plus_lambda = [np.pi/2, 3*np.pi/2, np.pi/2, 3*np.pi/2]
+        
         stheta_1 = np.arccos(np.sin(xi) * np.cos(theta1 - theta2))
         stheta_2 = stheta_1
         stheta_3 = -stheta_1
         stheta_4 = -stheta_2
         stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
+        ctheta = [np.cos(xi)/np.sin(x) for x in stheta]
+        cthet = [round(np.cos(xi)/np.sin(x), 10) for x in stheta]
+        print('Hi', cthet, ctheta)
         phi_minus_lambda = list(map(lambda x:
-                                    np.arccos(np.sin(theta1 + theta2) *
-                                              np.cos(xi) / np.sin(x)),
-                                    stheta))
+                                    np.arccos(np.sin(theta1 + theta2) * x), cthet))
+
         sphi = [(term[0] + term[1]) / 2 for term in
                 zip(phi_plus_lambda, phi_minus_lambda)]
         slam = [(term[0] - term[1]) / 2 for term in
@@ -347,7 +350,7 @@ def mergeU(gate1, gate2):
         if gate1[0].name == 'u1' and gate2[0].name == 'u3':
             temp[0].params[0] = gate2[0].params[0]
             temp[0].params[1] = gate2[0].params[1]
-            temp[0].params[2] = gate2[0].params[2] + gate1[0].params[0]
+            temp[0].params[2] = (gate2[0].params[2] + gate1[0].params[0])
         elif gate1[0].name == 'u3' and gate2[0].name == 'u1':
             temp[0].params[0] = gate1[0].params[0]
             temp[0].params[1] = gate1[0].params[1] + gate2[0].params[0]
@@ -407,7 +410,10 @@ def single_gate_merge(inst, num_qubits):
         if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset'):
             for idx, sg in enumerate(single_gt):
                 if sg:
-                    inst_merged.append(merge_gates(sg))
+                    print(idx, sg)
+                    a = merge_gates(sg)
+                    print(ind, a)
+                    inst_merged.append(a)
                     single_gt[idx] = []
             inst_merged.append(opx[0])
         # Unitary gates are appended to their respective qubits

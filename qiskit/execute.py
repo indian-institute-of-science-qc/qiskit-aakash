@@ -195,7 +195,7 @@ def execute(experiments, backend,
                             backend=backend,
                             pass_manager=pass_manager,
                             )
-    print(experiments)
+    #print(experiments)
     # assembling the circuits into a qobj to be run on the backend
     qobj = assemble(experiments,
                     qobj_id=qobj_id,

@@ -927,7 +927,7 @@ class DmSimulatorPy(BaseBackend):
         self._classical_memory = 0
         self._classical_register = 0
         
-        print('Initial: ', experiment.instructions)
+        #print('Initial: ', experiment.instructions)
         #print('Initial: ')
         #for operation in experiment.instructions:
         #    print(operation.name, operation.qubits)
@@ -935,9 +935,10 @@ class DmSimulatorPy(BaseBackend):
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
         print('Merged: ', experiment.instructions)
-        #print('Merged: ')
-        #for operation in experiment.instructions:
-        #    print(operation.name, operation.qubits)
+        print('Merged: ')
+        for operation in experiment.instructions:
+            print(operation.name, operation.qubits,
+                  getattr(operation, 'params', None))
             
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
@@ -950,27 +951,14 @@ class DmSimulatorPy(BaseBackend):
         end_processing = time.time()
         start_runtime = time.time()
         
-<<<<<<< HEAD
-
-        self._add_ensemble_measure(1.0)
-=======
-        stop = 0
->>>>>>> 6b6a34885b988cf90af5fa71dbadd3037e23af42
+        #self._add_ensemble_measure(1.0)
         for clock in range(levels):
-            #for operation in experiment.instructions:
-            if stop == 7:
-                pass
-                #break
 
             #print('Level: ', clock, partitioned_instructions[clock])
             for operation in partitioned_instructions[clock]:
-                stop += 1
-                if stop == 7:
-                    pass
-                    #break
-                
+
                 #a, b = self._get_densitymatrix()
-                print(operation.name, operation.qubits)
+                #print(operation.name, operation.qubits)
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
                     conditional_bit_set = (self._classical_register >> conditional) & 1
