@@ -396,9 +396,9 @@ class DmSimulatorPy(BaseBackend):
 
         for i in range(2**num_measured):
             prob.update({prob_key[i]: probabilities[i]})
-        #print(prob)
-        #print(sum(prob.values()))
-        #pprint.pprint(max(prob, key=prob.get))
+        print(prob)
+        print(sum(prob.values()))
+        pprint.pprint(max(prob, key=prob.get))
         return probabilities
 
     def _add_bell_basis_measure(self, qubit_1, qubit_2):
@@ -927,7 +927,7 @@ class DmSimulatorPy(BaseBackend):
         self._classical_memory = 0
         self._classical_register = 0
         
-        print('Initial: ', experiment.instructions)
+        #print('Initial: ', experiment.instructions)
         #print('Initial: ')
         #for operation in experiment.instructions:
         #    print(operation.name, operation.qubits)
@@ -935,9 +935,10 @@ class DmSimulatorPy(BaseBackend):
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
         print('Merged: ', experiment.instructions)
-        #print('Merged: ')
-        #for operation in experiment.instructions:
-        #    print(operation.name, operation.qubits)
+        print('Merged: ')
+        for operation in experiment.instructions:
+            print(operation.name, operation.qubits,
+                  getattr(operation, 'params', None))
             
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
@@ -950,22 +951,14 @@ class DmSimulatorPy(BaseBackend):
         end_processing = time.time()
         start_runtime = time.time()
         
-        stop = 0
+        #self._add_ensemble_measure(1.0)
         for clock in range(levels):
-            #for operation in experiment.instructions:
-            if stop == 7:
-                pass
-                #break
 
             #print('Level: ', clock, partitioned_instructions[clock])
             for operation in partitioned_instructions[clock]:
-                stop += 1
-                if stop == 7:
-                    pass
-                    #break
-                
-                a, b = self._get_densitymatrix()
-                print(operation.name, operation.qubits)
+
+                #a, b = self._get_densitymatrix()
+                #print(operation.name, operation.qubits)
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
                     conditional_bit_set = (self._classical_register >> conditional) & 1
@@ -990,7 +983,7 @@ class DmSimulatorPy(BaseBackend):
                     pass
                 # Check if CX gate
                 elif operation.name in ('CX', 'cx'):
-                    a, b = self._get_densitymatrix()
+                    #a, b = self._get_densitymatrix()
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
                     self._add_unitary_two(qubit0, qubit1)
@@ -1007,17 +1000,16 @@ class DmSimulatorPy(BaseBackend):
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
                     cregbit = operation.register[0] if hasattr(operation, 'register') else None
-
-                    #len_pi = len(partitioned_instructions[clock])
-                    #if len_pi == 1:
-                    #self._add_qasm_measure_Z(qubit, self._probability_of_zero)
-                    #elif len_pi > 1 and len_pi < self._number_of_qubits:
-                    #    #mes_list = [x.qubits[0] for x in partitioned_instructions[clock]] 
-                    #    self._add_partial_measure(mes_list, 1)
-                    #    break
-                    #else:
-                    self._add_ensemble_measure(1)
-                    #    break
+                    len_pi = len(partitioned_instructions[clock])
+                    if len_pi == 1:
+                        self._add_qasm_measure_Z(qubit, self._probability_of_zero)
+                    elif len_pi > 1 and len_pi < self._number_of_qubits:
+                        mes_list = [x.qubits[0] for x in partitioned_instructions[clock]] 
+                        self._add_partial_measure(mes_list, 1)
+                        break
+                    else:
+                        self._add_ensemble_measure(1)
+                        break
 
                     #if self._sample_measure:
                         # If sampling measurements record the qubit and cmembit
@@ -1061,9 +1053,9 @@ class DmSimulatorPy(BaseBackend):
                     raise BasicAerError(err_msg.format(backend, operation.name))
 
                 # Add Memory errors at the end of each clock cycle
-                #for qb in range(self._number_of_qubits):
-                #    self._add_decoherence_and_amp_decay(clock, f = self._decoherence_factor, 
-                #                            p = self._thermal_factor, g = self._decay_factor)
+                for qb in range(self._number_of_qubits):
+                    self._add_decoherence_and_amp_decay(clock, f = self._decoherence_factor, 
+                                            p = self._thermal_factor, g = self._decay_factor)
 
         # Add final creg data to memory list
         if self._number_of_cmembits > 0:
