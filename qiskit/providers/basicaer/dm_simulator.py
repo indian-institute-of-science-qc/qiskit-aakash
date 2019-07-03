@@ -675,7 +675,7 @@ class DmSimulatorPy(BaseBackend):
 
         for i in range(1, 4**self._number_of_qubits):
             densitymatrix += vec[i]*den[i]
-        
+        np.savetxt("a2.txt", np.asarray(np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
         # Expand float numbers
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0
@@ -864,7 +864,7 @@ class DmSimulatorPy(BaseBackend):
         start_runtime = time.time()
         
 
-        self._add_ensemble_measure(0.99)
+        self._add_ensemble_measure(1.0)
         for clock in range(levels):
 
             print('Level: ', clock, partitioned_instructions[clock])

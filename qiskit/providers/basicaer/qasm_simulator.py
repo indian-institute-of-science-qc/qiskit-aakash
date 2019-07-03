@@ -337,14 +337,42 @@ class QasmSimulatorPy(BaseBackend):
         self._statevector = np.reshape(self._statevector,
                                        self._number_of_qubits * [2])
 
-    def _get_statevector(self):
-        """Return the current statevector in JSON Result spec format"""
+    """def _get_statevector(self):
+        #Return the current statevector in JSON Result spec format
         vec = np.reshape(self._statevector, 2 ** self._number_of_qubits)
         # Expand complex numbers
         vec = np.stack([vec.real, vec.imag], axis=1)
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0
-        return vec
+        return vec"""
+
+    def _get_statevector(self):
+        """Return the current statevector in JSON Result spec format"""
+        vec = np.reshape(self._statevector, 2 ** self._number_of_qubits)
+        # Expand complex numbers
+        dens = vec.copy()
+        trans = []
+        #print(dens)
+        import itertools
+        bina1 = [x for x in itertools.product([0, 1], repeat=self._number_of_qubits)]
+        bina2 = [''.join(str(y) for y in x) for x in bina1]
+        for idx in bina2:
+            a = int(idx,2)
+            b = int(idx[::-1],2)
+            #print(a, b)
+            if a not in trans and b not in trans:
+                trans.append(a)
+                trans.append(b)
+                dens[a], dens[b] = dens[b], dens[a]
+        
+        densitymatrix = np.outer(dens, np.conj(dens))
+        r = np.asarray(np.round(densitymatrix, 4))
+        print('Density matrix is {}'.format(r))
+        np.savetxt("a3.txt", np.asarray(np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
+        vec = np.stack([vec.real, vec.imag], axis=1)
+        # Truncate small values
+        vec[abs(vec) < self._chop_threshold] = 0.0
+        return vec 
 
     def _validate_measure_sampling(self, experiment):
         """Determine if measure sampling is allowed for an experiment
@@ -446,6 +474,13 @@ class QasmSimulatorPy(BaseBackend):
                   'success': True,
                   'time_taken': (end - start),
                   'header': qobj.header.as_dict()}
+        """s1 = np.array(self._statevector)
+        s2 = np.conjugate(s1.T)
+        r =np.kron(s1,s2)
+        result2 = np.reshape(r, (2**self._number_of_qubits,2**self._number_of_qubits))
+        print('Density matrix is {}'.format(result2)) """
+
+        self._get_statevector()          
 
         return Result.from_dict(result)
 
