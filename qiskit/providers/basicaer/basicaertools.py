@@ -164,7 +164,7 @@ def rt_gate_dm_matrix_1(gate, err_param, state, q, num_qubits):
 
     return state
 
-'''
+
 def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
     """   
@@ -198,7 +198,7 @@ def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
     #print(state[0,0,0], state[0,1,0], state[0,2,0], state[0,3,0])
     return state
-'''
+
 def U3_merge(theta, phi, lamb, tol):
     """Performs merge operation when both the gates are U3 by transforming the Y-Z decomposition of the gates to the Z-Y decomposition.
         Args:
@@ -433,6 +433,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
 
     # Remark - ordering of qubits (MSB right, LSB left)
     #print(q_1, q_2)
+    #q_1, q_2 = q_2, q_1
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')

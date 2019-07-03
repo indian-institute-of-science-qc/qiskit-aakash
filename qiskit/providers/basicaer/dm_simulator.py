@@ -33,10 +33,12 @@ field, which is a result of measurements for each shot.
 import uuid
 import time
 import logging
+import pprint
 
 from math import log2
 from collections import Counter
 import numpy as np
+np.set_printoptions(precision=4)
 import itertools
 
 from qiskit.util import local_hardware_info
@@ -290,8 +292,10 @@ class DmSimulatorPy(BaseBackend):
             probability is the probability of the returned outcome.
         """
         # Axis for numpy.sum to compute probabilities
-        axis = list(range(self._number_of_qubits))
-        axis.remove(self._number_of_qubits - 1 - qubit)
+
+
+
+
         probabilities = np.sum(np.abs(self._densitymatrix) ** 2, axis=tuple(axis))
 
         measure_ind = [x for x in itertools.product(
@@ -334,13 +338,67 @@ class DmSimulatorPy(BaseBackend):
             operator_mes = np.kron(np.array([[1, err_param], [1, -err_param]]), operator_mes)
 
         # We get 2**n probabilities via this.
-        probabilities = np.reshape((0.5**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]), 2**self._number_of_qubits)
+        #probabilities = np.reshape((0.5**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]), 2**self._number_of_qubits)
+        probabilities = np.reshape(np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]), 2**self._number_of_qubits)
+        
         key = [x for x in itertools.product([0,1],repeat = self._number_of_qubits)]
         prob_key = [''.join(str(y) for y in x) for x in key]
         prob = {}
+        
         for i in range(2**self._number_of_qubits):
             prob.update({prob_key[i]: probabilities[i]})
-        print(prob)    
+        #print(prob) 
+        #print(sum(prob.values()))
+        #pprint.pprint(max(prob, key=prob.get))
+        return probabilities
+
+    def _add_partial_measure(self, qubits, err_param):
+        """Perform complete computational basis measurement for current densitymatrix.
+
+        Args:
+            err_param   (float): Reduction in polarization during measurement
+        Returns:
+            list: Complete list of probabilities. 
+        """
+
+        measured_qubits = qubits #list({qubit for qubit, cmembit in measure_params})
+        num_measured = len(measured_qubits)
+        
+        axis = list(range(self._number_of_qubits))
+        for qubit in reversed(measured_qubits):
+            axis.remove(self._number_of_qubits - 1 - qubit)
+
+        # We get indices used for Probability Measurement via this.
+        measure_ind = [x for x in itertools.product(
+            [0, 3], repeat=self._number_of_qubits)]
+        # We get coefficient values stored at those indices via this.
+        #print(self._densitymatrix.shape)
+        operator_ind = [self._densitymatrix[x] for x in measure_ind]
+        # We get permutations of signs for summing those coefficient values.
+        operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
+        for i in range(self._number_of_qubits-1):
+            operator_mes = np.kron(
+                np.array([[1, err_param], [1, -err_param]]), operator_mes)
+
+        # We get 2**n probabilities via this.
+        #probabilities = np.reshape((0.5**self._number_of_qubits)*np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]), 2**self._number_of_qubits)
+
+        probabilities = np.reshape(np.sum(np.reshape(np.array([np.sum(np.multiply(
+            operator_ind, x)) for x in operator_mes]), self._number_of_qubits * [2]), axis=tuple(axis)), 2**num_measured)
+        
+        for mqb in measured_qubits:
+            self._add_qasm_measure_Z(mqb, 1)
+
+        key = [x for x in itertools.product(
+            [0, 1], repeat=num_measured)]
+        prob_key = [''.join(str(y) for y in x) for x in key]
+        prob = {}
+
+        for i in range(2**num_measured):
+            prob.update({prob_key[i]: probabilities[i]})
+        #print(prob)
+        #print(sum(prob.values()))
+        #pprint.pprint(max(prob, key=prob.get))
         return probabilities
 
     def _add_bell_basis_measure(self, qubit_1, qubit_2):
@@ -397,6 +455,10 @@ class DmSimulatorPy(BaseBackend):
         
         probability_of_zero = 0.5 * (1 + p_3)
         probability_of_one = 1 - probability_of_zero
+
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                         self._number_of_qubits * [4])
+
         if probability_of_zero > probability_of_one:
             return 0, probability_of_zero
         else:
@@ -424,6 +486,9 @@ class DmSimulatorPy(BaseBackend):
                 self._densitymatrix[i,1,j] *= err_param
                 p_1 += self._densitymatrix[i,1,j]
         
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                         self._number_of_qubits * [4])
+
         probability_of_zero = 0.5 * (1 + p_1)
         probability_of_one = 1 - probability_of_zero
         return probability_of_zero
@@ -448,7 +513,10 @@ class DmSimulatorPy(BaseBackend):
                 self._densitymatrix[i,3,j] = 0
                 self._densitymatrix[i,2,j] *= err_param
                 p_2 += self._densitymatrix[i,2,j]
-        
+
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                         self._number_of_qubits * [4])
+
         probability_of_zero = 0.5 * (1 + p_2)
         probability_of_one = 1 - probability_of_zero
         return probability_of_zero
@@ -482,7 +550,10 @@ class DmSimulatorPy(BaseBackend):
                 self._densitymatrix[1,3,j] = temp*n[2]
 
                 p_n +=  temp
-        
+
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                         self._number_of_qubits * [4])
+
         probability_of_zero = 0.5 * (1 + p_n)
         probability_of_one = 1 - probability_of_zero
         return probability_of_zero
@@ -567,7 +638,7 @@ class DmSimulatorPy(BaseBackend):
                                                  dtype=float)
 
         #TODO Create coefficient matrix for a custom density matrix
-        print(backend_options)
+        #print(backend_options)
         if 'custom_densitymatrix' in backend_options:
             self._custom_densitymatrix = backend_options['custom_densitymatrix']
             if self._custom_densitymatrix == 'binary_string':
@@ -624,8 +695,8 @@ class DmSimulatorPy(BaseBackend):
                 self._densitymatrix = np.kron([1,0,0,tf],
                                                     self._densitymatrix)
         elif self._initial_densitymatrix is not None and self._custom_densitymatrix == 'binary_string':
-            print(self._initial_densitymatrix)
-            print(self._custom_densitymatrix)
+            #print(self._initial_densitymatrix)
+            #print(self._custom_densitymatrix)
             if len(self._initial_densitymatrix) != self._number_of_qubits:
                 raise BasicAerError('Wrong input binary string length')
             if self._initial_densitymatrix[-1] == '0':
@@ -678,8 +749,15 @@ class DmSimulatorPy(BaseBackend):
         
         # Expand float numbers
         # Truncate small values
+        #f = open('a.txt','wb')
         vec[abs(vec) < self._chop_threshold] = 0.0
-        return vec, densitymatrix
+        #for i in np.round(densitymatrix,4):
+        #    f.write(i)
+        #    f.write('\n')
+        #f.close()
+        np.savetxt("a.txt", np.asarray(
+            np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
+        return vec, np.round(densitymatrix,4)
 
     def _validate_measure_sampling(self, experiment):
         """Determine if measure sampling is allowed for an experiment
@@ -850,25 +928,44 @@ class DmSimulatorPy(BaseBackend):
         self._classical_register = 0
         
         print('Initial: ', experiment.instructions)
+        #print('Initial: ')
+        #for operation in experiment.instructions:
+        #    print(operation.name, operation.qubits)
         
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
         print('Merged: ', experiment.instructions)
-
+        #print('Merged: ')
+        #for operation in experiment.instructions:
+        #    print(operation.name, operation.qubits)
+            
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
         
-        print('Partitioned: ', partitioned_instructions)
-        
+        #print('Partitioned: ', partitioned_instructions)
+        #print('Partitioned: ')
+        #for operation in partitioned_instructions:
+        #    print(operation)
+
         end_processing = time.time()
         start_runtime = time.time()
         
-
-        self._add_ensemble_measure(0.99)
+        stop = 0
         for clock in range(levels):
+            #for operation in experiment.instructions:
+            if stop == 7:
+                pass
+                #break
 
-            print('Level: ', clock, partitioned_instructions[clock])
+            #print('Level: ', clock, partitioned_instructions[clock])
             for operation in partitioned_instructions[clock]:
+                stop += 1
+                if stop == 7:
+                    pass
+                    #break
+                
+                a, b = self._get_densitymatrix()
+                print(operation.name, operation.qubits)
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
                     conditional_bit_set = (self._classical_register >> conditional) & 1
@@ -883,7 +980,7 @@ class DmSimulatorPy(BaseBackend):
                             value >>= 1
                         if value != int(operation.conditional.val, 16):
                             continue
-    
+
                 if operation.name in ('U', 'u1', 'u2', 'u3'):
                     params = getattr(operation, 'params', None)
                     gate = single_gate_dm_matrix(operation.name, params)
@@ -893,6 +990,7 @@ class DmSimulatorPy(BaseBackend):
                     pass
                 # Check if CX gate
                 elif operation.name in ('CX', 'cx'):
+                    a, b = self._get_densitymatrix()
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
                     self._add_unitary_two(qubit0, qubit1)
@@ -909,12 +1007,18 @@ class DmSimulatorPy(BaseBackend):
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
                     cregbit = operation.register[0] if hasattr(operation, 'register') else None
-                    
-                    if len(partitioned_instructions[clock]) == 1:
-                        self._add_qasm_measure_Z(qubit, self._probability_of_zero)
-                    else:
-                        self._add_ensemble_measure(1)
-                    
+
+                    #len_pi = len(partitioned_instructions[clock])
+                    #if len_pi == 1:
+                    #self._add_qasm_measure_Z(qubit, self._probability_of_zero)
+                    #elif len_pi > 1 and len_pi < self._number_of_qubits:
+                    #    #mes_list = [x.qubits[0] for x in partitioned_instructions[clock]] 
+                    #    self._add_partial_measure(mes_list, 1)
+                    #    break
+                    #else:
+                    self._add_ensemble_measure(1)
+                    #    break
+
                     #if self._sample_measure:
                         # If sampling measurements record the qubit and cmembit
                         # for this measurement for later sampling
@@ -956,10 +1060,10 @@ class DmSimulatorPy(BaseBackend):
                     err_msg = '{0} encountered unrecognized operation "{1}"'
                     raise BasicAerError(err_msg.format(backend, operation.name))
 
-            # Add Memory errors at the end of each clock cycle
-            for qb in range(self._number_of_qubits):
-                self._add_decoherence_and_amp_decay(clock, f = self._decoherence_factor, 
-                                        p = self._thermal_factor, g = self._decay_factor)
+                # Add Memory errors at the end of each clock cycle
+                #for qb in range(self._number_of_qubits):
+                #    self._add_decoherence_and_amp_decay(clock, f = self._decoherence_factor, 
+                #                            p = self._thermal_factor, g = self._decay_factor)
 
         # Add final creg data to memory list
         if self._number_of_cmembits > 0:
@@ -979,6 +1083,7 @@ class DmSimulatorPy(BaseBackend):
         # Optionally add final densitymatrix
         if self.SHOW_FINAL_STATE:
             data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
+            #print(data['densitymatrix'])
             # Remove empty counts and memory for densitymatrix simulator
             if not data['counts']:
                 data.pop('counts')
