@@ -4,8 +4,8 @@ from qiskit import execute
 # from qiskit.visualization import plot_histogram
 import numpy as np
 from qiskit import BasicAer
-backend1 = BasicAer.get_backend('qasm_simulator')
-backend2 = BasicAer.get_backend('dm_simulator')
+backend = BasicAer.get_backend('dm_simulator')
+
 
 def add(a, b):
 
@@ -34,14 +34,13 @@ def add(a, b):
     for i in range(len(b)):
         if b[i] == 1:
             circuit.x(bqreg[len(b) - (i+1)])
-    '''
+
     for i in range(n-1):
         circuit.ccx(aqreg[i], bqreg[i], cqreg[i+1])
         circuit.cx(aqreg[i], bqreg[i])
         circuit.ccx(cqreg[i], bqreg[i], cqreg[i+1])
-    '''
+
     circuit.ccx(aqreg[n-1], bqreg[n-1], bqreg[n])
-    '''
     circuit.cx(aqreg[n-1], bqreg[n-1])
     circuit.ccx(cqreg[n-1], bqreg[n-1], bqreg[n])
 
@@ -53,19 +52,13 @@ def add(a, b):
         circuit.ccx(aqreg[(n-2)-i], bqreg[(n-2)-i], cqreg[(n-1)-i])
         circuit.cx(cqreg[(n-2)-i], bqreg[(n-2)-i])
         circuit.cx(aqreg[(n-2)-i], bqreg[(n-2)-i])
-    '''
-    #for i in range(n+1):
-    #        circuit.measure(bqreg[i], mqreg[i])
 
-    job_sim = execute(circuit, backend1, shots=1)
-    result_sim = job_sim.result()
-    #print(result_sim)
-    #print(result_sim.get_counts())
+#    for i in range(n+1):
+#        circuit.measure(bqreg[i], mqreg[i])
 
-    job_sim = execute(circuit, backend2)
+    job_sim = execute(circuit, backend)
     result_sim = job_sim.result()
-    #print(result_sim)
-    #print(result_sim.get_counts())
+    print(result_sim.get_counts())
 
 
 add("1", "1")
