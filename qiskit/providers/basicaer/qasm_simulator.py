@@ -548,7 +548,7 @@ class QasmSimulatorPy(BaseBackend):
                 #np.round()
                 #get_subsystem 
                 #print(np.round(np.tensordot(self._statevector, self._statevector.transpose().conj())))
-                a = self._get_statevector()
+                #a = self._get_statevector()
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
                     conditional_bit_set = (self._classical_register >> conditional) & 1
