@@ -1,0 +1,50 @@
+import numpy as np
+from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+from qiskit import BasicAer, execute
+backend = BasicAer.get_backend('dm_simulator')
+options = {}
+
+q = QuantumRegister(3, 'q')
+c = ClassicalRegister(2, 'c')
+circ = QuantumCircuit(q, c)
+
+circ.x(q[0])
+circ.h(q[1])
+circ.h(q[2])
+circ.h(q[0])
+circ.h(q[0])
+circ.cx(q[1], q[0])
+circ.tdg(q[0])
+circ.cx(q[2], q[0])
+circ.t(q[0])
+circ.cx(q[1], q[0])
+circ.tdg(q[0])
+circ.cx(q[2], q[0])
+circ.t(q[0])
+circ.tdg(q[1])
+circ.h(q[0])
+circ.cx(q[2], q[1])
+circ.tdg(q[1])
+circ.cx(q[2], q[1])
+circ.s(q[1])
+circ.t(q[2])
+circ.h(q[1])
+circ.h(q[2])
+circ.x(q[1])
+circ.x(q[2])
+circ.h(q[1])
+circ.cx(q[2], q[1])
+circ.h(q[1])
+circ.x(q[1])
+circ.x(q[2])
+circ.h(q[1])
+circ.h(q[2])
+circ.measure(q[1], c[0])
+circ.measure(q[2], c[1])
+
+
+circ.draw(output='mpl', line_length=120, scale=0.5)
+circuits = [circ]
+job = execute(circuits, backend, **options)
+result = job.result()
+print(result)

@@ -338,6 +338,15 @@ class QasmSimulatorPy(BaseBackend):
         self._statevector = np.reshape(self._statevector,
                                        self._number_of_qubits * [2])
 
+    """def _get_statevector(self):
+        #Return the current statevector in JSON Result spec format
+        vec = np.reshape(self._statevector, 2 ** self._number_of_qubits)
+        # Expand complex numbers
+        vec = np.stack([vec.real, vec.imag], axis=1)
+        # Truncate small values
+        vec[abs(vec) < self._chop_threshold] = 0.0
+        return vec"""
+
     def _get_statevector(self):
         """Return the current statevector in JSON Result spec format"""
         vec = np.reshape(self._statevector, 2 ** self._number_of_qubits)
@@ -358,11 +367,17 @@ class QasmSimulatorPy(BaseBackend):
                 dens[a], dens[b] = dens[b], dens[a]
         
         densitymatrix = np.outer(dens, np.conj(dens))
+<<<<<<< HEAD
+        r = np.asarray(np.round(densitymatrix, 4))
+        print('Density matrix is {}'.format(r))
+        np.savetxt("a3.txt", np.asarray(np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
+=======
         np.savetxt("a2.txt", np.asarray(np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
+>>>>>>> 6b6a34885b988cf90af5fa71dbadd3037e23af42
         vec = np.stack([vec.real, vec.imag], axis=1)
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0
-        return vec
+        return vec 
 
     def _validate_measure_sampling(self, experiment):
         """Determine if measure sampling is allowed for an experiment
@@ -464,6 +479,13 @@ class QasmSimulatorPy(BaseBackend):
                   'success': True,
                   'time_taken': (end - start),
                   'header': qobj.header.as_dict()}
+        """s1 = np.array(self._statevector)
+        s2 = np.conjugate(s1.T)
+        r =np.kron(s1,s2)
+        result2 = np.reshape(r, (2**self._number_of_qubits,2**self._number_of_qubits))
+        print('Density matrix is {}'.format(result2)) """
+
+        self._get_statevector()          
 
         return Result.from_dict(result)
 
