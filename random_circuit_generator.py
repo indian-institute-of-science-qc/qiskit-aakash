@@ -12,12 +12,10 @@ for i in range(random.randint(1,1000)):
     elif x == 2:
          print('qc.{}({},{},{},q[{}])'.format(l[x],random.randint(1,100),random.randint(1,100),random.randint(1,100),random.randint(0,noq-1)))
     elif x == 3:
-        #pass
         print('qc.{}(q[{}],q[{}])'.format(l[x],random.randint(0,noq-1),random.randint(0,noq-1)))
         break
     elif x == 4:
-        pass
-        #print('qc.{}(q[{}],q[{}],q[{}])'.format(l[x],random.randint(0,noq-1),random.randint(0,noq-1),random.randint(0,noq-1)))
+        print('qc.{}(q[{}],q[{}],q[{}])'.format(l[x],random.randint(0,noq-1),random.randint(0,noq-1),random.randint(0,noq-1)))
 
 
 
