@@ -208,15 +208,15 @@ class QasmSimulatorPy(BaseBackend):
         # Get unique qubits that are actually measured
         measured_qubits = list({qubit for qubit, cmembit in measure_params})
         num_measured = len(measured_qubits)
-        print('Sample_measure:')
+        #print('Sample_measure:')
         # Axis for numpy.sum to compute probabilities
         axis = list(range(self._number_of_qubits))
-        print('Init Axis: ', axis, 'Measured: ', measured_qubits)
+        #print('Init Axis: ', axis, 'Measured: ', measured_qubits)
         for qubit in reversed(measured_qubits):
             # Remove from largest qubit to smallest so list position is correct
             # with respect to position from end of the list
             axis.remove(self._number_of_qubits - 1 - qubit)
-        print('Mod Axis: ', axis)
+        #print('Mod Axis: ', axis)
         probabilities = np.reshape(np.sum(np.abs(self._statevector) ** 2,
                                           axis=tuple(axis)),
                                    2 ** num_measured)
@@ -247,7 +247,7 @@ class QasmSimulatorPy(BaseBackend):
         """
         # get measure outcome
         outcome, probability = self._get_measure_outcome(qubit)
-        print('I work', outcome, probability)
+        #print('I work', outcome, probability)
         # update classical state
         membit = 1 << cmembit
         self._classical_memory = (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
@@ -367,13 +367,9 @@ class QasmSimulatorPy(BaseBackend):
                 dens[a], dens[b] = dens[b], dens[a]
         
         densitymatrix = np.outer(dens, np.conj(dens))
-<<<<<<< HEAD
         r = np.asarray(np.round(densitymatrix, 4))
-        print('Density matrix is {}'.format(r))
-        np.savetxt("a3.txt", np.asarray(np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
-=======
-        np.savetxt("a2.txt", np.asarray(np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
->>>>>>> 6b6a34885b988cf90af5fa71dbadd3037e23af42
+        #print('Density matrix is {}'.format(r))
+        np.savetxt("a1.txt", np.asarray(np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
         vec = np.stack([vec.real, vec.imag], axis=1)
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0
@@ -548,8 +544,8 @@ class QasmSimulatorPy(BaseBackend):
             measure_sample_ops = []
         else:
             shots = self._shots
-        import os
-        f = open('a2.txt', 'a', buffering=1)
+        #import os
+        #f = open('a2.txt', 'a', buffering=1)
 
         #for operation in experiment.instructions:
         #    print(operation.name, operation.qubits)        
@@ -561,16 +557,16 @@ class QasmSimulatorPy(BaseBackend):
             self._classical_register = 0
             stop = 0
             for operation in experiment.instructions:
-                stop += 1
-                if stop == 7:
-                    pass
-                    #break
-                print(operation.name, operation.qubits)
+                #stop += 1
+                #if stop == 7:
+                #    pass
+                #    #break
+                #print(operation.name, operation.qubits)
                 #print(self._statevector)
                 #np.round()
                 #get_subsystem 
                 #print(np.round(np.tensordot(self._statevector, self._statevector.transpose().conj())))
-                a = self._get_statevector()
+                #a = self._get_statevector()
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
                     conditional_bit_set = (self._classical_register >> conditional) & 1
@@ -673,7 +669,7 @@ class QasmSimulatorPy(BaseBackend):
                     # Turn classical_memory (int) into bit string and pad zero for unused cmembits
                     outcome = bin(self._classical_memory)[2:]
                     memory.append(hex(int(outcome, 2)))
-        f.close()
+        #f.close()
         # Add data
         data = {'counts': dict(Counter(memory))}
         # Optionally add memory list
