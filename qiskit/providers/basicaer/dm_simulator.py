@@ -450,7 +450,7 @@ class DmSimulatorPy(BaseBackend):
             for i in range(4**(qubit)):
                 self._densitymatrix[i,1,j] = 0
                 self._densitymatrix[i,2,j] = 0
-                self._densitymatrix[1,3,j] *= err_param
+                self._densitymatrix[i,3,j] *= err_param
                 p_3 += self._densitymatrix[i,3,j]
         
         probability_of_zero = 0.5 * (1 + p_3)
@@ -547,7 +547,7 @@ class DmSimulatorPy(BaseBackend):
                 
                 self._densitymatrix[i,1,j] = temp*n[0] 
                 self._densitymatrix[i,2,j] = temp*n[1]
-                self._densitymatrix[1,3,j] = temp*n[2]
+                self._densitymatrix[i,3,j] = temp*n[2]
 
                 p_n +=  temp
 
@@ -746,17 +746,12 @@ class DmSimulatorPy(BaseBackend):
 
         for i in range(1, 4**self._number_of_qubits):
             densitymatrix += vec[i]*den[i]
-        #np.savetxt("a2.txt", np.asarray(np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
-        # Expand float numbers
-        # Truncate small values
-        #f = open('a.txt','wb')
+        
         vec[abs(vec) < self._chop_threshold] = 0.0
-        #for i in np.round(densitymatrix,4):
-        #    f.write(i)
-        #    f.write('\n')
-        #f.close()
+        
         np.savetxt("a.txt", np.asarray(
             np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
+        
         return vec, np.round(densitymatrix,4)
 
     def _validate_measure_sampling(self, experiment):
@@ -927,7 +922,7 @@ class DmSimulatorPy(BaseBackend):
         self._classical_memory = 0
         self._classical_register = 0
         
-        #print('Initial: ', experiment.instructions)
+        print('Initial: ', experiment.instructions)
         #print('Initial: ')
         #for operation in experiment.instructions:
         #    print(operation.name, operation.qubits)
@@ -935,29 +930,20 @@ class DmSimulatorPy(BaseBackend):
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
         print('Merged: ', experiment.instructions)
-        print('Merged: ')
-        for operation in experiment.instructions:
-            print(operation.name, operation.qubits,
-                  getattr(operation, 'params', None))
             
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
         
-        #print('Partitioned: ', partitioned_instructions)
-        #print('Partitioned: ')
-        #for operation in partitioned_instructions:
-        #    print(operation)
+        print('Partitioned: ', partitioned_instructions)
 
         end_processing = time.time()
         start_runtime = time.time()
-        
-        #self._add_ensemble_measure(1.0)
+
         for clock in range(levels):
 
             #print('Level: ', clock, partitioned_instructions[clock])
             for operation in partitioned_instructions[clock]:
 
-                #a, b = self._get_densitymatrix()
                 #print(operation.name, operation.qubits)
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
@@ -997,12 +983,29 @@ class DmSimulatorPy(BaseBackend):
                 # Check if measure
                 #TODO FIX MEASURE
                 elif operation.name == 'measure':
+                    params = getattr(operation, 'params', None)
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
+                    params[0] = str(params[0])
+
                     cregbit = operation.register[0] if hasattr(operation, 'register') else None
                     len_pi = len(partitioned_instructions[clock])
                     if len_pi == 1:
-                        self._add_qasm_measure_Z(qubit, self._probability_of_zero)
+                        if params[0] == 'X':
+                            print('X')
+                            self._add_qasm_measure_X(
+                                qubit, 1)
+                        elif params[0] == 'Y':
+                            print('Y')
+                            self._add_qasm_measure_Y(
+                                qubit, 1)
+                        elif params[0] == 'N':
+                            print('N')
+                            self._add_qasm_measure_N(qubit, params[1], 1)
+                        elif params[0] == 'Bell':
+                            self._add_bell_basis_measure(int(params[1][0], int(params[1][1])))
+                        else:
+                            self._add_qasm_measure_Z(qubit, 1)
                     elif len_pi > 1 and len_pi < self._number_of_qubits:
                         mes_list = [x.qubits[0] for x in partitioned_instructions[clock]] 
                         self._add_partial_measure(mes_list, 1)
