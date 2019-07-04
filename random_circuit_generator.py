@@ -1,19 +1,20 @@
 import numpy as np 
 import random
 from random import randint
-
+print('import numpy as np')
+print('import filecmp')
 print('from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister')
 print('from qiskit import BasicAer, execute')
 print("backend1 = BasicAer.get_backend('dm_simulator')") 
 print("backend2 = BasicAer.get_backend('qasm_simulator')")
 print('options = {}')
-print('q = QuantumRegister(4)')
-print('c = ClassicalRegister(4)')
+print('q = QuantumRegister(6)')
+print('c = ClassicalRegister(6)')
 print('qc = QuantumCircuit(q, c)')
 
-noq = 4
+noq = 6
 l = ['u1','u2','u3','cx','ccx']
-for i in range(random.randint(20,1000)):
+for i in range(random.randint(20,500)):
     x = random.randint(0,4)
     if x == 0:
         print('qc.{}({},q[{}])'.format((l[x]), round(random.uniform(0, 2*np.pi),5), 
@@ -38,7 +39,17 @@ print('result = job.result()')
 print('print(result)')  
 print('job = execute(circuits, backend2, **options)')
 print('result = job.result()')
-print('print(result)')      
+print('print(result)')
+print("a = np.loadtxt('a.txt',dtype=complex)")
+print("b = np.loadtxt('a1.txt',dtype=complex)")
+print('p = a.real')
+print('q = a.imag')
+print('c = b.real')
+print('d = b.imag')
+print("if(np.allclose(p,c) and np.allclose(q,d)):")
+print("    print('Your result is right.')")
+print('else:')
+print("    print('Your result is wrong') ")       
 
 
 

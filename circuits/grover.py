@@ -1,13 +1,14 @@
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit import BasicAer, execute
-backend = BasicAer.get_backend('dm_simulator')
+backend1 = BasicAer.get_backend('dm_simulator') 
+backend2 = BasicAer.get_backend('qasm_simulator')
 options = {}
 
-q = QuantumRegister(3, 'q')
-c = ClassicalRegister(2, 'c')
+q = QuantumRegister(3)
+c = ClassicalRegister(3)
+# quantum circuit to make an entangled bell state
 circ = QuantumCircuit(q, c)
-
 circ.x(q[0])
 circ.h(q[1])
 circ.h(q[2])
@@ -39,12 +40,15 @@ circ.x(q[1])
 circ.x(q[2])
 circ.h(q[1])
 circ.h(q[2])
-circ.measure(q[1], c[0])
-circ.measure(q[2], c[1])
+#circ.measure(q[1], c[0])
+#circ.measure(q[2], c[1])
 
 
-circ.draw(output='mpl', line_length=120, scale=0.5)
+#circ.draw(output='mpl', line_length=120, scale=0.5)
 circuits = [circ]
-job = execute(circuits, backend, **options)
+job = execute(circuits, backend1, **options)
+result = job.result()
+print(result)
+job = execute(circuits, backend2, **options)
 result = job.result()
 print(result)
