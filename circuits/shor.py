@@ -1,7 +1,8 @@
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit import BasicAer, execute
-backend = BasicAer.get_backend('dm_simulator')
+backend1 = BasicAer.get_backend('dm_simulator')
+backend2 = BasicAer.get_backend('qasm_simulator')
 options = {}
 
 # generate angle for controlled phase gate R(k)
@@ -28,8 +29,10 @@ circ.measure(q[0],c[0])
 circ.measure(q[1],c[1])
 circ.measure(q[2],c[2])
 
-circ.draw(output='mpl', line_length=120, scale=0.5)
 circuits = [circ]
-job = execute(circuits, backend, **options)
+job = execute(circuits, backend1, **options)
+result = job.result()
+print(result)
+job = execute(circuits, backend2, **options)
 result = job.result()
 print(result)
