@@ -39,10 +39,7 @@ for wire in range (num_of_qubits-1):
         circ.cu1(generator(wire+2-rotation), q[wire+1], q[rotation])
 circ.h(q[num_of_qubits-1])
 
-<<<<<<< HEAD
 #circ.draw(output='mpl', line_length=120, scale=0.5)
-=======
->>>>>>> 126f765357de3e4aeab7d706e152eebccb68d4b1
 circuits = [circ]
 job = execute(circuits, backend1, **options)
 result = job.result()

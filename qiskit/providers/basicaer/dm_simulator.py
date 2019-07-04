@@ -986,8 +986,10 @@ class DmSimulatorPy(BaseBackend):
                     params = getattr(operation, 'params', None)
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
-                    params[0] = str(params[0])
-
+                    if params is not None:
+                        params[0] = str(params[0])
+                    else:
+                        params = ['Z']
                     cregbit = operation.register[0] if hasattr(operation, 'register') else None
                     len_pi = len(partitioned_instructions[clock])
                     if len_pi == 1:
