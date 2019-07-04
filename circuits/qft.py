@@ -1,7 +1,8 @@
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit import BasicAer, execute
-backend = BasicAer.get_backend('dm_simulator')
+backend1 = BasicAer.get_backend('dm_simulator')
+backend2 = BasicAer.get_backend('qasm_simulator')
 options = {}
 
 def generator(k):
@@ -12,7 +13,7 @@ num_of_qubits = 5
 q = QuantumRegister(num_of_qubits, 'q')
 circ = QuantumCircuit(q)
 
-'''circ.h(q[0])
+circ.h(q[0])
 circ.cu1(generator(2),q[1],q[0])
 
 circ.h(q[1])
@@ -30,7 +31,7 @@ circ.cu1(generator(4), q[4], q[1])
 circ.cu1(generator(3), q[4], q[2])
 circ.cu1(generator(2), q[4], q[3])
 
-circ.h(q[4])'''
+circ.h(q[4])
 
 for wire in range (num_of_qubits-1):
     circ.h(q[wire])
@@ -38,8 +39,11 @@ for wire in range (num_of_qubits-1):
         circ.cu1(generator(wire+2-rotation), q[wire+1], q[rotation])
 circ.h(q[num_of_qubits-1])
 
-circ.draw(output='mpl', line_length=120, scale=0.5)
+#circ.draw(output='mpl', line_length=120, scale=0.5)
 circuits = [circ]
-job = execute(circuits, backend, **options)
+job = execute(circuits, backend1, **options)
+result = job.result()
+print(result)
+job = execute(circuits, backend2, **options)
 result = job.result()
 print(result)

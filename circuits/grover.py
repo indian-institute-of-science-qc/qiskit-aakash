@@ -40,8 +40,8 @@ circ.x(q[1])
 circ.x(q[2])
 circ.h(q[1])
 circ.h(q[2])
-#circ.measure(q[1], c[0])
-#circ.measure(q[2], c[1])
+circ.measure(q[1], c[0])
+circ.measure(q[2], c[1])
 
 
 #circ.draw(output='mpl', line_length=120, scale=0.5)
