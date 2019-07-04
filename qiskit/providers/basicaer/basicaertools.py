@@ -654,7 +654,8 @@ def qubit_stack(i_set, num_qubits):
             for qubit in instruction.qubits:
                 instruction_set[qubit].append(instruction)
         elif is_measure(instruction):
-            if not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
+            #print(instruction_set, instruction.qubits[0], instruction_set[0])
+            if instruction_set[instruction.qubits[0]] and not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
                 instruction_set[instruction.qubits[0]].append(instruction)
                 dummy = deepcopy(instruction)
                 dummy.name = 'dummy_measure'
@@ -736,8 +737,11 @@ def partition(i_set, num_qubits):
                 else:
                     continue
             elif is_measure(gate):
+
                 all_dummy = True
                 for x in range(num_qubits):
+                    if not i_stack[x]:
+                        continue
                     # Intersection of both should be used
                     if not is_measure(i_stack[x][0]) and not is_measure_dummy(i_stack[x][0]):
                         all_dummy = False
@@ -753,6 +757,8 @@ def partition(i_set, num_qubits):
 
                     for x in range(num_qubits):
                         # Check if measure
+                        if not i_stack[x]:
+                            continue
                         if is_measure(i_stack[x][0]):
                             qubit_included.append(x)
                             sequence[level].append(i_stack[x][0])
@@ -763,6 +769,8 @@ def partition(i_set, num_qubits):
             elif is_reset(gate):
                 all_dummy = True
                 for x in range(num_qubits):
+                    if not i_stack[x]:
+                        continue
                     # Intersection of both should be used
                     if not is_reset(i_stack[x][0]) and not is_reset_dummy(i_stack[x][0]):
                         all_dummy = False
@@ -777,6 +785,8 @@ def partition(i_set, num_qubits):
                             sequence.append([])
 
                     for x in range(num_qubits):
+                        if not i_stack[x]:
+                            continue
                         # Check if measure
                         if is_reset(i_stack[x][0]):
                             qubit_included.append(x)
