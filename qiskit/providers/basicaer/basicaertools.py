@@ -445,7 +445,10 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits,vara = 0.0,varc = 1.0):
     #print(q_1, q_2)
     #q_1, q_2 = q_2, q_1
     # Calculating all cos and sines in advance
-
+    cos2vara = np.cos(2*vara)
+    cosvara = np.cos(vara)
+    sin2vara = np.sin(2*vara)
+    sinvara = np.sin(vara)
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')
