@@ -366,7 +366,7 @@ class DmSimulatorPy(BaseBackend):
         
         axis = list(range(self._number_of_qubits))
         for qubit in reversed(measured_qubits):
-            axis.remove(self._number_of_qubits - 1 - qubit)
+            axis.remove(qubit)
 
         # We get indices used for Probability Measurement via this.
         measure_ind = [x for x in itertools.product(
@@ -396,8 +396,8 @@ class DmSimulatorPy(BaseBackend):
 
         for i in range(2**num_measured):
             prob.update({prob_key[i]: probabilities[i]})
-        print(prob)
-        print(sum(prob.values()))
+        #print(prob)
+        #print(sum(prob.values()))
         pprint.pprint(max(prob, key=prob.get))
         return probabilities
 
@@ -459,11 +459,11 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
 
-        if probability_of_zero > probability_of_one:
-            return 0, probability_of_zero
-        else:
-            return 1, probability_of_one
-        #return probability_of_zero
+        #if probability_of_zero > probability_of_one:
+        #    return 0, probability_of_zero
+        #else:
+        #    return 1, probability_of_one
+        return probability_of_zero
     
     def _add_qasm_measure_X(self, qubit, err_param):
         """Apply a X basis measure instruction to a qubit. 
@@ -922,19 +922,19 @@ class DmSimulatorPy(BaseBackend):
         self._classical_memory = 0
         self._classical_register = 0
         
-        print('Initial: ', experiment.instructions)
+        #print('Initial: ', experiment.instructions)
         #print('Initial: ')
         #for operation in experiment.instructions:
         #    print(operation.name, operation.qubits)
         
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
-        print('Merged: ', experiment.instructions)
+        #print('Merged: ', experiment.instructions)
             
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
         
-        print('Partitioned: ', partitioned_instructions)
+        #print('Partitioned: ', partitioned_instructions)
 
         end_processing = time.time()
         start_runtime = time.time()
@@ -994,15 +994,15 @@ class DmSimulatorPy(BaseBackend):
                     len_pi = len(partitioned_instructions[clock])
                     if len_pi == 1:
                         if params[0] == 'X':
-                            print('X')
+                            #print('X')
                             self._add_qasm_measure_X(
                                 qubit, 1)
                         elif params[0] == 'Y':
-                            print('Y')
+                            #print('Y')
                             self._add_qasm_measure_Y(
                                 qubit, 1)
                         elif params[0] == 'N':
-                            print('N')
+                            #print('N')
                             self._add_qasm_measure_N(qubit, params[1], 1)
                         elif params[0] == 'Bell':
                             self._add_bell_basis_measure(int(params[1][0], int(params[1][1])))

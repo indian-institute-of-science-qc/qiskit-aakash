@@ -261,7 +261,7 @@ def U3_merge(theta, phi, lamb, tol):
         stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
         ctheta = [np.cos(xi)/np.sin(x) for x in stheta]
         cthet = [round(np.cos(xi)/np.sin(x), 10) for x in stheta]
-        print('Hi', cthet, ctheta)
+        #print('Hi', cthet, ctheta)
         phi_minus_lambda = list(map(lambda x:
                                     np.arccos(np.sin(theta1 + theta2) * x), cthet))
 
@@ -410,9 +410,9 @@ def single_gate_merge(inst, num_qubits):
         if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset'):
             for idx, sg in enumerate(single_gt):
                 if sg:
-                    print(idx, sg)
+                    #print(idx, sg)
                     a = merge_gates(sg)
-                    print(ind, a)
+                    #print(ind, a)
                     inst_merged.append(a)
                     single_gt[idx] = []
             inst_merged.append(opx[0])
