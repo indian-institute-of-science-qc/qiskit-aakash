@@ -161,7 +161,7 @@ class DmSimulatorPy(BaseBackend):
         #    self._densitymatrix, (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
         
         # After doing a ZY decomposition of unitary gate, we iteratively apply the rotation gates
-        #print(gate)
+        ##print(gate)
 
         self._densitymatrix = rt_gate_dm_matrix_1(gate = gate, 
                     err_param = self._error_params['single_gate'], 
@@ -169,12 +169,12 @@ class DmSimulatorPy(BaseBackend):
                     num_qubits = self._number_of_qubits)
         '''
         for idx in gate: # For Rotations in the Decomposed Gate list
-            #print(idx, self._densitymatrix)
+            ##print(idx, self._densitymatrix)
     
             self._densitymatrix = rt_gate_dm_matrix(
                 idx[0], idx[1], self._error_params['single_gate'], self._densitymatrix, qubit, self._number_of_qubits)
             
-            #print(self._densitymatrix, idx, self._error_params['single_gate'])
+            ##print(self._densitymatrix, idx, self._error_params['single_gate'])
         '''
 
         self._densitymatrix = np.reshape(self._densitymatrix,
@@ -216,14 +216,13 @@ class DmSimulatorPy(BaseBackend):
             lt, mt, rt = 4 ** qb, 4, 4 ** (self._number_of_qubits - qb - 1)
             self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt))
             temp = self._densitymatrix.copy()  # qc.measure(q[0], c[0])
-            for j in range(rt):
-                for i in range(lt):
-                    self._densitymatrix[i, 1, j] = off_diag_contract * \
-                                                    temp[i, 1, j]
-                    self._densitymatrix[i, 2, j] = off_diag_contract * \
-                                                    temp[i, 2, j]
-                    self._densitymatrix[i, 3, j] =  g * temp[i, 3, j] + \
-                                                    diag_decay * temp[i, 0, j]
+       
+            self._densitymatrix[:, 1, :] = off_diag_contract * \
+                                            temp[:, 1, :]
+            self._densitymatrix[:, 2, :] = off_diag_contract * \
+                                            temp[:, 2, :]
+            self._densitymatrix[:, 3, :] =  g * temp[:, 3, :] + \
+                                                    diag_decay * temp[:, 0, :]
         
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
@@ -307,11 +306,11 @@ class DmSimulatorPy(BaseBackend):
 
         probabilities = np.reshape((1/2**self._number_of_qubits) * np.array([np.sum(
             np.multiply(operator_ind, x)) for x in operator_mes]),  self._number_of_qubits * [2])
-        #print('Probability Before: ', probabilities)
+        ##print('Probability Before: ', probabilities)
 
         probabilities = np.reshape(
             np.sum(probabilities, axis=tuple(axis)), 2)
-        #print('Probability After: ', probabilities)
+        ##print('Probability After: ', probabilities)
 
         # Compute einsum index string for 1-qubit matrix multiplication
         random_number = self._local_random.rand()
@@ -347,9 +346,9 @@ class DmSimulatorPy(BaseBackend):
         
         for i in range(2**self._number_of_qubits):
             prob.update({prob_key[i]: probabilities[i]})
-        #print(prob) 
-        #print(sum(prob.values()))
-        #pprint.pprint(max(prob, key=prob.get))
+        ##print(prob) 
+        ##print(sum(prob.values()))
+        #pprint.p#print(max(prob, key=prob.get))
         return probabilities
 
     def _add_partial_measure(self, qubits, err_param):
@@ -372,7 +371,7 @@ class DmSimulatorPy(BaseBackend):
         measure_ind = [x for x in itertools.product(
             [0, 3], repeat=self._number_of_qubits)]
         # We get coefficient values stored at those indices via this.
-        #print(self._densitymatrix.shape)
+        ##print(self._densitymatrix.shape)
         operator_ind = [self._densitymatrix[x] for x in measure_ind]
         # We get permutations of signs for summing those coefficient values.
         operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
@@ -398,7 +397,11 @@ class DmSimulatorPy(BaseBackend):
             prob.update({prob_key[i]: probabilities[i]})
         #print(prob)
         #print(sum(prob.values()))
+<<<<<<< HEAD
         pprint.pprint(max(prob, key=prob.get))
+=======
+        pprint.p#print(max(prob, key=prob.get))
+>>>>>>> 8f9e9d83109a1c8495c7e133e04d7e02e83a0364
         return probabilities
 
     def _add_bell_basis_measure(self, qubit_1, qubit_2):
@@ -479,11 +482,11 @@ class DmSimulatorPy(BaseBackend):
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
         p_1 = 0.0
+        self._densitymatrix[:,2,:] = 0
+        self._densitymatrix[:,3,:] = 0
+        self._densitymatrix[:,1,:] *= err_param
         for j in range(4**(self._number_of_qubits-qubit-1)):
             for i in range(4**(qubit)):
-                self._densitymatrix[i,2,j] = 0
-                self._densitymatrix[i,3,j] = 0
-                self._densitymatrix[i,1,j] *= err_param
                 p_1 += self._densitymatrix[i,1,j]
         
         self._densitymatrix = np.reshape(self._densitymatrix,
@@ -609,7 +612,7 @@ class DmSimulatorPy(BaseBackend):
             return
         # Check densitymatrix is correct length for number of qubits
         length = np.size(self._initial_densitymatrix)
-        #print(length, self._number_of_qubits)
+        ##print(length, self._number_of_qubits)
         required_dim = 4 ** self._number_of_qubits
         #if length != required_dim:    #TODO
             #raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.format(length, required_dim))
@@ -638,7 +641,7 @@ class DmSimulatorPy(BaseBackend):
                                                  dtype=float)
 
         #TODO Create coefficient matrix for a custom density matrix
-        #print(backend_options)
+        ##print(backend_options)
         if 'custom_densitymatrix' in backend_options:
             self._custom_densitymatrix = backend_options['custom_densitymatrix']
             if self._custom_densitymatrix == 'binary_string':
@@ -695,8 +698,8 @@ class DmSimulatorPy(BaseBackend):
                 self._densitymatrix = np.kron([1,0,0,tf],
                                                     self._densitymatrix)
         elif self._initial_densitymatrix is not None and self._custom_densitymatrix == 'binary_string':
-            #print(self._initial_densitymatrix)
-            #print(self._custom_densitymatrix)
+            ##print(self._initial_densitymatrix)
+            ##print(self._custom_densitymatrix)
             if len(self._initial_densitymatrix) != self._number_of_qubits:
                 raise BasicAerError('Wrong input binary string length')
             if self._initial_densitymatrix[-1] == '0':
@@ -923,9 +926,13 @@ class DmSimulatorPy(BaseBackend):
         self._classical_register = 0
         
         #print('Initial: ', experiment.instructions)
+<<<<<<< HEAD
         #print('Initial: ')
+=======
+        ##print('Initial: ')
+>>>>>>> 8f9e9d83109a1c8495c7e133e04d7e02e83a0364
         #for operation in experiment.instructions:
-        #    print(operation.name, operation.qubits)
+        #    #print(operation.name, operation.qubits)
         
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
@@ -941,10 +948,10 @@ class DmSimulatorPy(BaseBackend):
 
         for clock in range(levels):
 
-            #print('Level: ', clock, partitioned_instructions[clock])
+            ##print('Level: ', clock, partitioned_instructions[clock])
             for operation in partitioned_instructions[clock]:
 
-                #print(operation.name, operation.qubits)
+                ##print(operation.name, operation.qubits)
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
                     conditional_bit_set = (self._classical_register >> conditional) & 1
@@ -1080,7 +1087,7 @@ class DmSimulatorPy(BaseBackend):
         # Optionally add final densitymatrix
         if self.SHOW_FINAL_STATE:
             data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
-            #print(data['densitymatrix'])
+            ##print(data['densitymatrix'])
             # Remove empty counts and memory for densitymatrix simulator
             if not data['counts']:
                 data.pop('counts')
