@@ -433,7 +433,7 @@ def single_gate_merge(inst, num_qubits):
     return inst_merged
 
 
-def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
+def cx_gate_dm_matrix(state, q_1, q_2, num_qubits,vara = 0.0,varc = 1.0):
     """Apply C-NOT gate in density matrix formalism.
 
         Args:
@@ -444,6 +444,11 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
     # Remark - ordering of qubits (MSB right, LSB left)
     #print(q_1, q_2)
     #q_1, q_2 = q_2, q_1
+    # Calculating all cos and sines in advance
+    cos2vara = np.cos(2*vara)
+    cosvara = np.cos(vara)
+    sin2vara = np.sin(2*vara)
+    sinvara = np.sin(vara)
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')
@@ -459,18 +464,46 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
             for j in range(ct):
                 for k in range(rt):
                     # print(i,j,k)
-                    state[i, 0, j, 2, k] = temp_dm[i, 3, j, 2, k]
-                    state[i, 0, j, 3, k] = temp_dm[i, 3, j, 3, k]
-                    state[i, 1, j, 0, k] = temp_dm[i, 1, j, 1, k]
-                    state[i, 1, j, 1, k] = temp_dm[i, 1, j, 0, k]
-                    state[i, 1, j, 2, k] = temp_dm[i, 2, j, 3, k]
-                    state[i, 1, j, 3, k] = -temp_dm[i, 2, j, 2, k]
-                    state[i, 2, j, 0, k] = temp_dm[i, 2, j, 1, k]
-                    state[i, 2, j, 1, k] = temp_dm[i, 2, j, 0, k]
-                    state[i, 2, j, 2, k] = -temp_dm[i, 1, j, 3, k]
-                    state[i, 2, j, 3, k] = temp_dm[i, 1, j, 2, k]
-                    state[i, 3, j, 2, k] = temp_dm[i, 0, j, 2, k]
-                    state[i, 3, j, 3, k] = temp_dm[i, 0, j, 3, k]
+                    state[i, 0, j, 0, k] = ((1 + varc**2)*temp_dm[i, 0, j, 0, k] - (-1 + varc**2)*temp_dm[i, 3, j, 0, k])/2.
+                    state[i, 0, j, 1, k] = ((1 + varc**2)*temp_dm[i, 0, j, 1, k] - (-1 + varc**2)*temp_dm[i, 3, j, 1, k])/2.
+                    state[i, 0, j, 2, k] = (temp_dm[i, 0, j, 2, k] + temp_dm[i, 3, j, 2, k] +
+                                            varc**2*cos2vara*(-temp_dm[i, 0, j, 2, k] + temp_dm[i, 3, j, 2, k]) +
+                                            varc**2*sin2vara*(-temp_dm[i, 0, j, 3, k] + temp_dm[i, 3, j, 3, k]))/2.
+                    state[i, 0, j, 3, k] = (temp_dm[i, 0, j, 3, k] + temp_dm[i, 3, j, 3, k] +
+                                            varc**2*(sin2vara*(temp_dm[i, 0, j, 2, k] - temp_dm[i, 3, j, 2, k]) +
+                                                     cos2vara*(-temp_dm[i, 0, j, 3, k] + temp_dm[i, 3, j, 3, k])))/2.
+                    state[i, 1, j, 0, k] = varc * \
+                        (cosvara*temp_dm[i, 1, j, 1, k] -
+                         sinvara*temp_dm[i, 2, j, 0, k])
+                    state[i, 1, j, 1, k] = varc * \
+                        (cosvara*temp_dm[i, 1, j, 0, k] -
+                         sinvara*temp_dm[i, 2, j, 1, k])
+                    state[i, 1, j, 2, k] = -(varc*sinvara*temp_dm[i, 2, j, 2, k]) + \
+                        varc*cosvara*temp_dm[i, 2, j, 3, k]
+                    state[i, 1, j, 3, k] = -(varc*(cosvara*temp_dm[i, 2, j, 2, k] +
+                                                   sinvara*temp_dm[i, 2, j, 3, k]))
+                    state[i, 2, j, 0, k] = varc * \
+                        (sinvara*temp_dm[i, 1, j, 0, k] +
+                         cosvara*temp_dm[i, 2, j, 1, k])
+                    state[i, 2, j, 1, k] = varc * \
+                        (sinvara*temp_dm[i, 1, j, 1, k] +
+                         cosvara*temp_dm[i, 2, j, 0, k])
+                    state[i, 2, j, 2, k] = varc * \
+                        (sinvara*temp_dm[i, 1, j, 2, k] -
+                         cosvara*temp_dm[i, 1, j, 3, k])
+                    state[i, 2, j, 3, k] = varc * \
+                        (cosvara*temp_dm[i, 1, j, 2, k] +
+                         sinvara*temp_dm[i, 1, j, 3, k])    
+                    state[i, 3, j, 0, k] = (-((-1 + varc**2)*temp_dm[i, 0, j, 0, k]) + (1 +
+                                                                                       varc**2)*temp_dm[i, 3, j, 0, k])/2.
+                    state[i, 3, j, 1, k] = (-((-1 + varc**2)*temp_dm[i, 0, j, 1, k]) + (1 +
+                                                                                       varc**2)*temp_dm[i, 3, j, 1, k])/2.
+                    state[i, 3, j, 2, k] = (temp_dm[i, 0, j, 2, k] + varc**2*cos2vara*(temp_dm[i, 0, j, 2, k] -
+                                                                                            temp_dm[i, 3, j, 2, k]) + temp_dm[i, 3, j, 2, k] +
+                                            varc**2*sin2vara*(temp_dm[i, 0, j, 3, k] - temp_dm[i, 3, j, 3, k]))/2.
+                    state[i, 3, j, 3, k] = (temp_dm[i, 0, j, 3, k] + varc**2*(sin2vara*(-temp_dm[i, 0, j, 2, k] +
+                                                                                             temp_dm[i, 3, j, 2, k]) + cos2vara*(temp_dm[i, 0, j, 3, k] -
+                                                                                                                                      temp_dm[i, 3, j, 3, k])) + temp_dm[i, 3, j, 3, k])/2.
     else:
         # Reshape Density Matrix
         rt, mt2, ct, mt1, lt = 4**(num_qubits-q_1 -
@@ -483,18 +516,47 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits):
         for i in range(lt):
             for j in range(ct):
                 for k in range(rt):
-                    state[i, 2, j, 0, k] =  temp_dm[i, 2, j, 3, k]
-                    state[i, 3, j, 0, k] =  temp_dm[i, 3, j, 3, k]
-                    state[i, 0, j, 1, k] =  temp_dm[i, 1, j, 1, k]
-                    state[i, 1, j, 1, k] =  temp_dm[i, 0, j, 1, k]
-                    state[i, 2, j, 1, k] =  temp_dm[i, 3, j, 2, k]
-                    state[i, 3, j, 1, k] = -temp_dm[i, 2, j, 2, k]
-                    state[i, 0, j, 2, k] =  temp_dm[i, 1, j, 2, k]
-                    state[i, 1, j, 2, k] =  temp_dm[i, 0, j, 2, k]
-                    state[i, 2, j, 2, k] = -temp_dm[i, 3, j, 1, k]
-                    state[i, 3, j, 2, k] =  temp_dm[i, 2, j, 1, k]
-                    state[i, 2, j, 3, k] =  temp_dm[i, 2, j, 0, k]
-                    state[i, 3, j, 3, k] =  temp_dm[i, 3, j, 0, k]
+                    state[i, 0, j, 0, k] = ((1 + varc**2)*temp_dm[i, 0, j, 0, k] - (-1 +
+                                                                                   varc**2)*temp_dm[i, 0, j, 3, k])/2.
+                    state[i, 1, j, 0, k] = ((1 + varc**2)*temp_dm[i, 1, j, 0, k] - (-1 +
+                                                                                   varc**2)*temp_dm[i, 1, j, 3, k])/2.
+                    state[i, 2, j, 0, k] = (temp_dm[i, 2, j, 0, k] + temp_dm[i, 2, j, 3, k] +
+                                            varc**2*cos2vara*(-temp_dm[i, 2, j, 0, k] + temp_dm[i, 2, j, 3, k]) +
+                                            varc**2*sin2vara*(-temp_dm[i, 3, j, 0, k] + temp_dm[i, 3, j, 3, k]))/2.
+                    state[i, 3, j, 0, k] = (temp_dm[i, 3, j, 0, k] + temp_dm[i, 3, j, 3, k] +
+                                            varc**2*(sin2vara*(temp_dm[i, 2, j, 0, k] - temp_dm[i, 2, j, 3, k]) +
+                                                     cos2vara*(-temp_dm[i, 3, j, 0, k] + temp_dm[i, 3, j, 3, k])))/2.
+                    state[i, 0, j, 1, k] = varc*(-(sinvara*temp_dm[i, 0, j, 2, k]) +
+                                                 cosvara*temp_dm[i, 1, j, 1, k])
+                    state[i, 1, j, 1, k] = varc * \
+                        (cosvara*temp_dm[i, 0, j, 1, k] -
+                         sinvara*temp_dm[i, 1, j, 2, k])
+                    state[i, 2, j, 1, k] = -(varc*sinvara*temp_dm[i, 2, j, 2, k]) + \
+                        varc*cosvara*temp_dm[i, 3, j, 2, k]
+                    state[i, 3, j, 1, k] = -(varc*(cosvara*temp_dm[i, 2, j, 2, k] +
+                                                   sinvara*temp_dm[i, 3, j, 2, k]))
+                    state[i, 0, j, 2, k] = varc * \
+                        (sinvara*temp_dm[i, 0, j, 1, k] +
+                         cosvara*temp_dm[i, 1, j, 2, k])
+                    state[i, 1, j, 2, k] = varc * \
+                        (cosvara*temp_dm[i, 0, j, 2, k] +
+                         sinvara*temp_dm[i, 1, j, 1, k])
+                    state[i, 2, j, 2, k] = varc * \
+                        (sinvara*temp_dm[i, 2, j, 1, k] -
+                         cosvara*temp_dm[i, 3, j, 1, k])
+                    state[i, 3, j, 2, k] = varc * \
+                        (cosvara*temp_dm[i, 2, j, 1, k] +
+                         sinvara*temp_dm[i, 3, j, 1, k])
+                    state[i, 0, j, 3, k] = (-((-1 + varc**2)*temp_dm[i, 0, j, 0, k]) + (1 +
+                                                                                       varc**2)*temp_dm[i, 0, j, 3, k])/2.
+                    state[i, 1, j, 3, k] = (-((-1 + varc**2)*temp_dm[i, 1, j, 0, k]) + (1 +
+                                                                                       varc**2)*temp_dm[i, 1, j, 3, k])/2.
+                    state[i, 2, j, 3, k] = (temp_dm[i, 2, j, 0, k] + varc**2*cos2vara*(temp_dm[i, 2, j, 0, k] -
+                                                                                            temp_dm[i, 2, j, 3, k]) + temp_dm[i, 2, j, 3, k] +
+                                            varc**2*sin2vara*(temp_dm[i, 3, j, 0, k] - temp_dm[i, 3, j, 3, k]))/2.
+                    state[i, 3, j, 3, k] = (temp_dm[i, 3, j, 0, k] + varc**2*(sin2vara*(-temp_dm[i, 2, j, 0, k] +
+                                                                                             temp_dm[i, 2, j, 3, k]) + cos2vara*(temp_dm[i, 3, j, 0, k] -
+                                                                                                                                      temp_dm[i, 3, j, 3, k])) + temp_dm[i, 3, j, 3, k])/2.
         # print(state)
     return state
 
