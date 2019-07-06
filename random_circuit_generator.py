@@ -8,11 +8,11 @@ print('from qiskit import BasicAer, execute')
 print("backend1 = BasicAer.get_backend('dm_simulator')") 
 print("backend2 = BasicAer.get_backend('qasm_simulator')")
 print('options = {}')
-print('q = QuantumRegister(8)')
-print('c = ClassicalRegister(8)')
+print('q = QuantumRegister(5)')
+print('c = ClassicalRegister(5)')
 print('qc = QuantumCircuit(q, c)')
 
-noq = 8
+noq = 5
 l = ['u1','u2','u3','cx','ccx']
 for i in range(random.randint(20,500)):
     x = random.randint(0,4)
