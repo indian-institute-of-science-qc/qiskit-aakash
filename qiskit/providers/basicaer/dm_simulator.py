@@ -145,6 +145,7 @@ class DmSimulatorPy(BaseBackend):
         self._qobj_config = None
         # TEMP
         self._sample_measure = False
+        self._get_den_mat = True
 
     def _add_unitary_single(self, gate, qubit):
         """Apply an arbitrary 1-qubit unitary matrix.
@@ -607,6 +608,9 @@ class DmSimulatorPy(BaseBackend):
         if 'depolarization_factor' in backend_options:
             self._depolarization_factor = backend_options['depolarization_factor']
 
+        if 'compute_densitymatrix' in backend_options:
+            self._get_den_mat = backend_options['compute_densitymatrix']
+
         if 'chop_threshold' in backend_options:
             self._chop_threshold = backend_options['chop_threshold']
         elif hasattr(qobj_config, 'chop_threshold'):
@@ -654,8 +658,6 @@ class DmSimulatorPy(BaseBackend):
                 self._densitymatrix = np.kron([1,0,0,tf],
                                                     self._densitymatrix)
         elif self._initial_densitymatrix is not None and self._custom_densitymatrix == 'binary_string':
-            ##print(self._initial_densitymatrix)
-            ##print(self._custom_densitymatrix)
             if len(self._initial_densitymatrix) != self._number_of_qubits:
                 raise BasicAerError('Wrong input binary string length')
             if self._initial_densitymatrix[-1] == '0':
@@ -680,20 +682,17 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = np.reshape(self._densitymatrix,
                                        self._number_of_qubits * [4])
 
+    def _compute_densitymatrix(self, vec):
 
-    def _get_densitymatrix(self):
-        """Return the current densitymatrix in JSON Result spec format"""
-        # Coefficients
-        vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
-        
-        p_0 = np.array([[1, 0], [0, 1]], dtype = complex)
-        p_1 = np.array([[0, 1], [1, 0]], dtype = complex)
-        p_2 = np.array([[0, -1j], [1j, 0]], dtype = complex)
-        p_3 = np.array([[1, 0], [0, -1]], dtype = complex)
+        p_0 = np.array([[1, 0], [0, 1]], dtype=complex)
+        p_1 = np.array([[0, 1], [1, 0]], dtype=complex)
+        p_2 = np.array([[0, -1j], [1j, 0]], dtype=complex)
+        p_3 = np.array([[1, 0], [0, -1]], dtype=complex)
         pauli_basis = [p_0, p_1, p_2, p_3]
-        den_creat = [x for x in itertools.product([0,1,2,3], repeat=self._number_of_qubits)]
+        den_creat = [x for x in itertools.product(
+            [0, 1, 2, 3], repeat=self._number_of_qubits)]
         den = []
-        
+
         for creat in den_creat:
             op = pauli_basis[creat[0]]
             for idx in range(1, len(creat)):
@@ -705,13 +704,24 @@ class DmSimulatorPy(BaseBackend):
 
         for i in range(1, 4**self._number_of_qubits):
             densitymatrix += vec[i]*den[i]
-        
-        vec[abs(vec) < self._chop_threshold] = 0.0
-        
+
         np.savetxt("a.txt", np.asarray(
             np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
         
-        return vec, np.round(densitymatrix,4)
+        return densitymatrix
+
+    def _get_densitymatrix(self):
+        """Return the current densitymatrix in JSON Result spec format"""
+        # Coefficients
+        vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+        vec[abs(vec) < self._chop_threshold] = 0.0
+        
+        if self._get_den_mat:
+            densitymatrix = self._compute_densitymatrix(vec)
+            return vec, densitymatrix
+        else:
+            densitymatrix = None
+            return vec
 
     def _validate_measure_sampling(self, experiment):
         """Determine if measure sampling is allowed for an experiment
@@ -944,7 +954,7 @@ class DmSimulatorPy(BaseBackend):
                     len_pi = len(partitioned_instructions[clock])
 
                     for mt in range(partitioned_instructions[clock]):
-                        para = getattr(operation, 'params', None)
+                        para = getattr(mt, 'params', None)
                         if para != params[0]:
                             ensm_measure = False                            
                             part_measure = False
@@ -1064,7 +1074,10 @@ class DmSimulatorPy(BaseBackend):
             data['memory'] = memory
         # Optionally add final densitymatrix
         if self.SHOW_FINAL_STATE:
-            data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
+            if self._get_den_mat:
+                data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
+            else:
+                data['coeffmatrix'] = self._get_densitymatrix()
             ##print(data['densitymatrix'])
             # Remove empty counts and memory for densitymatrix simulator
             if not data['counts']:
