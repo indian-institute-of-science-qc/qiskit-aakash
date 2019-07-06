@@ -28,7 +28,6 @@ for i in range(random.randint(20,500)):
     elif x == 3:
         p, q = random.sample(range(noq),2)
         print('qc.{}(q[{}],q[{}])'.format(l[x], p, q))
-        
     elif x == 4:
         a, b, c = random.sample(range(noq),3)
         print('qc.{}(q[{}],q[{}],q[{}])'.format(l[x], a, b, c))
