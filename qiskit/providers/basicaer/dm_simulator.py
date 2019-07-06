@@ -161,21 +161,15 @@ class DmSimulatorPy(BaseBackend):
         #    self._densitymatrix, (4**qubit, 4, 4**(self._number_of_qubits-qubit-1)))
         
         # After doing a ZY decomposition of unitary gate, we iteratively apply the rotation gates
-        ##print(gate)
 
-        self._densitymatrix = rt_gate_dm_matrix_1(gate = gate, 
-                    err_param = self._error_params['single_gate'], 
-                    state = self._densitymatrix, q = (lt, mt, rt), 
-                    num_qubits = self._number_of_qubits)
-        '''
+        #self._densitymatrix = rt_gate_dm_matrix_1(gate = gate, 
+        #            err_param = self._error_params['single_gate'], 
+        #            state = self._densitymatrix, q = (lt, mt, rt), 
+        #            num_qubits = self._number_of_qubits)
+
         for idx in gate: # For Rotations in the Decomposed Gate list
-            ##print(idx, self._densitymatrix)
-    
             self._densitymatrix = rt_gate_dm_matrix(
                 idx[0], idx[1], self._error_params['single_gate'], self._densitymatrix, qubit, self._number_of_qubits)
-            
-            ##print(self._densitymatrix, idx, self._error_params['single_gate'])
-        '''
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                     self._number_of_qubits * [4])
