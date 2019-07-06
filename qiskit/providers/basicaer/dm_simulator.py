@@ -391,7 +391,7 @@ class DmSimulatorPy(BaseBackend):
             prob.update({prob_key[i]: probabilities[i]})
         #print(prob)
         #print(sum(prob.values()))
-        pprint.p#print(max(prob, key=prob.get))
+        # pprint.p#print(max(prob, key=prob.get))
         return probabilities
 
     def _add_bell_basis_measure(self, qubit_1, qubit_2):
@@ -439,12 +439,11 @@ class DmSimulatorPy(BaseBackend):
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
         p_3 = 0.0
-        for j in range(4**(self._number_of_qubits-qubit-1)):
-            for i in range(4**(qubit)):
-                self._densitymatrix[i,1,j] = 0
-                self._densitymatrix[i,2,j] = 0
-                self._densitymatrix[i,3,j] *= err_param
-                p_3 += self._densitymatrix[i,3,j]
+   
+        self._densitymatrix[:,1,:] = 0
+        self._densitymatrix[:,2,:] = 0
+        self._densitymatrix[:,3,:] *= err_param
+        p_3 = self._densitymatrix[:,3,:].sum()
         
         probability_of_zero = 0.5 * (1 + p_3)
         probability_of_one = 1 - probability_of_zero
@@ -472,13 +471,12 @@ class DmSimulatorPy(BaseBackend):
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
         p_1 = 0.0
+
         self._densitymatrix[:,2,:] = 0
         self._densitymatrix[:,3,:] = 0
         self._densitymatrix[:,1,:] *= err_param
-        for j in range(4**(self._number_of_qubits-qubit-1)):
-            for i in range(4**(qubit)):
-                p_1 += self._densitymatrix[i,1,j]
-        
+        p_1 = self._densitymatrix[:, 1, :].sum()
+               
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
 
@@ -500,12 +498,11 @@ class DmSimulatorPy(BaseBackend):
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
         p_2 = 0.0
-        for j in range(4**(self._number_of_qubits-qubit-1)):
-            for i in range(4**(qubit)):
-                self._densitymatrix[i,1,j] = 0
-                self._densitymatrix[i,3,j] = 0
-                self._densitymatrix[i,2,j] *= err_param
-                p_2 += self._densitymatrix[i,2,j]
+
+        self._densitymatrix[:,1,:] = 0
+        self._densitymatrix[:,3,:] = 0
+        self._densitymatrix[:,2,:] *= err_param
+        p_2 = self._densitymatrix[:,2,:].sum()
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
@@ -531,18 +528,17 @@ class DmSimulatorPy(BaseBackend):
 
         p_n = 0.0
 
-        for j in range(4**(self._number_of_qubits-qubit-1)):
-            for i in range(4**(qubit)):
-                temp = n[0]*self._densitymatrix[i,1,j] + n[1]*self._densitymatrix[i,2,j] + \
-                       n[2]*self._densitymatrix[i,3,j]
-                
-                temp *= err_param
-                
-                self._densitymatrix[i,1,j] = temp*n[0] 
-                self._densitymatrix[i,2,j] = temp*n[1]
-                self._densitymatrix[i,3,j] = temp*n[2]
 
-                p_n +=  temp
+        temp = n[0]*self._densitymatrix[:,1,:] + n[1]*self._densitymatrix[:,2,:] + \
+                       n[2]*self._densitymatrix[:,3,:]
+        temp *= err_param
+                
+                
+        self._densitymatrix[:,1,:] = temp*n[0] 
+        self._densitymatrix[:,2,:] = temp*n[1]
+        self._densitymatrix[:,3,:] = temp*n[2]
+
+        p_n =  temp.sum()
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
