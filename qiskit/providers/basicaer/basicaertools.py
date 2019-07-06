@@ -429,7 +429,7 @@ def single_gate_merge(inst, num_qubits):
     return inst_merged
 
 
-def cx_gate_dm_matrix(state, q_1, q_2, num_qubits,vara = 0.0,varc = 1.0):
+def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """Apply C-NOT gate in density matrix formalism.
 
         Args:
@@ -443,10 +443,10 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits,vara = 0.0,varc = 1.0):
     #print(q_1, q_2)
     #q_1, q_2 = q_2, q_1
     # Calculating all cos and sines in advance
-    cos2vara = np.cos(2*vara)
-    cosvara = np.cos(vara)
-    sin2vara = np.sin(2*vara)
-    sinvara = np.sin(vara)
+    cos2vara = np.cos(2*err_param[1])
+    cosvara = np.cos(err_param[1])
+    sin2vara = np.sin(2*err_param[1])
+    sinvara = np.sin(err_param[1])
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')
@@ -458,39 +458,44 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits,vara = 0.0,varc = 1.0):
         temp_dm = state.copy()
 
 
-        state[:, 0, :, 0, :] = ((1 + varc**2)*temp_dm[:, 0, :, 0, :] - (-1 + varc**2)*temp_dm[:, 3, :, 0, :])/2.
-        state[:, 0, :, 1, :] = ((1 + varc**2)*temp_dm[:, 0, :, 1, :] - (-1 + varc**2)*temp_dm[:, 3, :, 1, :])/2.
-        state[:, 0, :, 2, :] = (temp_dm[:, 0, :, 2, :] + temp_dm[:, 3, :, 2, :] +
-                                            varc**2*cos2vara*(-temp_dm[:, 0, :, 2, :] + temp_dm[:, 3, :, 2, :]) +
-                                            varc**2*sin2vara*(-temp_dm[:, 0, :, 3, :] + temp_dm[:, 3, :, 3, :]))/2.
+        state[:, 0, :, 0, :] = ((1 + err_param[0]**2)*temp_dm[:, 0, :, 0, :] - \
+                        (-1 + err_param[0]**2)*temp_dm[:, 3, :, 0, :])/2.
+        state[:, 0, :, 1, :] = ((1 + err_param[0]**2)*temp_dm[:, 0, :, 1, :] - \
+                        (-1 + err_param[0]**2)*temp_dm[:, 3, :, 1, :])/2.
+        state[:, 0, :, 2, :] = (temp_dm[:, 0, :, 2, :] + temp_dm[:, 3, :, 2, :] + \
+                        (err_param[0]**2)*cos2vara*(-temp_dm[:, 0, :, 2, :] + temp_dm[:, 3, :, 2, :]) +
+                        (err_param[0]**2)*sin2vara*(-temp_dm[:, 0, :, 3, :] + temp_dm[:, 3, :, 3, :]))/2.
         state[:, 0, :, 3, :] = (temp_dm[:, 0, :, 3, :] + temp_dm[:, 3, :, 3, :] +
-                                            varc**2*(sin2vara*(temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :]) +
-                                                     cos2vara*(-temp_dm[:, 0, :, 3, :] + temp_dm[:, 3, :, 3, :])))/2.
-        state[:, 1, :, 0, :] = varc * \
+                        (err_param[0]**2)*(sin2vara*(temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :]) +
+                        cos2vara*(-temp_dm[:, 0, :, 3, :] + temp_dm[:, 3, :, 3, :])))/2.
+
+        state[:, 1, :, 0, :] = err_param[0] * \
                         (cosvara*temp_dm[:, 1, :, 1, :] - sinvara*temp_dm[:, 2, :, 0, :])
-        state[:, 1, :, 1, :] = varc * \
+        state[:, 1, :, 1, :] = err_param[0] * \
                         (cosvara*temp_dm[:, 1, :, 0, :] - sinvara*temp_dm[:, 2, :, 1, :])
-        state[:, 1, :, 2, :] = -(varc*sinvara*temp_dm[:, 2, :, 2, :]) + \
-                        varc*cosvara*temp_dm[:, 2, :, 3, :]
-        state[:, 1, :, 3, :] = -(varc * 
+        state[:, 1, :, 2, :] = -(err_param[0]*sinvara*temp_dm[:, 2, :, 2, :]) + \
+                        err_param[0]*cosvara*temp_dm[:, 2, :, 3, :]
+        state[:, 1, :, 3, :] = -(err_param[0] * 
                         (cosvara*temp_dm[:, 2, :, 2, :] + sinvara*temp_dm[:, 2, :, 3, :]))
-        state[:, 2, :, 0, :] = varc * \
+
+        state[:, 2, :, 0, :] = err_param[0] * \
                         (sinvara*temp_dm[:, 1, :, 0, :] + cosvara*temp_dm[:, 2, :, 1, :])
-        state[:, 2, :, 1, :] = varc * \
+        state[:, 2, :, 1, :] = err_param[0] * \
                         (sinvara*temp_dm[:, 1, :, 1, :] + cosvara*temp_dm[:, 2, :, 0, :])
-        state[:, 2, :, 2, :] = varc * \
+        state[:, 2, :, 2, :] = err_param[0] * \
                         (sinvara*temp_dm[:, 1, :, 2, :] - cosvara*temp_dm[:, 1, :, 3, :])
-        state[:, 2, :, 3, :] = varc * \
+        state[:, 2, :, 3, :] = err_param[0] * \
                         (cosvara*temp_dm[:, 1, :, 2, :] + sinvara*temp_dm[:, 1, :, 3, :])    
-        state[:, 3, :, 0, :] = (-((-1 + varc**2)*temp_dm[:, 0, :, 0, :]) + \
-                        (1 + varc**2)*temp_dm[:, 3, :, 0, :])/2.
-        state[:, 3, :, 1, :] = (-((-1 + varc**2)*temp_dm[:, 0, :, 1, :]) + \
-                        (1 + varc**2)*temp_dm[:, 3, :, 1, :])/2.
-        state[:, 3, :, 2, :] = (temp_dm[:, 0, :, 2, :] + varc**2*cos2vara*(temp_dm[:, 0, :, 2, :] -
+
+        state[:, 3, :, 0, :] = (-((-1 + err_param[0]**2)*temp_dm[:, 0, :, 0, :]) + \
+                        (1 + err_param[0]**2)*temp_dm[:, 3, :, 0, :])/2.
+        state[:, 3, :, 1, :] = (-((-1 + err_param[0]**2)*temp_dm[:, 0, :, 1, :]) + \
+                        (1 + err_param[0]**2)*temp_dm[:, 3, :, 1, :])/2.
+        state[:, 3, :, 2, :] = (temp_dm[:, 0, :, 2, :] + err_param[0]**2*cos2vara*(temp_dm[:, 0, :, 2, :] -
                         temp_dm[:, 3, :, 2, :]) + temp_dm[:, 3, :, 2, :] + 
-                        varc**2*sin2vara*(temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :]))/2.
-        state[:, 3, :, 3, :] = (temp_dm[:, 0, :, 3, :] + varc**2*(sin2vara*(-temp_dm[:, 0, :, 2, :] +
-                        temp_dm[:, 3, :, 2, :]) + cos2vara*(temp_dm[:, 0, :, 3, :] -                                                  temp_dm[:, 3, :, 3, :])) + temp_dm[:, 3, :, 3, :])/2.
+                        err_param[0]**2*sin2vara*(temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :]))/2.
+        state[:, 3, :, 3, :] = (temp_dm[:, 0, :, 3, :] + err_param[0]**2*(sin2vara*(-temp_dm[:, 0, :, 2, :] +
+                        temp_dm[:, 3, :, 2, :]) + cos2vara*(temp_dm[:, 0, :, 3, :] -                                        temp_dm[:, 3, :, 3, :])) + temp_dm[:, 3, :, 3, :])/2.
     else:
         # Reshape Density Matrix
         rt, mt2, ct, mt1, lt = 4**(num_qubits-q_1 -
@@ -501,48 +506,46 @@ def cx_gate_dm_matrix(state, q_1, q_2, num_qubits,vara = 0.0,varc = 1.0):
 
         # Update Density Matrix
 
-        state[:, 0, :, 0, :] = ((1 + varc**2)*temp_dm[:, 0, :, 0, :] - (-1 +
-                                                                                   varc**2)*temp_dm[:, 0, :, 3, :])/2.
-        state[:, 1, :, 0, :] = ((1 + varc**2)*temp_dm[:, 1, :, 0, :] - (-1 +
-                                                                                   varc**2)*temp_dm[:, 1, :, 3, :])/2.
-        state[:, 2, :, 0, :] = (temp_dm[:, 2, :, 0, :] + temp_dm[:, 2, :, 3, :] +
-                                            varc**2*cos2vara*(-temp_dm[:, 2, :, 0, :] + temp_dm[:, 2, :, 3, :]) +
-                                            varc**2*sin2vara*(-temp_dm[:, 3, :, 0, :] + temp_dm[:, 3, :, 3, :]))/2.
+        state[:, 0, :, 0, :] = ((1 + err_param[0]**2)*temp_dm[:, 0, :, 0, :] - \
+                        (-1 + err_param[0]**2)*temp_dm[:, 0, :, 3, :])/2.
+        state[:, 1, :, 0, :] = ((1 + err_param[0]**2)*temp_dm[:, 1, :, 0, :] - \
+                        (-1 + err_param[0]**2)*temp_dm[:, 1, :, 3, :])/2.
+        state[:, 2, :, 0, :] = (temp_dm[:, 2, :, 0, :] + temp_dm[:, 2, :, 3, :] + \
+                        (err_param[0]**2)*cos2vara*(-temp_dm[:, 2, :, 0, :] + temp_dm[:, 2, :, 3, :]) + \
+                        (err_param[0]**2)*sin2vara*(-temp_dm[:, 3, :, 0, :] + temp_dm[:, 3, :, 3, :]))/2.
         state[:, 3, :, 0, :] = (temp_dm[:, 3, :, 0, :] + temp_dm[:, 3, :, 3, :] +
-                                            varc**2*(sin2vara*(temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :]) +
-                                                     cos2vara*(-temp_dm[:, 3, :, 0, :] + temp_dm[:, 3, :, 3, :])))/2.
-        state[:, 0, :, 1, :] = varc*(-(sinvara*temp_dm[:, 0, :, 2, :]) +
+                        (err_param[0]**2)*(sin2vara*(temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :]) +
+                        cos2vara*(-temp_dm[:, 3, :, 0, :] + temp_dm[:, 3, :, 3, :])))/2.
+
+        state[:, 0, :, 1, :] = err_param[0]*(-(sinvara*temp_dm[:, 0, :, 2, :]) +
                                                  cosvara*temp_dm[:, 1, :, 1, :])
-        state[:, 1, :, 1, :] = varc * \
-                        (cosvara*temp_dm[:, 0, :, 1, :] -
-                         sinvara*temp_dm[:, 1, :, 2, :])
-        state[:, 2, :, 1, :] = -(varc*sinvara*temp_dm[:, 2, :, 2, :]) + \
-                        varc*cosvara*temp_dm[:, 3, :, 2, :]
-        state[:, 3, :, 1, :] = -(varc*(cosvara*temp_dm[:, 2, :, 2, :] +
-                                                   sinvara*temp_dm[:, 3, :, 2, :]))
-        state[:, 0, :, 2, :] = varc * \
-                        (sinvara*temp_dm[:, 0, :, 1, :] +
-                         cosvara*temp_dm[:, 1, :, 2, :])
-        state[:, 1, :, 2, :] = varc * \
-                        (cosvara*temp_dm[:, 0, :, 2, :] +
-                         sinvara*temp_dm[:, 1, :, 1, :])
-        state[:, 2, :, 2, :] = varc * \
-                        (sinvara*temp_dm[:, 2, :, 1, :] -
-                         cosvara*temp_dm[:, 3, :, 1, :])
-        state[:, 3, :, 2, :] = varc * \
-                        (cosvara*temp_dm[:, 2, :, 1, :] +
-                         sinvara*temp_dm[:, 3, :, 1, :])
-        state[:, 0, :, 3, :] = (-((-1 + varc**2)*temp_dm[:, 0, :, 0, :]) + (1 +
-                                                                                       varc**2)*temp_dm[:, 0, :, 3, :])/2.
-        state[:, 1, :, 3, :] = (-((-1 + varc**2)*temp_dm[:, 1, :, 0, :]) + (1 +
-                                                                                       varc**2)*temp_dm[:, 1, :, 3, :])/2.
-        state[:, 2, :, 3, :] = (temp_dm[:, 2, :, 0, :] + varc**2*cos2vara*(temp_dm[:, 2, :, 0, :] -
-                                                                                            temp_dm[:, 2, :, 3, :]) + temp_dm[:, 2, :, 3, :] +
-                                            varc**2*sin2vara*(temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :]))/2.
-        state[:, 3, :, 3, :] = (temp_dm[:, 3, :, 0, :] + varc**2*(sin2vara*(-temp_dm[:, 2, :, 0, :] +
-                                                                                             temp_dm[:, 2, :, 3, :]) + cos2vara*(temp_dm[:, 3, :, 0, :] -
-                                                                                                                                      temp_dm[:, 3, :, 3, :])) + temp_dm[:, 3, :, 3, :])/2.
-        # print(state)
+        state[:, 1, :, 1, :] = err_param[0] * \
+                        (cosvara*temp_dm[:, 0, :, 1, :] - sinvara*temp_dm[:, 1, :, 2, :])
+        state[:, 2, :, 1, :] = -(err_param[0]*sinvara*temp_dm[:, 2, :, 2, :]) + \
+                        err_param[0]*cosvara*temp_dm[:, 3, :, 2, :]
+        state[:, 3, :, 1, :] = -(err_param[0] * \
+                        (cosvara*temp_dm[:, 2, :, 2, :] + sinvara*temp_dm[:, 3, :, 2, :]))
+
+        state[:, 0, :, 2, :] = err_param[0] * \
+                        (sinvara*temp_dm[:, 0, :, 1, :] + cosvara*temp_dm[:, 1, :, 2, :])
+        state[:, 1, :, 2, :] = err_param[0] * \
+                        (cosvara*temp_dm[:, 0, :, 2, :] + sinvara*temp_dm[:, 1, :, 1, :])
+        state[:, 2, :, 2, :] = err_param[0] * \
+                        (sinvara*temp_dm[:, 2, :, 1, :] - cosvara*temp_dm[:, 3, :, 1, :])
+        state[:, 3, :, 2, :] = err_param[0] * \
+                        (cosvara*temp_dm[:, 2, :, 1, :] + sinvara*temp_dm[:, 3, :, 1, :])
+
+        state[:, 0, :, 3, :] = (-((-1 + err_param[0]**2)*temp_dm[:, 0, :, 0, :]) + 
+                        (1 + err_param[0]**2)*temp_dm[:, 0, :, 3, :])/2.
+        state[:, 1, :, 3, :] = (-((-1 + err_param[0]**2)*temp_dm[:, 1, :, 0, :]) + (1 + 
+                        err_param[0]**2)*temp_dm[:, 1, :, 3, :])/2.
+        state[:, 2, :, 3, :] = (temp_dm[:, 2, :, 0, :] + (err_param[0]**2)*cos2vara*(temp_dm[:, 2, :, 0, :] - 
+                        temp_dm[:, 2, :, 3, :]) + temp_dm[:, 2, :, 3, :] +
+                        err_param[0]**2*sin2vara*(temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :]))/2.
+        state[:, 3, :, 3, :] = (temp_dm[:, 3, :, 0, :] + (err_param[0]**2)*(sin2vara*(-temp_dm[:, 2, :, 0, :] + \
+                        temp_dm[:, 2, :, 3, :]) + cos2vara*(temp_dm[:, 3, :, 0, :] -\
+                        temp_dm[:, 3, :, 3, :])) + temp_dm[:, 3, :, 3, :])/2.
+
     return state
 
 
