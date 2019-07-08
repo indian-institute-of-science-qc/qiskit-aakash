@@ -7,12 +7,13 @@ print('from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister')
 print('from qiskit import BasicAer, execute')
 print("backend1 = BasicAer.get_backend('dm_simulator')") 
 print("backend2 = BasicAer.get_backend('qasm_simulator')")
-print('options = {}')
-print('q = QuantumRegister(7)')
-print('c = ClassicalRegister(7)')
+print("#options ={}")
+print("options = {'rotation_error':[1,0],'ts_model_error':[1,0],'thermal_factor': 0,'depolarization_factor':1, 'decoherence_factor':[1e-9,1e-4], 'decay_factor':[1e-9,1e-4]}")
+print('q = QuantumRegister(6)')
+print('c = ClassicalRegister(6)')
 print('qc = QuantumCircuit(q, c)')
 
-noq = 7
+noq = 6
 l = ['u1','u2','u3','cx','ccx']
 for i in range(random.randint(20,500)):
     x = random.randint(0,4)

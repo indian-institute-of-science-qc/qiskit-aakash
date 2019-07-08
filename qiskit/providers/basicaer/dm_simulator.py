@@ -345,12 +345,6 @@ class DmSimulatorPy(BaseBackend):
 
         for i in range(2**num_measured):
             prob.update({prob_key[i]: probabilities[i]})
-<<<<<<< HEAD
-        #print(prob)
-        #print(sum(prob.values()))
-        pprint.pprint(max(prob, key=prob.get))
-=======
->>>>>>> 9fde83752dd2445e589b591480de9eb204dc3b4c
         return probabilities
 
     def _add_bell_basis_measure(self, qubit_1, qubit_2):
