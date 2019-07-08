@@ -217,4 +217,4 @@ def execute(experiments, backend,
                     )
 
     # executing the circuits on the backend and returning the job
-    return backend.run(qobj, **run_config)
+    return backend.run(qobj, backend_options={**run_config})
