@@ -1025,9 +1025,11 @@ class DmSimulatorPy(BaseBackend):
 
                     len_pi = len(partitioned_instructions[clock])
 
-                    for mt in range(partitioned_instructions[clock]):
+                    for mt in partitioned_instructions[clock]:
+  
                         para = getattr(mt, 'params', None)
-                        if para != params[0]:
+
+                        if para is not None and params is not None and para != params[0]:
                             ensm_measure = False                            
                             part_measure = False
                             break
@@ -1066,8 +1068,14 @@ class DmSimulatorPy(BaseBackend):
 
                     elif part_measure and len_pi > 1 and len_pi < self._number_of_qubits:
                         qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
-                        cmem_mes_list = [x.cmembit[0] for x in partitioned_instructions[clock]]
-                        creg_mes_list = [x.cregbit[0] for x in partitioned_instructions[clock]]
+                        cmem_mes_list = [x.memory[0] for x in partitioned_instructions[clock]]
+                        creg_mes_list = []
+
+                        for x in partitioned_instructions[clock]:
+                            cregbit = x.register[0] if hasattr(
+                                x, 'register') else None
+                            creg_mes_list.append(cregbit)
+
                         if params[0] != 'N':
                             self._add_partial_measure(
                                 qu_mes_list, cmem_mes_list, creg_mes_list, self._error_params['measurement'], params[0])
