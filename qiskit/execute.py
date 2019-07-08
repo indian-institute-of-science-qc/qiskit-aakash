@@ -183,6 +183,7 @@ def execute(experiments, backend,
     Raises:
         QiskitError: if the execution cannot be interpreted as either circuits or schedules
     """
+    #print(experiments)
     # transpiling the circuits using given transpile options
     experiments = transpile(experiments,
                             basis_gates=basis_gates,
@@ -194,7 +195,7 @@ def execute(experiments, backend,
                             backend=backend,
                             pass_manager=pass_manager,
                             )
-
+    #print(experiments)
     # assembling the circuits into a qobj to be run on the backend
     qobj = assemble(experiments,
                     qobj_id=qobj_id,

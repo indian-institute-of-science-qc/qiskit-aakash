@@ -17,7 +17,6 @@ SWAP gate.
 """
 
 import numpy
-
 from qiskit.circuit import CompositeGate
 from qiskit.circuit import Gate
 from qiskit.circuit import QuantumCircuit
@@ -60,9 +59,22 @@ class SwapGate(Gate):
 
 
 def swap(self, qubit1, qubit2):
-    """Apply SWAP from qubit1 to qubit2."""
+    """Apply SWAP between qubit1 and qubit2."""
     return self.append(SwapGate(), [qubit1, qubit2], [])
-
+    '''
+    q_1 = min(qubit_1, qubit_2)
+    q_2 = max(qubit_1, qubit_2)
+    #update density matrix
+    self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4*(q_2-q_1-1), 4, 4**q_1))
+    for i in range(4**(self._number_of_qubits-q_2-1)):
+        for j in range(4**(q_2-q_1-1)):
+            for k in range(4**q_1):
+                for l in range(3):
+                    for m in range(l+1,4):
+                             temp = self._densitymatrix[i,l,j,m,k].copy()
+                             self._densitymatrix[i,l,j,m,k] = self._densitymatrix[i,m,j,l,k]
+                             self._densitymatrix[i,m,j,l,k] = temp
+    '''
 
 QuantumCircuit.swap = swap
 CompositeGate.swap = swap

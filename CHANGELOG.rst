@@ -516,7 +516,7 @@ Added
 - It is possible to cancel jobs in non comercial backends (#687)
 - Introduced new `qiskit.IBMQ` provider, with centralized handling of IBMQ
   credentials (qiskitrc file, environment variables). (#547, #948, #1000)
-- Add OpenMP parallelization for Apple builds of the cpp simulator (#698).
+- Add OpenMP ization for Apple builds of the cpp simulator (#698).
 - Add parallelization utilities (#701)
 - Parallelize transpilation (#701)
 - New interactive visualizations (#765).

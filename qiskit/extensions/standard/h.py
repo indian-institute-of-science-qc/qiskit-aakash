@@ -17,7 +17,7 @@
 """
 Hadamard gate.
 """
-import numpy
+import numpy as np
 
 from qiskit.circuit import CompositeGate
 from qiskit.circuit import Gate
@@ -58,9 +58,18 @@ class HGate(Gate):
 
 
 def h(self, q):
-    """Apply H to q."""
     return self.append(HGate(), [q], [])
-
+    """
+        Apply Hadamard to qubit q in density matrix register self.
+        Density matrix remains in the same register.
+        Args:
+            q (int): q is the qubit where the gate H is applied.
+    for j in range(4**(self._number_of_qubits-q-1)):
+        for i in range(4**(q)):
+            temp = self._densitymatrix[i,1,j].copy()
+            self._densitymatrix[i,1,j] = self._densitymatrix[i,3,j]
+            self._densitymatrix[i,3,j] = temp
+    """
 
 QuantumCircuit.h = h
 CompositeGate.h = h
