@@ -129,11 +129,11 @@ class DmSimulatorPy(BaseBackend):
         self._number_of_cmembits = 0
         self._number_of_qubits = 0
         self._shots = 0
-        self._error_params = None
+        # self._error_params = None
         self._memory = False
         self._error_params = {}
-        self._rotation_error = [1, 0]   # [mean,fluctuation]
-        self._ts_model_error = [1, 0]   # [c, alpha]
+        self._rotation_error = [1, 0]   # [<cos(fluctuation)>, mean] , Single Rotation gates errors
+        self._tsp_model_error = [1, 0]   # [<cos(fluctuation)>, mean]  , Transition selective pulse error 
         self._thermal_factor = 0        # p
         self._decoherence_factor = 1    # f
         self._decay_factor = 1          # g
@@ -655,8 +655,8 @@ class DmSimulatorPy(BaseBackend):
             self._rotation_error = backend_options['rotation_error']
 
         # Error in CX based on Transition Selective model
-        if 'ts_model_error' in backend_options:
-            self._ts_model_error = backend_options['ts_model_error']
+        if 'tsp_model_error' in backend_options:
+            self._tsp_model_error = backend_options['tsp_model_error']
 
         # Error by Thermalization 
         if 'thermal_factor' in backend_options:
@@ -688,7 +688,7 @@ class DmSimulatorPy(BaseBackend):
     def _initialize_errors(self):
 
         self._error_params.update({'one_qubit_gates':self._rotation_error})
-        self._error_params.update({'two_qubit_gates':self._ts_model_error})
+        self._error_params.update({'two_qubit_gates':self._tsp_model_error})
         self._error_params.update({'memory':{'thermalization':self._thermal_factor,
                                              'decoherence':self._decoherence_factor, 
                                              'amplitude_decay':self._decay_factor}
