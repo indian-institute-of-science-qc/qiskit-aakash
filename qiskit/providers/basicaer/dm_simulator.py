@@ -594,30 +594,19 @@ class DmSimulatorPy(BaseBackend):
         """Apply a reset instruction to a qubit.
 
         Args:
-            qubit (int): the qubit being rest
+            qubit (int): the qubit being reset
 
-        This is done by doing a simulating a measurement
-        outcome and projecting onto the outcome state while
-        renormalizing.
+        This is done by setting the measured qubit to the zero state.
+        It is equivalent to performing P0*rho*P0+X*P1*rho*P1*X.
         """
 
         # update density matrix
         self._densitymatrix =  np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
 
-        self._densitymatrix[:,0,:] += self._densitymatrix[:,3,:]
         self._densitymatrix[:,1,:] = 0
         self._densitymatrix[:,2,:] = 0
-        self._densitymatrix[:,3,:] = self._densitymatrix[:,0,:]
+        self._densitymatrix[:,3,:] = self._densitymatrix[:,0,:].copy()
 
-        membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (
-            ~membit)) | (int(outcome) << cmembit)
-
-        if cregbit is not None:
-            regbit = 1 << cregbit
-            self._classical_register = \
-                (self._classical_register & (~regbit)) | (
-                    int(outcome) << cregbit)
 
     def _validate_initial_densitymatrix(self):
         """Validate an initial densitymatrix"""
