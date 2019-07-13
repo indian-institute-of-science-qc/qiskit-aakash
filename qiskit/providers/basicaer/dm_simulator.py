@@ -371,18 +371,21 @@ class DmSimulatorPy(BaseBackend):
 
         #update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
-        bell_probabilities = [0,0,0,0]
-        for i in range(4**(self._number_of_qubits-q_2-1)):
-            for j in range(4**(q_2-q_1-1)):
-                for k in range(4**q_1):
-                    for l in range(4):
-                        for m in range(4):
-                            if l != m:
-                                self._densitymatrix[i,l,j,m,k] = 0
-                    bell_probabilities[0] += 0.25*(self._densitymatrix[i,0,j,0,k] + self._densitymatrix[i,1,j,1,k] - self._densitymatrix[i,2,j,2,k] + self._densitymatrix[i,3,j,3,k])
-                    bell_probabilities[1] += 0.25*(self._densitymatrix[i,0,j,0,k] - self._densitymatrix[i,1,j,1,k] + self._densitymatrix[i,2,j,2,k] + self._densitymatrix[i,3,j,3,k])
-                    bell_probabilities[2] += 0.25*(self._densitymatrix[i,0,j,0,k] + self._densitymatrix[i,1,j,1,k] + self._densitymatrix[i,2,j,2,k] - self._densitymatrix[i,3,j,3,k])
-                    bell_probabilities[3] += 0.25*(self._densitymatrix[i,0,j,0,k] - self._densitymatrix[i,1,j,1,k] - self._densitymatrix[i,2,j,2,k] - self._densitymatrix[i,3,j,3,k])
+        bell_probabilities = [0.0,0.0,0.0,0.0]
+        for i in range(4):
+            for j in range(4):
+                if i != j:
+                    self._densitymatrix[:,i,:,j,:] = 0
+        
+        k_0 = self._densitymatrix[:,0,:,0,:].sum()
+        k_1 = self._densitymatrix[:,1,:,1,:].sum()
+        k_2 = self._densitymatrix[:,2,:,2,:].sum()
+        k_3 = self._densitymatrix[:,3,:,3,:].sum()
+        bell_probabilities[0] = 0.25*(k_0 + k_1 - k_2 + k_3)
+        bell_probabilities[1] = 0.25*(k_0 - k_1 + k_2 + k_3)
+        bell_probabilities[2] = 0.25*(k_0 + k_1 + k_2 - k_3)
+        bell_probabilities[3] = 0.25*(k_0 - k_1 - k_2 - k_3)
+
         return bell_probabilities
 
     def _add_qasm_measure_Z(self, qubit,cmembit, cregbit=None, err_param = 1.0):
@@ -517,6 +520,7 @@ class DmSimulatorPy(BaseBackend):
                     int(outcome) << cregbit)
 
         return outcome, probability
+
     def _add_qasm_measure_N(self, qubit , cmembit , cregbit = None, n = (0.0,0.0,1.0), err_param = 1.0):
         """Apply a general n-axis measure instruction to a qubit. 
         Post-measurement density matrix is returned in the same array.
@@ -619,7 +623,7 @@ class DmSimulatorPy(BaseBackend):
         required_dim = 4 ** self._number_of_qubits
         #if length != required_dim:    #TODO
             #raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.format(length, required_dim))
-        # Check if Trace is 0
+        # Check if Trace is 1
         #if self._densitymatrix[0] != 1:   #TODO
             #raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._densitymatrix[0], 1))
 
