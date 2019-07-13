@@ -129,11 +129,11 @@ class DmSimulatorPy(BaseBackend):
         self._number_of_cmembits = 0
         self._number_of_qubits = 0
         self._shots = 0
-        self._error_params = None
+        # self._error_params = None
         self._memory = False
         self._error_params = {}
-        self._rotation_error = [1, 0]   # [mean,fluctuation]
-        self._ts_model_error = [1, 0]   # [c, alpha]
+        self._rotation_error = [1, 0]   # [<cos(fluctuation)>, mean] , Single Rotation gates errors
+        self._tsp_model_error = [1, 0]   # [<cos(fluctuation)>, mean]  , Transition selective pulse error 
         self._thermal_factor = 0        # p
         self._decoherence_factor = 1    # f
         self._decay_factor = 1          # g
@@ -600,19 +600,24 @@ class DmSimulatorPy(BaseBackend):
         outcome and projecting onto the outcome state while
         renormalizing.
         """
-        # get measure outcome
-        outcome, probability = self._get_measure_outcome(qubit)
-        # update quantum state
 
-        if outcome == '0':
-            update = 1/np.sqrt(probability)*np.array(
-                [[1,0,0,0],[0,0,0,0],[0,0,0,0],[1,0,0,0]], dtype=float)
-            self._add_unitary_single(update, qubit)
-        else:
-            update = 1/np.sqrt(probability)*np.array(
-                [[1,0,0,-1], [0,1,0,0], [0,0,1,0], [1,0,0,-1]], dtype=float)
-        # update classical state
-            self._add_unitary_single(update, qubit)
+        # update density matrix
+        self._densitymatrix =  np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
+
+        self._densitymatrix[:,0,:] += self._densitymatrix[:,3,:]
+        self._densitymatrix[:,1,:] = 0
+        self._densitymatrix[:,2,:] = 0
+        self._densitymatrix[:,3,:] = self._densitymatrix[:,0,:]
+
+        membit = 1 << cmembit
+        self._classical_memory = (self._classical_memory & (
+            ~membit)) | (int(outcome) << cmembit)
+
+        if cregbit is not None:
+            regbit = 1 << cregbit
+            self._classical_register = \
+                (self._classical_register & (~regbit)) | (
+                    int(outcome) << cregbit)
 
     def _validate_initial_densitymatrix(self):
         """Validate an initial densitymatrix"""
@@ -706,7 +711,7 @@ class DmSimulatorPy(BaseBackend):
     def _initialize_errors(self):
 
         self._error_params.update({'one_qubit_gates':self._rotation_error})
-        self._error_params.update({'two_qubit_gates':self._ts_model_error})
+        self._error_params.update({'two_qubit_gates':self._tsp_model_error})
         self._error_params.update({'memory':{'thermalization':self._thermal_factor,
                                              'decoherence':self._decoherence_factor, 
                                              'amplitude_decay':self._decay_factor}
