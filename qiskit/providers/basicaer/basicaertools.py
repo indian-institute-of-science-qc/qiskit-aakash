@@ -114,7 +114,6 @@ def rt_gate_dm_matrix_1(gate, err_param, state, q, num_qubits):
     k = []
 
     for gt in gate:
-        # print(gt)
         if gt[0] == 'rz':
             k.append([1, 2])
         elif gt[0] == 'ry':
@@ -132,7 +131,6 @@ def rt_gate_dm_matrix_1(gate, err_param, state, q, num_qubits):
             if param[0]:
                 # Rz(Lamb)
                 transf_ind = k[0]
-                # print(transf_ind,param[0])
                 c1 = err_param[0] * np.cos(param[0] + err_param[1])
                 s1 = err_param[0] * np.sin(param[0] + err_param[1])
                 temp1_1 = state[i, transf_ind[0], j]
@@ -143,7 +141,6 @@ def rt_gate_dm_matrix_1(gate, err_param, state, q, num_qubits):
             if param[1]:
                 # Ry(Theta)
                 transf_ind = k[1]
-                # print(transf_ind,param[1])
                 c2 = err_param[0] * np.cos(param[1] + err_param[1])
                 s2 = err_param[0] * np.sin(param[1] + err_param[1])
                 temp2_1 = state[i, transf_ind[0], j]
@@ -154,7 +151,6 @@ def rt_gate_dm_matrix_1(gate, err_param, state, q, num_qubits):
             if param[2]:
                 # Rz(Phi)
                 transf_ind = k[2]
-                #print(transf_ind, param[2])
                 c3 = err_param[0] * np.cos(param[2] + err_param[1])
                 s3 = err_param[0] * np.sin(param[2] + err_param[1])
                 temp3_1 = state[i, transf_ind[0], j]
@@ -185,7 +181,6 @@ def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
         raise QiskitError(
             'Gate is not among the valid decomposition types: %s' % gate)
 
-    #print(gate, state, 4**(num_qubits-q-1), 4**q)
     state1 = state.copy()
     temp1 = state1[:,k[0],:]
     temp2 = state1[:,k[1],:]
@@ -257,7 +252,6 @@ def U3_merge(theta, phi, lamb, tol):
         stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
         ctheta = [np.cos(xi)/np.sin(x) for x in stheta]
         cthet = [round(np.cos(xi)/np.sin(x), 10) for x in stheta]
-        print('Hi', cthet, ctheta)
         phi_minus_lambda = list(map(lambda x:
                                     np.arccos(np.sin(theta1 + theta2) * x), cthet))
 
@@ -406,9 +400,7 @@ def single_gate_merge(inst, num_qubits):
         if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset'):
             for idx, sg in enumerate(single_gt):
                 if sg:
-                    print(idx, sg)
                     a = merge_gates(sg)
-                    print(ind, a)
                     inst_merged.append(a)
                     single_gt[idx] = []
             inst_merged.append(opx[0])
@@ -440,8 +432,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """
 
     # Remark - ordering of qubits (MSB right, LSB left)
-    #print(q_1, q_2)
-    #q_1, q_2 = q_2, q_1
+
     # Calculating all cos and sines in advance
     cos2vara = np.cos(2*err_param[1])
     cosvara = np.cos(err_param[1])
@@ -699,12 +690,11 @@ def is_reset_dummy(gate):
 def qubit_stack(i_set, num_qubits):
     instruction_set = [[] for _ in range(num_qubits)]
     for instruction in i_set:
-        #print('Inst: ', instruction)
+
         if not is_measure(instruction) and not is_reset(instruction):
             for qubit in instruction.qubits:
                 instruction_set[qubit].append(instruction)
         elif is_measure(instruction):
-            #print(instruction_set, instruction.qubits[0], instruction_set[0])
             if instruction_set[instruction.qubits[0]] and not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
                 instruction_set[instruction.qubits[0]].append(instruction)
                 dummy = deepcopy(instruction)

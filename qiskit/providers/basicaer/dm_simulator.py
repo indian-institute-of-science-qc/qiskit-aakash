@@ -60,14 +60,14 @@ class DmSimulatorPy(BaseBackend):
     DEFAULT_CONFIGURATION = {
         'backend_name': 'dm_simulator',
         'backend_version': '2.0.0',
-        'n_qubits': min(24, MAX_QUBITS_MEMORY),
+        'n_qubits': MAX_QUBITS_MEMORY,
         'url': 'https://github.com/Qiskit/qiskit-terra',
         'simulator': True,
         'local': True,
         'conditional': True,
         'open_pulse': False,
         'memory': True,
-        'max_shots': 65536,
+        'max_shots': 1,
         'coupling_map': None,
         'description': 'A python simulator for qasm experiments',
         'basis_gates': ['u1', 'u2', 'u3', 'cx', 'id', 'unitary'],
@@ -107,7 +107,12 @@ class DmSimulatorPy(BaseBackend):
 
     DEFAULT_OPTIONS = {
         "initial_densitymatrix": None,
-        "chop_threshold": 1e-15
+        "chop_threshold": 1e-15,
+        "thermal_factor": 0,
+        "decoherence_factor": 1,
+        "decay_factor": 1,
+        "rotation_error": {'rx':[1, 0], 'ry':[1, 0], 'rz': [1, 0]},
+        "tsp_model_error": [1, 0]
     }
 
     # Class level variable to return the final state at the end of simulation
@@ -133,7 +138,7 @@ class DmSimulatorPy(BaseBackend):
         self._memory = False
         self._error_params = {}
         self._rotation_error = [1, 0]   # [mean,fluctuation]
-        self._ts_model_error = [1, 0]   # [c, alpha]
+        self._tsp_model_error = [1, 0]   # [c, alpha]
         self._thermal_factor = 0        # p
         self._decoherence_factor = 1    # f
         self._decay_factor = 1          # g
@@ -145,7 +150,8 @@ class DmSimulatorPy(BaseBackend):
         self._qobj_config = None
         # TEMP
         self._sample_measure = False
-        self._get_den_mat = True
+        self._get_den_mat = False
+        self._error_included = False
 
     def _add_unitary_single(self, gate, qubit):
         """Apply an arbitrary 1-qubit unitary matrix.
@@ -565,7 +571,7 @@ class DmSimulatorPy(BaseBackend):
         # Reset default options
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
- 
+
         if backend_options is None:
             backend_options = {}
         # Check for custom initial densitymatrix in backend_options first,
@@ -583,30 +589,39 @@ class DmSimulatorPy(BaseBackend):
 
         # Error for Rotation Gates
         if 'rotation_error' in backend_options:
-            self._rotation_error = backend_options['rotation_error']
+            if type(backend_options['rotation_error']) != list
+                raise 
+            else:
+                self._rotation_error = backend_options['rotation_error']
+                self._error_included = True
 
         # Error in CX based on Transition Selective model
         if 'ts_model_error' in backend_options:
-            self._ts_model_error = backend_options['ts_model_error']
+            self._tsp_model_error = backend_options['ts_model_error']
+            self._error_included = True
 
         # Error by Thermalization 
         if 'thermal_factor' in backend_options:
             self._thermal_factor = backend_options['thermal_factor']
+            self._error_included = True
 
         # Error by Decoherence
         if 'decoherence_factor' in backend_options:
             del_T = backend_options['decoherence_factor'][0]
             T_2 = backend_options['decoherence_factor'][1]
             self._decoherence_factor = np.exp(-del_T/T_2)
+            self._error_included = True
 
         # Error by state decay
         if 'decay_factor' in backend_options:
             del_T = backend_options['decay_factor'][0]
             T_1 = backend_options['decay_factor'][1]
             self._decay_factor = np.exp(-del_T/T_1)
+            self._error_included = True
 
         if 'depolarization_factor' in backend_options:
             self._depolarization_factor = backend_options['depolarization_factor']
+            self._error_included = True
 
         if 'compute_densitymatrix' in backend_options:
             self._get_den_mat = backend_options['compute_densitymatrix']
@@ -619,7 +634,7 @@ class DmSimulatorPy(BaseBackend):
     def _initialize_errors(self):
 
         self._error_params.update({'one_qubit_gates':self._rotation_error})
-        self._error_params.update({'two_qubit_gates':self._ts_model_error})
+        self._error_params.update({'two_qubit_gates':self._tsp_model_error})
         self._error_params.update({'memory':{'thermalization':self._thermal_factor,
                                              'decoherence':self._decoherence_factor, 
                                              'amplitude_decay':self._decay_factor}
@@ -704,10 +719,14 @@ class DmSimulatorPy(BaseBackend):
 
         for i in range(1, 4**self._number_of_qubits):
             densitymatrix += vec[i]*den[i]
-
-        np.savetxt("a.txt", np.asarray(
-            np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
         
+        if not self._error_included:
+            np.savetxt("a.txt", np.asarray(
+                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+        else:
+            np.savetxt("a1.txt", np.asarray(
+                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+
         return densitymatrix
 
     def _get_densitymatrix(self):
@@ -715,7 +734,7 @@ class DmSimulatorPy(BaseBackend):
         # Coefficients
         vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
         vec[abs(vec) < self._chop_threshold] = 0.0
-        
+        #pprint.pprint(vec)
         if self._get_den_mat:
             densitymatrix = self._compute_densitymatrix(vec)
             return vec, densitymatrix
@@ -824,7 +843,7 @@ class DmSimulatorPy(BaseBackend):
                   'time_taken': end-start,
                   'header': qobj.header.as_dict()}
 
-        return Result.from_dict(result)
+        return result_list#Result.from_dict(result)
 
     def run_experiment(self, experiment):
         """Run an experiment (circuit) and return a single experiment result.
@@ -1078,7 +1097,7 @@ class DmSimulatorPy(BaseBackend):
                 data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
             else:
                 data['coeffmatrix'] = self._get_densitymatrix()
-            ##print(data['densitymatrix'])
+
             # Remove empty counts and memory for densitymatrix simulator
             if not data['counts']:
                 data.pop('counts')
