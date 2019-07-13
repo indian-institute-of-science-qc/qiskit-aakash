@@ -437,16 +437,27 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         q_1 (int): Control qubit 
         q_2 (int): Target qubit
 
+    The error model adds a fluctuation "a" to the angle producing the X rotation,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The noisy C-NOT gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    Args:
+        err_param[1] is the mean error in the angle param "a".
+        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+                     which equals <cos(a)>.
     """
 
     # Remark - ordering of qubits (MSB right, LSB left)
     #print(q_1, q_2)
     #q_1, q_2 = q_2, q_1
-    # Calculating all cos and sines in advance
-    cos2vara = np.cos(2*err_param[1])
-    cosvara = np.cos(err_param[1])
-    sin2vara = np.sin(2*err_param[1])
-    sinvara = np.sin(err_param[1])
+    # Calculating all cos and sin in advance
+    cav = err_param[0]
+    c2av = 4*cav - 3 # assuming small fluctuations in angle "a"
+    c = cav * np.cos(err_param[1])
+    s = cav * np.sin(err_param[1])
+    c2 = 0.5 * (1 + c2av * np.cos(2*err_param[1]))
+    s2 = 0.5 * (1 - c2av * np.cos(2*err_param[1]))
+    s = cav * np.sin(err_param[1])
+    cs = c2av * np.sin(err_param[1]) * np.cos(err_param[1])
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')
@@ -457,94 +468,50 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
 
+        state[:, 0, :, 2, :] = s2*temp_dm[:, 0, :, 2, :] + c2*temp_dm[:, 3, :, 2, :] - \
+                          cs*(temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :])
+        state[:, 3, :, 2, :] = c2*temp_dm[:, 0, :, 2, :] + s2*temp_dm[:, 3, :, 2, :] + \
+                          cs*(temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :])
+        state[:, 0, :, 3, :] = s2*temp_dm[:, 0, :, 3, :] + c2*temp_dm[:, 3, :, 3, :] + \
+                          cs*(temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :]) 
+        state[:, 3, :, 3, :] = c2*temp_dm[:, 0, :, 3, :] + s2*temp_dm[:, 3, :, 3, :] - \
+                          cs*(temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :])
 
-        state[:, 0, :, 0, :] = ((1 + err_param[0]**2)*temp_dm[:, 0, :, 0, :] - \
-                        (-1 + err_param[0]**2)*temp_dm[:, 3, :, 0, :])/2.
-        state[:, 0, :, 1, :] = ((1 + err_param[0]**2)*temp_dm[:, 0, :, 1, :] - \
-                        (-1 + err_param[0]**2)*temp_dm[:, 3, :, 1, :])/2.
-        state[:, 0, :, 2, :] = (temp_dm[:, 0, :, 2, :] + temp_dm[:, 3, :, 2, :] + \
-                        (err_param[0]**2)*cos2vara*(-temp_dm[:, 0, :, 2, :] + temp_dm[:, 3, :, 2, :]) +
-                        (err_param[0]**2)*sin2vara*(-temp_dm[:, 0, :, 3, :] + temp_dm[:, 3, :, 3, :]))/2.
-        state[:, 0, :, 3, :] = (temp_dm[:, 0, :, 3, :] + temp_dm[:, 3, :, 3, :] +
-                        (err_param[0]**2)*(sin2vara*(temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :]) +
-                        cos2vara*(-temp_dm[:, 0, :, 3, :] + temp_dm[:, 3, :, 3, :])))/2.
+        state[:, 1, :, 0, :] = c*temp_dm[:, 1, :, 1, :] - s*temp_dm[:, 2, :, 0, :]
+        state[:, 1, :, 1, :] = c*temp_dm[:, 1, :, 0, :] - s*temp_dm[:, 2, :, 1, :]
+        state[:, 1, :, 2, :] = -s*temp_dm[:, 2, :, 2, :] + c*temp_dm[:, 2, :, 3, :]
+        state[:, 1, :, 3, :] = -c*temp_dm[:, 2, :, 2, :] - s*temp_dm[:, 2, :, 3, :]
 
-        state[:, 1, :, 0, :] = err_param[0] * \
-                        (cosvara*temp_dm[:, 1, :, 1, :] - sinvara*temp_dm[:, 2, :, 0, :])
-        state[:, 1, :, 1, :] = err_param[0] * \
-                        (cosvara*temp_dm[:, 1, :, 0, :] - sinvara*temp_dm[:, 2, :, 1, :])
-        state[:, 1, :, 2, :] = -(err_param[0]*sinvara*temp_dm[:, 2, :, 2, :]) + \
-                        err_param[0]*cosvara*temp_dm[:, 2, :, 3, :]
-        state[:, 1, :, 3, :] = -(err_param[0] * 
-                        (cosvara*temp_dm[:, 2, :, 2, :] + sinvara*temp_dm[:, 2, :, 3, :]))
+        state[:, 2, :, 0, :] = s*temp_dm[:, 1, :, 0, :] + c*temp_dm[:, 2, :, 1, :]
+        state[:, 2, :, 1, :] = s*temp_dm[:, 1, :, 1, :] + c*temp_dm[:, 2, :, 0, :]
+        state[:, 2, :, 2, :] = s*temp_dm[:, 1, :, 2, :] - c*temp_dm[:, 1, :, 3, :]
+        state[:, 2, :, 3, :] = c*temp_dm[:, 1, :, 2, :] + s*temp_dm[:, 1, :, 3, :]
 
-        state[:, 2, :, 0, :] = err_param[0] * \
-                        (sinvara*temp_dm[:, 1, :, 0, :] + cosvara*temp_dm[:, 2, :, 1, :])
-        state[:, 2, :, 1, :] = err_param[0] * \
-                        (sinvara*temp_dm[:, 1, :, 1, :] + cosvara*temp_dm[:, 2, :, 0, :])
-        state[:, 2, :, 2, :] = err_param[0] * \
-                        (sinvara*temp_dm[:, 1, :, 2, :] - cosvara*temp_dm[:, 1, :, 3, :])
-        state[:, 2, :, 3, :] = err_param[0] * \
-                        (cosvara*temp_dm[:, 1, :, 2, :] + sinvara*temp_dm[:, 1, :, 3, :])    
-
-        state[:, 3, :, 0, :] = (-((-1 + err_param[0]**2)*temp_dm[:, 0, :, 0, :]) + \
-                        (1 + err_param[0]**2)*temp_dm[:, 3, :, 0, :])/2.
-        state[:, 3, :, 1, :] = (-((-1 + err_param[0]**2)*temp_dm[:, 0, :, 1, :]) + \
-                        (1 + err_param[0]**2)*temp_dm[:, 3, :, 1, :])/2.
-        state[:, 3, :, 2, :] = (temp_dm[:, 0, :, 2, :] + err_param[0]**2*cos2vara*(temp_dm[:, 0, :, 2, :] -
-                        temp_dm[:, 3, :, 2, :]) + temp_dm[:, 3, :, 2, :] + 
-                        err_param[0]**2*sin2vara*(temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :]))/2.
-        state[:, 3, :, 3, :] = (temp_dm[:, 0, :, 3, :] + err_param[0]**2*(sin2vara*(-temp_dm[:, 0, :, 2, :] +
-                        temp_dm[:, 3, :, 2, :]) + cos2vara*(temp_dm[:, 0, :, 3, :] -                                        temp_dm[:, 3, :, 3, :])) + temp_dm[:, 3, :, 3, :])/2.
     else:
         # Reshape Density Matrix
-        rt, mt2, ct, mt1, lt = 4**(num_qubits-q_1 -
-                                   1), 4, 4**(q_1-q_2-1), 4, 4**(q_2)
-
+        rt, mt2, ct, mt1, lt = 4**(num_qubits-q_1 -1), 4, 4**(q_1-q_2-1), 4, 4**(q_2)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
 
-        # Update Density Matrix
+        state[:, 2, :, 0, :] = s2*temp_dm[:, 2, :, 0, :] + c2*temp_dm[:, 2, :, 3, :] - \
+                          cs*(temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
+        state[:, 2, :, 3, :] = c2*temp_dm[:, 2, :, 0, :] + s2*temp_dm[:, 2, :, 3, :] + \
+                          cs*(temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
+        state[:, 3, :, 0, :] = s2*temp_dm[:, 3, :, 0, :] + c2*temp_dm[:, 3, :, 3, :] + \
+                          cs*(temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :]) 
+        state[:, 3, :, 3, :] = c2*temp_dm[:, 3, :, 0, :] + s2*temp_dm[:, 3, :, 3, :] - \
+                          cs*(temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :])
 
-        state[:, 0, :, 0, :] = ((1 + err_param[0]**2)*temp_dm[:, 0, :, 0, :] - \
-                        (-1 + err_param[0]**2)*temp_dm[:, 0, :, 3, :])/2.
-        state[:, 1, :, 0, :] = ((1 + err_param[0]**2)*temp_dm[:, 1, :, 0, :] - \
-                        (-1 + err_param[0]**2)*temp_dm[:, 1, :, 3, :])/2.
-        state[:, 2, :, 0, :] = (temp_dm[:, 2, :, 0, :] + temp_dm[:, 2, :, 3, :] + \
-                        (err_param[0]**2)*cos2vara*(-temp_dm[:, 2, :, 0, :] + temp_dm[:, 2, :, 3, :]) + \
-                        (err_param[0]**2)*sin2vara*(-temp_dm[:, 3, :, 0, :] + temp_dm[:, 3, :, 3, :]))/2.
-        state[:, 3, :, 0, :] = (temp_dm[:, 3, :, 0, :] + temp_dm[:, 3, :, 3, :] +
-                        (err_param[0]**2)*(sin2vara*(temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :]) +
-                        cos2vara*(-temp_dm[:, 3, :, 0, :] + temp_dm[:, 3, :, 3, :])))/2.
+        state[:, 0, :, 1, :] = c*temp_dm[:, 1, :, 1, :] - s*temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 1, :] = c*temp_dm[:, 0, :, 1, :] - s*temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 1, :] = -s*temp_dm[:, 2, :, 2, :] + c*temp_dm[:, 3, :, 2, :]
+        state[:, 3, :, 1, :] = -c*temp_dm[:, 2, :, 2, :] - s*temp_dm[:, 3, :, 2, :]
 
-        state[:, 0, :, 1, :] = err_param[0]*(-(sinvara*temp_dm[:, 0, :, 2, :]) +
-                                                 cosvara*temp_dm[:, 1, :, 1, :])
-        state[:, 1, :, 1, :] = err_param[0] * \
-                        (cosvara*temp_dm[:, 0, :, 1, :] - sinvara*temp_dm[:, 1, :, 2, :])
-        state[:, 2, :, 1, :] = -(err_param[0]*sinvara*temp_dm[:, 2, :, 2, :]) + \
-                        err_param[0]*cosvara*temp_dm[:, 3, :, 2, :]
-        state[:, 3, :, 1, :] = -(err_param[0] * \
-                        (cosvara*temp_dm[:, 2, :, 2, :] + sinvara*temp_dm[:, 3, :, 2, :]))
+        state[:, 0, :, 2, :] = s*temp_dm[:, 0, :, 1, :] + c*temp_dm[:, 1, :, 2, :]
+        state[:, 1, :, 2, :] = s*temp_dm[:, 1, :, 1, :] + c*temp_dm[:, 0, :, 2, :]
+        state[:, 2, :, 2, :] = s*temp_dm[:, 2, :, 1, :] - c*temp_dm[:, 3, :, 1, :]
+        state[:, 3, :, 2, :] = c*temp_dm[:, 2, :, 1, :] + s*temp_dm[:, 3, :, 1, :]
 
-        state[:, 0, :, 2, :] = err_param[0] * \
-                        (sinvara*temp_dm[:, 0, :, 1, :] + cosvara*temp_dm[:, 1, :, 2, :])
-        state[:, 1, :, 2, :] = err_param[0] * \
-                        (cosvara*temp_dm[:, 0, :, 2, :] + sinvara*temp_dm[:, 1, :, 1, :])
-        state[:, 2, :, 2, :] = err_param[0] * \
-                        (sinvara*temp_dm[:, 2, :, 1, :] - cosvara*temp_dm[:, 3, :, 1, :])
-        state[:, 3, :, 2, :] = err_param[0] * \
-                        (cosvara*temp_dm[:, 2, :, 1, :] + sinvara*temp_dm[:, 3, :, 1, :])
-
-        state[:, 0, :, 3, :] = (-((-1 + err_param[0]**2)*temp_dm[:, 0, :, 0, :]) + 
-                        (1 + err_param[0]**2)*temp_dm[:, 0, :, 3, :])/2.
-        state[:, 1, :, 3, :] = (-((-1 + err_param[0]**2)*temp_dm[:, 1, :, 0, :]) + (1 + 
-                        err_param[0]**2)*temp_dm[:, 1, :, 3, :])/2.
-        state[:, 2, :, 3, :] = (temp_dm[:, 2, :, 0, :] + (err_param[0]**2)*cos2vara*(temp_dm[:, 2, :, 0, :] - 
-                        temp_dm[:, 2, :, 3, :]) + temp_dm[:, 2, :, 3, :] +
-                        err_param[0]**2*sin2vara*(temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :]))/2.
-        state[:, 3, :, 3, :] = (temp_dm[:, 3, :, 0, :] + (err_param[0]**2)*(sin2vara*(-temp_dm[:, 2, :, 0, :] + \
-                        temp_dm[:, 2, :, 3, :]) + cos2vara*(temp_dm[:, 3, :, 0, :] -\
-                        temp_dm[:, 3, :, 3, :])) + temp_dm[:, 3, :, 3, :])/2.
 
     return state
 
