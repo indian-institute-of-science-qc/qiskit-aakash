@@ -308,7 +308,7 @@ class DmSimulatorPy(BaseBackend):
         
         axis = list(range(self._number_of_qubits))
         for qubit in reversed(measured_qubits):
-            axis.remove(self._number_of_qubits - 1 - qubit)
+            axis.remove(qubit)
 
         # We get indices used for Probability Measurement via this.
         measure_ind = [x for x in itertools.product(
@@ -600,19 +600,24 @@ class DmSimulatorPy(BaseBackend):
         outcome and projecting onto the outcome state while
         renormalizing.
         """
-        # get measure outcome
-        outcome, probability = self._get_measure_outcome(qubit)
-        # update quantum state
 
-        if outcome == '0':
-            update = 1/np.sqrt(probability)*np.array(
-                [[1,0,0,0],[0,0,0,0],[0,0,0,0],[1,0,0,0]], dtype=float)
-            self._add_unitary_single(update, qubit)
-        else:
-            update = 1/np.sqrt(probability)*np.array(
-                [[1,0,0,-1], [0,1,0,0], [0,0,1,0], [1,0,0,-1]], dtype=float)
-        # update classical state
-            self._add_unitary_single(update, qubit)
+        # update density matrix
+        self._densitymatrix =  np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
+
+        self._densitymatrix[:,0,:] += self._densitymatrix[:,3,:]
+        self._densitymatrix[:,1,:] = 0
+        self._densitymatrix[:,2,:] = 0
+        self._densitymatrix[:,3,:] = self._densitymatrix[:,0,:]
+
+        membit = 1 << cmembit
+        self._classical_memory = (self._classical_memory & (
+            ~membit)) | (int(outcome) << cmembit)
+
+        if cregbit is not None:
+            regbit = 1 << cregbit
+            self._classical_register = \
+                (self._classical_register & (~regbit)) | (
+                    int(outcome) << cregbit)
 
     def _validate_initial_densitymatrix(self):
         """Validate an initial densitymatrix"""
@@ -652,30 +657,48 @@ class DmSimulatorPy(BaseBackend):
 
         # Error for Rotation Gates
         if 'rotation_error' in backend_options:
-            self._rotation_error = backend_options['rotation_error']
+            if type(backend_options['rotation_error']) != list or len(backend_options['rotation_error']) !=2 or backend_options['rotation_error'][0] > 1 or backend_options['rotation_error'][1] > 1 :
+                raise BasicAerError('Error! Incorrect Rotation Error parameter, Expected argument : A list of 2 reals ranging between 0 and 1 both inclusive.')
+            else:
+                self._rotation_error = backend_options['rotation_error']
 
         # Error in CX based on Transition Selective model
-        if 'tsp_model_error' in backend_options:
-            self._tsp_model_error = backend_options['tsp_model_error']
+        if 'ts_model_error' in backend_options:
+            if type(backend_options['ts_model_error']) != list or len(backend_options['ts_model_error']) !=2 or backend_options['ts_model_error'][0] > 1 or backend_options['ts_model_error'][1] > 1:
+                raise BasicAerError('Error! Incorrect transition model error parameter, Expected argument : A list of 2 reals ranging between 0 and 1 both inclusive.')
+            else:
+                self._ts_model_error = backend_options['ts_model_error']
 
         # Error by Thermalization 
         if 'thermal_factor' in backend_options:
-            self._thermal_factor = backend_options['thermal_factor']
+            if backend_options['thermal_factor'] >= 0 and backend_options['thermal_factor'] <= 1:
+                self._thermal_factor = backend_options['thermal_factor']
+            else:
+                raise BasicAerError('Error! Incorrect Thermal Factor parameter, Expected argument : A real number between 0 and 1 both inclusive.')    
 
         # Error by Decoherence
         if 'decoherence_factor' in backend_options:
-            del_T = backend_options['decoherence_factor'][0]
-            T_2 = backend_options['decoherence_factor'][1]
-            self._decoherence_factor = np.exp(-del_T/T_2)
+            if type(backend_options['decoherence_factor']) != list or len(backend_options['decoherence_factor']) != 2: 
+                raise BasicAerError('Error! Incorrect decoherence factor parameter, Expected argument : A list of 2 reals.')
+            else:    
+                del_T = backend_options['decoherence_factor'][0]
+                T_2 = backend_options['decoherence_factor'][1]
+                self._decoherence_factor = np.exp(-del_T/T_2)
 
         # Error by state decay
         if 'decay_factor' in backend_options:
-            del_T = backend_options['decay_factor'][0]
-            T_1 = backend_options['decay_factor'][1]
-            self._decay_factor = np.exp(-del_T/T_1)
+            if type(backend_options['decay_factor']) != list or len(backend_options['decay_factor']) != 2: 
+                raise BasicAerError('Error! Incorrect decay factor parameter, Expected argument : A list of 2 reals.')
+            else:
+                del_T = backend_options['decay_factor'][0]
+                T_1 = backend_options['decay_factor'][1]
+                self._decay_factor = np.exp(-del_T/T_1)
 
         if 'depolarization_factor' in backend_options:
-            self._depolarization_factor = backend_options['depolarization_factor']
+            if backend_options['depolarization_factor'] >= 0 and backend_options['depolarization_factor'] <= 1: 
+                self._depolarization_factor = backend_options['depolarization_factor']
+            else:
+                raise BasicAerError('Error! Incorrect depolarization factor parameter, Expected argument : a real number between 0 and 1 both inclusive.')    
 
         if 'compute_densitymatrix' in backend_options:
             self._get_den_mat = backend_options['compute_densitymatrix']
@@ -1037,6 +1060,7 @@ class DmSimulatorPy(BaseBackend):
                     if params is not None:
                         params[0] = str(params[0])
                     else:
+                        logger.warning('No parameter for measurement given, default Z measurement will be executed.')
                         params = ['Z']
 
                     if params[0] == 'Bell':
@@ -1056,8 +1080,11 @@ class DmSimulatorPy(BaseBackend):
                             self._add_qasm_measure_Y(
                                 qubit, cmembit, cregbit, self._error_params['measurement'])
                         elif params[0] == 'N':
-                            self._add_qasm_measure_N(
-                                qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
+                            if type(params[1]) != np.ndarray or np.linalg.norm(params[1]) != 1 or len(params[1])!=3:
+                                raise BasicAerError('Error! Expected argument is a normalized array of size 3.')
+                            else:    
+                                self._add_qasm_measure_N(
+                                    qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
                         elif params[0] == 'Bell':
                             self._add_bell_basis_measure(int(params[1][0], int(params[1][1])))
                         else:
