@@ -543,12 +543,7 @@ class QasmSimulatorPy(BaseBackend):
             # be sampled
             measure_sample_ops = []
         else:
-            shots = self._shots
-        #import os
-        #f = open('a2.txt', 'a', buffering=1)
-
-        #for operation in experiment.instructions:
-        #    print(operation.name, operation.qubits)        
+            shots = self._shots        
         
         for _ in range(shots):
             self._initialize_statevector()
@@ -557,16 +552,6 @@ class QasmSimulatorPy(BaseBackend):
             self._classical_register = 0
             stop = 0
             for operation in experiment.instructions:
-                #stop += 1
-                #if stop == 7:
-                #    pass
-                #    #break
-                #print(operation.name, operation.qubits)
-                #print(self._statevector)
-                #np.round()
-                #get_subsystem 
-                #print(np.round(np.tensordot(self._statevector, self._statevector.transpose().conj())))
-                #a = self._get_statevector()
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
                     conditional_bit_set = (self._classical_register >> conditional) & 1
@@ -592,12 +577,6 @@ class QasmSimulatorPy(BaseBackend):
                 elif operation.name in ('id', 'u0'):
                     pass
                 elif operation.name in ('CX', 'cx'):
-                    #f.write(operation.name)
-                    #f.write(str(operation.qubits))
-                    #f.flush()
-                    #os.fsync(f.fileno())
-                    #print(self._statevector)
-                    np.savetxt('a2.txt', np.round(np.outer(self._statevector, np.conj(self._statevector)),4), newline='\n')
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
                     gate = cx_gate_matrix()
