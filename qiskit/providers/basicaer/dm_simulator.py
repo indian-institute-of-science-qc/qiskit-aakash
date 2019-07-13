@@ -129,11 +129,11 @@ class DmSimulatorPy(BaseBackend):
         self._number_of_cmembits = 0
         self._number_of_qubits = 0
         self._shots = 0
-        self._error_params = None
+        # self._error_params = None
         self._memory = False
         self._error_params = {}
-        self._rotation_error = [1, 0]   # [mean,fluctuation]
-        self._ts_model_error = [1, 0]   # [c, alpha]
+        self._rotation_error = [1, 0]   # [<cos(fluctuation)>, mean] , Single Rotation gates errors
+        self._tsp_model_error = [1, 0]   # [<cos(fluctuation)>, mean]  , Transition selective pulse error 
         self._thermal_factor = 0        # p
         self._decoherence_factor = 1    # f
         self._decay_factor = 1          # g
@@ -294,7 +294,7 @@ class DmSimulatorPy(BaseBackend):
         #pprint.p#print(max(prob, key=prob.get))
         return probabilities
 
-    def _add_partial_measure(self, qubits, err_param, basis, add_param = None):
+    def _add_partial_measure(self, qubits, cmembits , cregbits , err_param, basis, add_param = None):
         """Perform complete computational basis measurement for current densitymatrix.
 
         Args:
@@ -325,19 +325,23 @@ class DmSimulatorPy(BaseBackend):
         probabilities = np.reshape(np.sum(np.reshape(np.array([np.sum(np.multiply(
             operator_ind, x)) for x in operator_mes]), self._number_of_qubits * [2]), axis=tuple(axis)), 2**num_measured)
         
-        for mqb in measured_qubits:
+        for mqb,mcb,mcregb in list(zip(measured_qubits,cmembits,cregbits)):
             if basis == 'X':
                 self._add_qasm_measure_X(
-                    mqb, self._error_params['measurement'])
+                    mqb, mcb, mcregb, self._error_params['measurement'])
             elif basis == 'Y':
                 self._add_qasm_measure_Y(
-                    mqb, self._error_params['measurement'])
+                    mqb, mcb, mcregb, self._error_params['measurement'])
             elif basis == 'N' and add_param is not None:
                 self._add_qasm_measure_N(
-                    mqb, add_param, self._error_params['measurement'])
+                    mqb, mcb, mcregb, add_param, self._error_params['measurement'])
+
+            # TODO add more checks on the passed parameter in add_param, right now
+            # if nothing is passed then _add_qasm_measure_N defaults to _add_qasm_measure_N maybe make that explicit to the user.
+
             else:
                 self._add_qasm_measure_Z(
-                    mqb, self._error_params['measurement'])
+                    mqb, mcb, mcregb, self._error_params['measurement'])
 
         key = [x for x in itertools.product(
             [0, 1], repeat=num_measured)]
@@ -347,6 +351,8 @@ class DmSimulatorPy(BaseBackend):
         for i in range(2**num_measured):
             prob.update({prob_key[i]: probabilities[i]})
         return probabilities
+
+        # TODO Do we need to return outcomes as well?
 
     def _add_bell_basis_measure(self, qubit_1, qubit_2):
         """
@@ -379,7 +385,7 @@ class DmSimulatorPy(BaseBackend):
                     bell_probabilities[3] += 0.25*(self._densitymatrix[i,0,j,0,k] - self._densitymatrix[i,1,j,1,k] - self._densitymatrix[i,2,j,2,k] - self._densitymatrix[i,3,j,3,k])
         return bell_probabilities
 
-    def _add_qasm_measure_Z(self, qubit, err_param):
+    def _add_qasm_measure_Z(self, qubit,cmembit, cregbit=None, err_param = 1.0):
         """Apply a Z basis measure instruction to a qubit. 
         Post-measurement density matrix is returned in the same array.
 
@@ -399,19 +405,32 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix[:,3,:] *= err_param
         p_3 = self._densitymatrix[:,3,:].sum()
         
-        probability_of_zero = 0.5 * (1 + p_3)
-        probability_of_one = 1 - probability_of_zero
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
 
+
+        probability_of_zero = 0.5 * (1 + p_3)
+        probability_of_one = 1 - probability_of_zero
+
         if probability_of_zero > probability_of_one:
-            return 0, probability_of_zero
+            outcome, probability = 0,probability_of_zero
         else:
-            return 1, probability_of_one
-        #return probability_of_zero
+            outcome, probability = 1, probability_of_one
+
+        membit = 1 << cmembit
+        self._classical_memory = (self._classical_memory & (
+            ~membit)) | (int(outcome) << cmembit)
+
+        if cregbit is not None:
+            regbit = 1 << cregbit
+            self._classical_register = \
+                (self._classical_register & (~regbit)) | (
+                    int(outcome) << cregbit)
+
+        return outcome,probability
     
-    def _add_qasm_measure_X(self, qubit, err_param):
+    def _add_qasm_measure_X(self, qubit, cmembit,cregbit=None, err_param=1.0):
         """Apply a X basis measure instruction to a qubit. 
         Post-measurement density matrix is returned in the same array.
 
@@ -436,9 +455,26 @@ class DmSimulatorPy(BaseBackend):
 
         probability_of_zero = 0.5 * (1 + p_1)
         probability_of_one = 1 - probability_of_zero
-        return probability_of_zero
 
-    def _add_qasm_measure_Y(self, qubit, err_param):
+
+        if probability_of_zero > probability_of_one:
+            outcome, probability = 0,probability_of_zero
+        else:
+            outcome, probability = 1, probability_of_one
+
+        membit = 1 << cmembit
+        self._classical_memory = (self._classical_memory & (
+            ~membit)) | (int(outcome) << cmembit)
+
+        if cregbit is not None:
+            regbit = 1 << cregbit
+            self._classical_register = \
+                (self._classical_register & (~regbit)) | (
+                    int(outcome) << cregbit)
+
+        return outcome,probability
+
+    def _add_qasm_measure_Y(self, qubit, cmembit, cregbit=None, err_param=1.0):
         """Apply a Y basis measure instruction to a qubit. 
         Post-measurement density matrix is returned in the same array.
 
@@ -463,9 +499,25 @@ class DmSimulatorPy(BaseBackend):
 
         probability_of_zero = 0.5 * (1 + p_2)
         probability_of_one = 1 - probability_of_zero
-        return probability_of_zero
 
-    def _add_qasm_measure_N(self, qubit, n, err_param):
+
+        if probability_of_zero > probability_of_one:
+            outcome, probability = 0, probability_of_zero
+        else:
+            outcome, probability = 1, probability_of_one
+
+        membit = 1 << cmembit
+        self._classical_memory = (self._classical_memory & (
+            ~membit)) | (int(outcome) << cmembit)
+
+        if cregbit is not None:
+            regbit = 1 << cregbit
+            self._classical_register = \
+                (self._classical_register & (~regbit)) | (
+                    int(outcome) << cregbit)
+
+        return outcome, probability
+    def _add_qasm_measure_N(self, qubit , cmembit , cregbit = None, n = (0.0,0.0,1.0), err_param = 1.0):
         """Apply a general n-axis measure instruction to a qubit. 
         Post-measurement density matrix is returned in the same array.
 
@@ -499,7 +551,24 @@ class DmSimulatorPy(BaseBackend):
 
         probability_of_zero = 0.5 * (1 + p_n)
         probability_of_one = 1 - probability_of_zero
-        return probability_of_zero
+
+
+        if probability_of_zero > probability_of_one:
+            outcome, probability = 0, probability_of_zero
+        else:
+            outcome, probability = 1, probability_of_one
+
+        membit = 1 << cmembit
+        self._classical_memory = (self._classical_memory & (
+            ~membit)) | (int(outcome) << cmembit)
+
+        if cregbit is not None:
+            regbit = 1 << cregbit
+            self._classical_register = \
+                (self._classical_register & (~regbit)) | (
+                    int(outcome) << cregbit)
+
+        return outcome, probability
     
     def _add_qasm_measure(self, qubit, cmembit, cregbit=None):
         """Apply a measure instruction to a qubit.
@@ -586,8 +655,8 @@ class DmSimulatorPy(BaseBackend):
             self._rotation_error = backend_options['rotation_error']
 
         # Error in CX based on Transition Selective model
-        if 'ts_model_error' in backend_options:
-            self._ts_model_error = backend_options['ts_model_error']
+        if 'tsp_model_error' in backend_options:
+            self._tsp_model_error = backend_options['tsp_model_error']
 
         # Error by Thermalization 
         if 'thermal_factor' in backend_options:
@@ -619,7 +688,7 @@ class DmSimulatorPy(BaseBackend):
     def _initialize_errors(self):
 
         self._error_params.update({'one_qubit_gates':self._rotation_error})
-        self._error_params.update({'two_qubit_gates':self._ts_model_error})
+        self._error_params.update({'two_qubit_gates':self._tsp_model_error})
         self._error_params.update({'memory':{'thermalization':self._thermal_factor,
                                              'decoherence':self._decoherence_factor, 
                                              'amplitude_decay':self._decay_factor}
@@ -946,6 +1015,9 @@ class DmSimulatorPy(BaseBackend):
                     params = getattr(operation, 'params', None)
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
+                    cregbit = operation.register[0] if hasattr(
+                        operation, 'register') else None
+
 
                     sngl_measure = True
                     part_measure = True
@@ -953,9 +1025,11 @@ class DmSimulatorPy(BaseBackend):
 
                     len_pi = len(partitioned_instructions[clock])
 
-                    for mt in range(partitioned_instructions[clock]):
+                    for mt in partitioned_instructions[clock]:
+  
                         para = getattr(mt, 'params', None)
-                        if para != params[0]:
+
+                        if para is not None and params is not None and para != params[0]:
                             ensm_measure = False                            
                             part_measure = False
                             break
@@ -977,31 +1051,37 @@ class DmSimulatorPy(BaseBackend):
                     if len_pi == 1 or sngl_measure:
                         if params[0] == 'X':
                             self._add_qasm_measure_X(
-                                qubit, self._error_params['measurement'])
+                                qubit, cmembit, cregbit, self._error_params['measurement'])
                         elif params[0] == 'Y':
                             self._add_qasm_measure_Y(
-                                qubit, self._error_params['measurement'])
+                                qubit, cmembit, cregbit, self._error_params['measurement'])
                         elif params[0] == 'N':
                             self._add_qasm_measure_N(
-                                qubit, params[1], self._error_params['measurement'])
+                                qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
                         elif params[0] == 'Bell':
                             self._add_bell_basis_measure(int(params[1][0], int(params[1][1])))
                         else:
                             self._add_qasm_measure_Z(
-                                qubit, self._error_params['measurement'])
+                                qubit,cmembit,cregbit,self._error_params['measurement'])
                         # Check for the next groupings
                         partitioned_instructions[clock].remove(operation)       
 
                     elif part_measure and len_pi > 1 and len_pi < self._number_of_qubits:
-                        mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
+                        qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
+                        cmem_mes_list = [x.memory[0] for x in partitioned_instructions[clock]]
+                        creg_mes_list = []
+
+                        for x in partitioned_instructions[clock]:
+                            cregbit = x.register[0] if hasattr(
+                                x, 'register') else None
+                            creg_mes_list.append(cregbit)
+
                         if params[0] != 'N':
                             self._add_partial_measure(
-                                mes_list, self._error_params['measurement'], params[0])
+                                qu_mes_list, cmem_mes_list, creg_mes_list, self._error_params['measurement'], params[0])
                         else:
                             self._add_partial_measure(
-                                mes_list, self._error_params['measurement'], 
-                                params[0], params[1]
-                            )
+                                qu_mes_list, cmem_mes_list, creg_mes_list, self._error_params['measurement'], params[0], params[1])
                         break
                     
                     else:
