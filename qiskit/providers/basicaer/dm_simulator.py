@@ -320,18 +320,21 @@ class DmSimulatorPy(BaseBackend):
 
         #update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
-        bell_probabilities = [0,0,0,0]
-        for i in range(4**(self._number_of_qubits-q_2-1)):
-            for j in range(4**(q_2-q_1-1)):
-                for k in range(4**q_1):
-                    for l in range(4):
-                        for m in range(4):
-                            if l != m:
-                                self._densitymatrix[i,l,j,m,k] = 0
-                    bell_probabilities[0] += 0.25*(self._densitymatrix[i,0,j,0,k] + self._densitymatrix[i,1,j,1,k] - self._densitymatrix[i,2,j,2,k] + self._densitymatrix[i,3,j,3,k])
-                    bell_probabilities[1] += 0.25*(self._densitymatrix[i,0,j,0,k] - self._densitymatrix[i,1,j,1,k] + self._densitymatrix[i,2,j,2,k] + self._densitymatrix[i,3,j,3,k])
-                    bell_probabilities[2] += 0.25*(self._densitymatrix[i,0,j,0,k] + self._densitymatrix[i,1,j,1,k] + self._densitymatrix[i,2,j,2,k] - self._densitymatrix[i,3,j,3,k])
-                    bell_probabilities[3] += 0.25*(self._densitymatrix[i,0,j,0,k] - self._densitymatrix[i,1,j,1,k] - self._densitymatrix[i,2,j,2,k] - self._densitymatrix[i,3,j,3,k])
+        bell_probabilities = [0.0,0.0,0.0,0.0]
+        for i in range(4):
+            for j in range(4):
+                if i != j:
+                    self._densitymatrix[:,i,:,j,:] = 0
+        
+        k_0 = self._densitymatrix[:,0,:,0,:].sum()
+        k_1 = self._densitymatrix[:,1,:,1,:].sum()
+        k_2 = self._densitymatrix[:,2,:,2,:].sum()
+        k_3 = self._densitymatrix[:,3,:,3,:].sum()
+        bell_probabilities[0] = 0.25*(k_0 + k_1 - k_2 + k_3)
+        bell_probabilities[1] = 0.25*(k_0 - k_1 + k_2 + k_3)
+        bell_probabilities[2] = 0.25*(k_0 + k_1 + k_2 - k_3)
+        bell_probabilities[3] = 0.25*(k_0 - k_1 - k_2 - k_3)
+
         return bell_probabilities
     
     def _add_qasm_measure_X(self, qubit, cmembit,cregbit=None, err_param=1.0):
@@ -522,30 +525,19 @@ class DmSimulatorPy(BaseBackend):
         """Apply a reset instruction to a qubit.
 
         Args:
-            qubit (int): the qubit being rest
+            qubit (int): the qubit being reset
 
-        This is done by doing a simulating a measurement
-        outcome and projecting onto the outcome state while
-        renormalizing.
+        This is done by setting the measured qubit to the zero state.
+        It is equivalent to performing P0*rho*P0+X*P1*rho*P1*X.
         """
 
         # update density matrix
         self._densitymatrix =  np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
 
-        self._densitymatrix[:,0,:] += self._densitymatrix[:,3,:]
         self._densitymatrix[:,1,:] = 0
         self._densitymatrix[:,2,:] = 0
-        self._densitymatrix[:,3,:] = self._densitymatrix[:,0,:]
+        self._densitymatrix[:,3,:] = self._densitymatrix[:,0,:].copy()
 
-        membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (
-            ~membit)) | (int(outcome) << cmembit)
-
-        if cregbit is not None:
-            regbit = 1 << cregbit
-            self._classical_register = \
-                (self._classical_register & (~regbit)) | (
-                    int(outcome) << cregbit)
 
     def _validate_initial_densitymatrix(self):
         """Validate an initial densitymatrix"""
@@ -610,34 +602,22 @@ class DmSimulatorPy(BaseBackend):
 
         # Error by Thermalization
         if 'thermal_factor' in backend_options:
-            if backend_options['thermal_factor'] >= 0 and backend_options['thermal_factor'] <= 1:
-                self._thermal_factor = backend_options['thermal_factor']
-            else:
-                raise BasicAerError('Error! Incorrect Thermal Factor parameter, Expected argument : A real number between 0 and 1 both inclusive.')    
+            self._thermal_factor = backend_options['thermal_factor']
 
         # Error by Decoherence
         if 'decoherence_factor' in backend_options:
-            if type(backend_options['decoherence_factor']) != list or len(backend_options['decoherence_factor']) != 2: 
-                raise BasicAerError('Error! Incorrect decoherence factor parameter, Expected argument : A list of 2 reals.')
-            else:    
-                del_T = backend_options['decoherence_factor'][0]
-                T_2 = backend_options['decoherence_factor'][1]
-                self._decoherence_factor = np.exp(-del_T/T_2)
+            del_T = backend_options['decoherence_factor'][0]
+            T_2 = backend_options['decoherence_factor'][1]
+            self._decoherence_factor = np.exp(-del_T/T_2)
 
         # Error by state decay
         if 'decay_factor' in backend_options:
-            if type(backend_options['decay_factor']) != list or len(backend_options['decay_factor']) != 2: 
-                raise BasicAerError('Error! Incorrect decay factor parameter, Expected argument : A list of 2 reals.')
-            else:
-                del_T = backend_options['decay_factor'][0]
-                T_1 = backend_options['decay_factor'][1]
-                self._decay_factor = np.exp(-del_T/T_1)
+            del_T = backend_options['decay_factor'][0]
+            T_1 = backend_options['decay_factor'][1]
+            self._decay_factor = np.exp(-del_T/T_1)
 
         if 'depolarization_factor' in backend_options:
-            if backend_options['depolarization_factor'] >= 0 and backend_options['depolarization_factor'] <= 1: 
-                self._depolarization_factor = backend_options['depolarization_factor']
-            else:
-                raise BasicAerError('Error! Incorrect depolarization factor parameter, Expected argument : a real number between 0 and 1 both inclusive.')    
+            self._depolarization_factor = backend_options['depolarization_factor']
 
         if 'chop_threshold' in backend_options:
             self._chop_threshold = backend_options['chop_threshold']
@@ -1008,7 +988,6 @@ class DmSimulatorPy(BaseBackend):
                     if params is not None:
                         params[0] = str(params[0])
                     else:
-                        logger.warning('No parameter for measurement given, default Z measurement will be executed.')
                         params = ['Z']
 
                     if params[0] == 'Bell':
@@ -1031,11 +1010,8 @@ class DmSimulatorPy(BaseBackend):
                             self._add_qasm_measure_Y(
                                 qubit, cmembit, cregbit, self._error_params['measurement'])
                         elif params[0] == 'N':
-                            if type(params[1]) != np.ndarray or np.linalg.norm(params[1]) != 1 or len(params[1])!=3:
-                                raise BasicAerError('Error! Expected argument is a normalized array of size 3.')
-                            else:    
-                                self._add_qasm_measure_N(
-                                    qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
+                            self._add_qasm_measure_N(
+                                qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
                         elif params[0] == 'Bell':
                             self._add_bell_basis_measure(int(params[1][0], int(params[1][1])))
                         else:

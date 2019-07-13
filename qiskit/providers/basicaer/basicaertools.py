@@ -146,7 +146,7 @@ def U3_merge(theta, phi, lamb, tol):
     Matrix Form
     {
         E^(-((I xi)/2))*cos[theta1/2]*cos[theta2/2] - 
-        E^((I xi)/2)*sin[theta1/2]*sim[theta2/2]	(1,1)
+        E^((I xi)/2)*sin[theta1/2]*sin[theta2/2]	(1,1)
 
        -E^(((I xi)/2))*cos[theta2/2]*sin[theta1/2] - 
         E^(-((I xi)/2))*cos[theta1/2]*sin[theta2/2]  (1,2)
