@@ -783,19 +783,15 @@ class DmSimulatorPy(BaseBackend):
         pauli_basis = [p_0, p_1, p_2, p_3]
         den_creat = [x for x in itertools.product(
             [0, 1, 2, 3], repeat=self._number_of_qubits)]
-        den = []
-
-        for creat in den_creat:
+        densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
+     
+        for i in range(len(den_creat)):
+            creat = den_creat[i]
             op = pauli_basis[creat[0]]
             for idx in range(1, len(creat)):
                 op = np.kron(op, pauli_basis[creat[idx]])
-            den.append(op)
+            densitymatrix += op*vec[i]
             op = None
-
-        densitymatrix = vec[0]*den[0]
-
-        for i in range(1, 4**self._number_of_qubits):
-            densitymatrix += vec[i]*den[i]
 
         np.savetxt("a.txt", np.asarray(
             np.round(densitymatrix, 4)), fmt='%1.3f',newline="\n")
