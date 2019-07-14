@@ -102,69 +102,6 @@ def single_gate_dm_matrix(gate, params=None):
     '''
 
 
-def rt_gate_dm_matrix_1(gate, err_param, state, q, num_qubits):
-    """   
-    The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
-    Args:
-        err_param[1] is the mean error in the angle param.
-        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param.
-    """
-    lt, mt, rt = q
-    param = []
-    k = []
-
-    for gt in gate:
-        # print(gt)
-        if gt[0] == 'rz':
-            k.append([1, 2])
-        elif gt[0] == 'ry':
-            k.append([3, 1])
-        elif gt[0] == 'rz':
-            k.append([2, 3])
-        else:
-            raise QiskitError(
-                'Gate is not among the valid decomposition types: %s' % gt)
-        param.append(gt[1])
-
-    for j in range(rt):
-        for i in range(lt):
-
-            if param[0]:
-                # Rz(Lamb)
-                transf_ind = k[0]
-                # print(transf_ind,param[0])
-                c1 = err_param[0] * np.cos(param[0] + err_param[1])
-                s1 = err_param[0] * np.sin(param[0] + err_param[1])
-                temp1_1 = state[i, transf_ind[0], j]
-                temp1_2 = state[i, transf_ind[1], j]
-                state[i, transf_ind[0], j] = c1*temp1_1 - s1*temp1_2
-                state[i, transf_ind[1], j] = c1*temp1_2 + s1*temp1_1
-
-            if param[1]:
-                # Ry(Theta)
-                transf_ind = k[1]
-                # print(transf_ind,param[1])
-                c2 = err_param[0] * np.cos(param[1] + err_param[1])
-                s2 = err_param[0] * np.sin(param[1] + err_param[1])
-                temp2_1 = state[i, transf_ind[0], j]
-                temp2_2 = state[i, transf_ind[1], j]
-                state[i, transf_ind[0], j] = c2*temp2_1 - s2*temp2_2
-                state[i, transf_ind[1], j] = c2*temp2_2 + s2*temp2_1
-
-            if param[2]:
-                # Rz(Phi)
-                transf_ind = k[2]
-                #print(transf_ind, param[2])
-                c3 = err_param[0] * np.cos(param[2] + err_param[1])
-                s3 = err_param[0] * np.sin(param[2] + err_param[1])
-                temp3_1 = state[i, transf_ind[0], j]
-                temp3_2 = state[i, transf_ind[1], j]
-                state[i, transf_ind[0], j] = c3*temp3_1 - s3*temp3_2
-                state[i, transf_ind[1], j] = c3*temp3_2 + s3*temp3_1
-
-    return state
-
-
 def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
     """   
     The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
@@ -172,6 +109,7 @@ def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
         err_param[1] is the mean error in the angle param.
         err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param.
     """
+
     c = err_param[0] * np.cos(param + err_param[1])
     s = err_param[0] * np.sin(param + err_param[1])
 
@@ -185,7 +123,6 @@ def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
         raise QiskitError(
             'Gate is not among the valid decomposition types: %s' % gate)
 
-    #print(gate, state, 4**(num_qubits-q-1), 4**q)
     state1 = state.copy()
     temp1 = state1[:,k[0],:]
     temp2 = state1[:,k[1],:]
@@ -209,7 +146,7 @@ def U3_merge(theta, phi, lamb, tol):
     Matrix Form
     {
         E^(-((I xi)/2))*cos[theta1/2]*cos[theta2/2] - 
-        E^((I xi)/2)*sin[theta1/2]*sim[theta2/2]	(1,1)
+        E^((I xi)/2)*sin[theta1/2]*sin[theta2/2]	(1,1)
 
        -E^(((I xi)/2))*cos[theta2/2]*sin[theta1/2] - 
         E^(-((I xi)/2))*cos[theta1/2]*sin[theta2/2]  (1,2)
@@ -257,7 +194,6 @@ def U3_merge(theta, phi, lamb, tol):
         stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
         ctheta = [np.cos(xi)/np.sin(x) for x in stheta]
         cthet = [round(np.cos(xi)/np.sin(x), 10) for x in stheta]
-        #print('Hi', cthet, ctheta)
         phi_minus_lambda = list(map(lambda x:
                                     np.arccos(np.sin(theta1 + theta2) * x), cthet))
 
@@ -406,9 +342,7 @@ def single_gate_merge(inst, num_qubits):
         if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset'):
             for idx, sg in enumerate(single_gt):
                 if sg:
-                    #print(idx, sg)
                     a = merge_gates(sg)
-                    #print(ind, a)
                     inst_merged.append(a)
                     single_gt[idx] = []
             inst_merged.append(opx[0])
@@ -666,12 +600,11 @@ def is_reset_dummy(gate):
 def qubit_stack(i_set, num_qubits):
     instruction_set = [[] for _ in range(num_qubits)]
     for instruction in i_set:
-        #print('Inst: ', instruction)
+
         if not is_measure(instruction) and not is_reset(instruction):
             for qubit in instruction.qubits:
                 instruction_set[qubit].append(instruction)
         elif is_measure(instruction):
-            #print(instruction_set, instruction.qubits[0], instruction_set[0])
             if instruction_set[instruction.qubits[0]] and not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
                 instruction_set[instruction.qubits[0]].append(instruction)
                 dummy = deepcopy(instruction)

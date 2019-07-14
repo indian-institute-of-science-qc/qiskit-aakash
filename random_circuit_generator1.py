@@ -5,7 +5,7 @@ from qiskit import BasicAer, execute
 backend1 = BasicAer.get_backend('dm_simulator')
 backend2 = BasicAer.get_backend('qasm_simulator')
 #options ={}
-options = {'rotation_error':[1,0],'ts_model_error':[1,0],'thermal_factor': 0,'depolarization_factor':1, 'decoherence_factor':[1e-9,1e-4], 'decay_factor':[1e-9,1e-4]}
+options = {'rotation_error':{'rz':[1,0]},'ts_model_error':[1,0],'thermal_factor': 0,'depolarization_factor':1, 'decoherence_factor':[1e-9,1e1], 'decay_factor':[1e-9,1e1]}
 q = QuantumRegister(6)
 c = ClassicalRegister(6)
 qc = QuantumCircuit(q, c)
@@ -33,10 +33,10 @@ qc.ccx(q[3],q[1],q[0])
 qc.u2(3.14973,3.71082,q[0])
 qc.cx(q[1],q[4])
 qc.ccx(q[2],q[0],q[4])
-qc.measure(q[2],c[2],'Z')
-qc.measure(q[2],c[2],'X')
-qc.measure(q[2],c[2],'Y')
-qc.measure(q[2],c[2],'N',np.array([1,0,0]))
+#qc.measure(q[2],c[2],'Z')
+#qc.measure(q[2],c[2],'X')
+#qc.measure(q[2],c[2],'Y')
+#qc.measure(q[2],c[2],'N',np.array([1,0,0]))
 circuits = [qc]
 
 job = execute(circuits, backend1, **options)
