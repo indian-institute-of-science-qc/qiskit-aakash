@@ -109,6 +109,7 @@ class DmSimulatorPy(BaseBackend):
         "thermal_factor": 0.,
         "decoherence_factor": 1.,
         "depolarization_factor": 1.,
+        "bell_depolarization_factor": 1.,
         "decay_factor": 1.,
         "rotation_error": {'rx':[1., 0.], 'ry':[1., 0.], 'rz': [1., 0.]},
         "tsp_model_error": [1., 0.]
@@ -116,7 +117,7 @@ class DmSimulatorPy(BaseBackend):
 
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the densitymatrix simulator
-    SHOW_FINAL_STATE = True
+    SHOW_FINAL_STATE = False
     DEBUG = True
 
     def __init__(self, configuration=None, provider=None):
@@ -146,10 +147,12 @@ class DmSimulatorPy(BaseBackend):
         self._thermal_factor = None         # p
         self._decoherence_factor = None     # f
         self._decay_factor = None           # g
-        self._depolarization_factor = None  # During Measurement (Bit flip and Depolarization have the same effect)
+        self._depolarization_factor = None  # During Measurement (Bit flip and Depolarization have the same 
+        effect)
+        self._bell_depolarization_factor = None
         # TEMP
         self._sample_measure = False
-        self._get_den_mat = True
+        self._get_den_mat = False#True
         self._error_included = False
 
     def _add_unitary_single(self, gate, qubit):
@@ -470,7 +473,7 @@ class DmSimulatorPy(BaseBackend):
 
         return outcome, probability
 
-    def _add_qasm_measure_N(self, qubit , cmembit , cregbit = None, n = (0.0,0.0,1.0), err_param = 1.0):
+    def _add_qasm_measure_N(self, qubit , cmembit , cregbit = None, n = np.array([0.0,0.0,1.0]), err_param = 1.0):
         """Apply a general n-axis measure instruction to a qubit. 
         Post-measurement density matrix is returned in the same array.
 
@@ -568,6 +571,7 @@ class DmSimulatorPy(BaseBackend):
         self._decoherence_factor = self.DEFAULT_OPTIONS["decoherence_factor"]
         self._decay_factor = self.DEFAULT_OPTIONS["decay_factor"]
         self._depolarization_factor = self.DEFAULT_OPTIONS["depolarization_factor"]
+        self._bell_depolarization_factor = self.DEFAULT_OPTIONS["bell_depolarization_factor"]
 
         if backend_options is None:
             backend_options = {}
@@ -846,7 +850,7 @@ class DmSimulatorPy(BaseBackend):
                   'time_taken': end-start,
                   'header': qobj.header.as_dict()}
 
-        return result_list#Result.from_dict(result)
+        return result_list
 
     def run_experiment(self, experiment):
         """Run an experiment (circuit) and return a single experiment result.
@@ -999,6 +1003,7 @@ class DmSimulatorPy(BaseBackend):
 
                     if self._sample_measure:
                         sngl_measure = False
+                        ensm_measure = True
 
                     cregbit = operation.register[0] if hasattr(operation, 'register') else None
 
