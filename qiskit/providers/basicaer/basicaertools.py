@@ -686,7 +686,7 @@ def partition(i_set, num_qubits):
                 # If not then don't add it.
                 else:
                     continue
-            elif is_measure(gate):
+            elif is_measure(gate): #TODO Add Bell Measure Partition
 
                 all_dummy = True
                 for x in range(num_qubits):

@@ -117,7 +117,7 @@ class DmSimulatorPy(BaseBackend):
 
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the densitymatrix simulator
-    SHOW_FINAL_STATE = False
+    SHOW_FINAL_STATE = True
     DEBUG = True
 
     def __init__(self, configuration=None, provider=None):
@@ -147,12 +147,11 @@ class DmSimulatorPy(BaseBackend):
         self._thermal_factor = None         # p
         self._decoherence_factor = None     # f
         self._decay_factor = None           # g
-        self._depolarization_factor = None  # During Measurement (Bit flip and Depolarization have the same 
-        effect)
+        self._depolarization_factor = None  # During Measurement (Bit flip and Depolarization have the same effect)
         self._bell_depolarization_factor = None
         # TEMP
         self._sample_measure = False
-        self._get_den_mat = False#True
+        self._get_den_mat = True
         self._error_included = False
 
     def _add_unitary_single(self, gate, qubit):
@@ -220,7 +219,7 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
 
-    def _add_ensemble_measure(self, basis, err_param):
+    def _add_ensemble_measure(self, basis, add_param, err_param):
         """Perform complete computational basis measurement for current densitymatrix.
 
         Args:
@@ -228,30 +227,36 @@ class DmSimulatorPy(BaseBackend):
         Returns:
             list: Complete list of probabilities. 
         """
-        # TODO Generalize it
-        supplement_data = {'X': [0, 1], 'Y': [0, 2], 'Z': [0, 3]}
+        supplement_data = {'X': [0, 1], 'Y': [0, 2], 'Z': [0, 3], 'N': [0, 1, 2, 3]}
+        
+        # We get indices used for Probability Measurement via this.
+        measure_ind = [x for x in itertools.product(supplement_data[basis],repeat=self._number_of_qubits)]
+        # We get coefficient values stored at those indices via this. 
+        operator_ind = [self._densitymatrix[x] for x in measure_ind]
+        # We get permutations of signs for summing those coefficient values.
 
         if basis != 'N':
-            # We get indices used for Probability Measurement via this.
-            measure_ind = [x for x in itertools.product(supplement_data[basis], repeat=self._number_of_qubits)]
-            # We get coefficient values stored at those indices via this. 
-            operator_ind = [self._densitymatrix[x] for x in measure_ind]
-            # We get permutations of signs for summing those coefficient values.
             operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
             for i in range(self._number_of_qubits-1):
                 operator_mes = np.kron(np.array([[1, err_param], [1, -err_param]]), operator_mes)
+        else:
+            n = add_param*err_param
+            operator_mes = np.array([[1, n[0], n[1], n[2]],[1, -n[0], -n[1], -n[2]]])
+            for i in range(self._number_of_qubits-1):
+                operator_mes = np.kron(np.array([[1, n[0], n[1], n[2]],[1, -n[0], -n[1], -n[2]]]), 
+                                        operator_mes)
 
-            # We get 2**n probabilities via this.
-            probabilities = np.reshape(
-                                np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]), 
-                                2**self._number_of_qubits)
+        # We get 2**n probabilities via this.
+        probabilities = np.reshape(
+                            np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]), 
+                            2**self._number_of_qubits)
 
-            key = [x for x in itertools.product([0,1],repeat = self._number_of_qubits)]
-            prob_key = [''.join(str(y) for y in x) for x in key]
-            prob = {}
-
-            for i in range(2**self._number_of_qubits):
-                prob.update({prob_key[i]: probabilities[i]})
+        key = [x for x in itertools.product([0,1],repeat = self._number_of_qubits)]
+        prob_key = [''.join(str(y) for y in x) for x in key]
+        prob = {}
+        for i in range(2**self._number_of_qubits):
+            prob.update({prob_key[i]: probabilities[i]})
+        max_prob = max(prob, key=prob.get) 
 
 
     def _add_partial_measure(self, qubits, cmembits , cregbits , err_param, basis, add_param = None):
@@ -264,40 +269,47 @@ class DmSimulatorPy(BaseBackend):
         """
         supplement_data = { 'X':[self._add_qasm_measure_X, [0, 1]], 
                             'Y':[self._add_qasm_measure_Y, [0, 2]], 
-                            'Z':[self._add_qasm_measure_Z, [0, 3]] 
+                            'Z':[self._add_qasm_measure_Z, [0, 3]],
+                            'N':[self._add_qasm_measure_N, [0, 1, 2, 3]] 
                         }
 
+        measured_qubits = qubits #list({qubit for qubit, cmembit in measure_params})
+        num_measured = len(measured_qubits)
+        axis = list(range(self._number_of_qubits))
+        for qubit in reversed(measured_qubits):
+            axis.remove(qubit)
+        
+        # We get indices used for Probability Measurement via this.
+        measure_ind = [x for x in itertools.product(
+            supplement_data[basis][1], repeat=self._number_of_qubits)]
+        # We get coefficient values stored at those indices via this.
+        operator_ind = [self._densitymatrix[x] for x in measure_ind]
+        
         if basis != 'N':
-            measured_qubits = qubits #list({qubit for qubit, cmembit in measure_params})
-            num_measured = len(measured_qubits)
-
-            axis = list(range(self._number_of_qubits))
-            for qubit in reversed(measured_qubits):
-                axis.remove(qubit)
-
-            # We get indices used for Probability Measurement via this.
-            measure_ind = [x for x in itertools.product(
-                supplement_data[basis][1], repeat=self._number_of_qubits)]
-            # We get coefficient values stored at those indices via this.
-            operator_ind = [self._densitymatrix[x] for x in measure_ind]
             # We get permutations of signs for summing those coefficient values.
             operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
             for i in range(self._number_of_qubits-1):
                 operator_mes = np.kron(
                     np.array([[1, err_param], [1, -err_param]]), operator_mes)
+        else:
+            n = add_param*err_param
+            operator_mes = np.array([[1, n[0], n[1], n[2]],[1, -n[0], -n[1], -n[2]]])
+            for i in range(self._number_of_qubits-1):
+                operator_mes = np.kron(np.array([[1, n[0], n[1], n[2]],[1, -n[0], -n[1], -n[2]]]), 
+                                        operator_mes)
 
-            probabilities = np.reshape(np.sum(np.reshape(np.array([np.sum(np.multiply(
-                operator_ind, x)) for x in operator_mes]), self._number_of_qubits * [2]),  
-                axis=tuple(axis)), 2**num_measured)
-        
-            key = [x for x in itertools.product(
-                [0, 1], repeat=num_measured)]
-            prob_key = [''.join(str(y) for y in x) for x in key]
-            prob = {}
+        probabilities = np.reshape(np.sum(np.reshape(np.array([np.sum(np.multiply(
+            operator_ind, x)) for x in operator_mes]), self._number_of_qubits * [2]),  
+            axis=tuple(axis)), 2**num_measured)
+    
+        key = [x for x in itertools.product(
+            [0, 1], repeat=num_measured)]
+        prob_key = [''.join(str(y) for y in x) for x in key]
+        prob = {}
+        for i in range(2**num_measured):
+            prob.update({prob_key[i]: probabilities[i]})
+        max_prob = max(prob, key=prob.get)
 
-            for i in range(2**num_measured):
-                prob.update({prob_key[i]: probabilities[i]})
-        
         for mqb,mcb,mcregb in list(zip(measured_qubits,cmembits,cregbits)):
             if basis == 'N' and add_param is not None:
                 self._add_qasm_measure_N(
@@ -306,9 +318,9 @@ class DmSimulatorPy(BaseBackend):
                 supplement_data[basis][0](mqb, mcb, mcregb, 
                                 self._error_params['measurement'])
         
-    def _add_bell_basis_measure(self, qubit_1, qubit_2):
+    def _add_bell_basis_measure(self, qubit_1, qubit_2, err_param):
         """
-        Apply a Bell basisi measure instruction to two qubits.
+        Apply a Bell basis measure instruction to two qubits.
         Post measurement density matrix is returned in the same array.
 
         Args:
@@ -854,7 +866,7 @@ class DmSimulatorPy(BaseBackend):
                   'time_taken': end-start,
                   'header': qobj.header.as_dict()}
 
-        return result_list
+        return result
 
     def run_experiment(self, experiment):
         """Run an experiment (circuit) and return a single experiment result.
@@ -978,20 +990,26 @@ class DmSimulatorPy(BaseBackend):
                     cregbit = operation.register[0] if hasattr(
                         operation, 'register') else None
 
-                    sngl_measure = True
-                    part_measure = True
-                    ensm_measure = True
+                    sngl_measure = False
+                    part_measure = False
+                    ensm_measure = False
 
                     len_pi = len(partitioned_instructions[clock])
+                    
+                    if len_pi == 1:
+                        sngl_measure = True
+                    elif len_pi == self._number_of_qubits:
+                        ensm_measure = True
+                    else:
+                        part_measure = True
 
-                    for mt in partitioned_instructions[clock]:
-  
-                        para = getattr(mt, 'params', None)
-
-                        if para is not None and params is not None and para != params[0]:
-                            ensm_measure = False                            
-                            part_measure = False
-                            break
+                    if ensm_measure:
+                        for mt in partitioned_instructions[clock]:
+                            para = getattr(mt, 'params', None)
+                            if para is not None and params is not None and para != params:
+                                ensm_measure = False
+                                part_measure = True
+                                break                  
 
                     if params is not None:
                         params[0] = str(params[0])
@@ -999,19 +1017,14 @@ class DmSimulatorPy(BaseBackend):
                         params = ['Z']
 
                     if params[0] == 'Bell':
-                        part_measure = False
-                        ensm_measure = False
-                    
-                    if part_measure or ensm_measure:
-                        sngl_measure = False
+                        sngl_measure = True
 
-                    if self._sample_measure:
-                        sngl_measure = False
-                        ensm_measure = True
+                    if len(params) == 1:
+                        params.append(None)
 
                     cregbit = operation.register[0] if hasattr(operation, 'register') else None
 
-                    if len_pi == 1 or sngl_measure:
+                    if sngl_measure:
                         if params[0] == 'X':
                             self._add_qasm_measure_X(
                                 qubit, cmembit, cregbit, self._error_params['measurement'])
@@ -1025,29 +1038,31 @@ class DmSimulatorPy(BaseBackend):
                             self._add_bell_basis_measure(int(params[1][0], int(params[1][1])))
                         else:
                             self._add_qasm_measure_Z(
-                                qubit,cmembit,cregbit,self._error_params['measurement'])
-                        # Check for the next groupings
-                        partitioned_instructions[clock].remove(operation)       
+                                qubit,cmembit,cregbit,self._error_params['measurement'])       
 
-                    elif part_measure and len_pi > 1 and len_pi < self._number_of_qubits:
+                    elif part_measure:
                         qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
+                        bs_mes_list = ['Z' for x in partitioned_instructions[clock]]
+                        ap_mes_list = [None for x in partitioned_instructions[clock]]
                         cmem_mes_list = [x.memory[0] for x in partitioned_instructions[clock]]
                         creg_mes_list = []
 
-                        for x in partitioned_instructions[clock]:
-                            cregbit = x.register[0] if hasattr(x, 'register') else None
+                        for x in range(len_pi):
+                            bs_mes_list[x] = partitioned_instructions[clock][x].params[0]
+                            if bs_mes_list[x] == 'N':
+                                ap_mes_list[x] = partitioned_instructions[clock][x].params[1] 
+                            cregbit = partitioned_instructions[clock][x].register[0] if hasattr(partitioned_instructions[clock][x], 'register') else None
                             creg_mes_list.append(cregbit)
 
-                        if params[0] != 'N':
-                            self._add_partial_measure(
-                                qu_mes_list, cmem_mes_list, creg_mes_list, self._error_params['measurement'], params[0])
-                        else:
-                            self._add_partial_measure(
-                                qu_mes_list, cmem_mes_list, creg_mes_list, self._error_params['measurement'], params[0], params[1])
+                        self._add_partial_measure(
+                            qu_mes_list, cmem_mes_list, creg_mes_list,
+                            self._error_params['measurement'], bs_mes_list, add_param=ap_mes_list)
+                        
                         break
                     
                     else:
-                        self._add_ensemble_measure(params[0], self._error_params['measurement'])
+                        self._add_ensemble_measure(params[0], params[1], 
+                                            self._error_params['measurement'])
                         break
 
                 elif operation.name == 'bfunc':
