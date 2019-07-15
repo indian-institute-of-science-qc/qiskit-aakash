@@ -354,7 +354,7 @@ class DmSimulatorPy(BaseBackend):
 
         # TODO Do we need to return outcomes as well?
 
-    def _add_bell_basis_measure(self, qubit_1, qubit_2):
+    def _add_bell_basis_measure(self, qubit_1, qubit_2, err_param = 1.0):
         """
         Apply a Bell basisi measure instruction to two qubits.
         Post measurement density matrix is returned in the same array.
@@ -362,6 +362,7 @@ class DmSimulatorPy(BaseBackend):
         Args:
             qubit_1 (int): first qubit of Bell pair.
             qubit_2 (int): second qubit of Bell pair.
+            err_param (float): Reduction in polarization during measurement.
         
         Returns:
             Four probabilities in the (|00>+|11>,|00>-|11>,|01>+|10>,|01>-|10>) basis.
@@ -371,20 +372,26 @@ class DmSimulatorPy(BaseBackend):
 
         #update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
-        bell_probabilities = [0.0,0.0,0.0,0.0]
+        k = [0.0,0.0,0.0,0.0]
         for i in range(4):
             for j in range(4):
                 if i != j:
                     self._densitymatrix[:,i,:,j,:] = 0
-        
-        k_0 = self._densitymatrix[:,0,:,0,:].sum()
-        k_1 = self._densitymatrix[:,1,:,1,:].sum()
-        k_2 = self._densitymatrix[:,2,:,2,:].sum()
-        k_3 = self._densitymatrix[:,3,:,3,:].sum()
-        bell_probabilities[0] = 0.25*(k_0 + k_1 - k_2 + k_3)
-        bell_probabilities[1] = 0.25*(k_0 - k_1 + k_2 + k_3)
-        bell_probabilities[2] = 0.25*(k_0 + k_1 + k_2 - k_3)
-        bell_probabilities[3] = 0.25*(k_0 - k_1 - k_2 - k_3)
+
+        self._densitymatrix[:,1,:,1,:] *= err_param
+        self._densitymatrix[:,2,:,2,:] *= err_param
+        self._densitymatrix[:,3,:,3,:] *= err_param
+
+        k[0] = self._densitymatrix[:,0,:,0,:].sum()
+        k[1] = self._densitymatrix[:,1,:,1,:].sum()
+        k[2] = self._densitymatrix[:,2,:,2,:].sum()
+        k[3] = self._densitymatrix[:,3,:,3,:].sum()
+        bell_probabilities[0] = 0.25*(k[0] + k[1] - k[2] + k[3])
+        bell_probabilities[1] = 0.25*(k[0] - k[1] + k[2] + k[3])
+        bell_probabilities[2] = 0.25*(k[0] + k[1] + k[2] - k[3])
+        bell_probabilities[3] = 0.25*(k[0] - k[1] - k[2] - k[3])
+
+        self._densitymatrix = np.reshape(self._densitymatrix,self._number_of_qubits*[4])
 
         return bell_probabilities
 
@@ -408,10 +415,8 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix[:,3,:] *= err_param
         p_3 = self._densitymatrix[:,3,:].sum()
         
-
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
-
 
         probability_of_zero = 0.5 * (1 + p_3)
         probability_of_one = 1 - probability_of_zero
