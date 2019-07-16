@@ -781,6 +781,7 @@ class DmSimulatorPy(BaseBackend):
         validated_inst = []
         measure_flag = False
         self._sample_measure = True
+        set_flag = False
 
         for part in insts:
             if not part:
@@ -807,11 +808,15 @@ class DmSimulatorPy(BaseBackend):
                             validated_inst.append([part[idx]])
                             bf_id = idx+1
                     else:
+                        set_flag = True
                         setattr(part[idx], 'params', ['Z'])
                 
                 if part[bf_id:idx]:
                     validated_inst.append(part[bf_id:idx])
 
+        if set_flag:
+            logger.warning('No basis choice provided for measurement. Default value set to Pauli Z [Computational Basis]')
+        
         return validated_inst, len(validated_inst)
 
     def run(self, qobj, backend_options=None):
@@ -950,7 +955,6 @@ class DmSimulatorPy(BaseBackend):
                                                 self._number_of_qubits)
 
         partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
-        print('Hi', partitioned_instructions)
         end_processing = time.time()
         start_runtime = time.time()
 
