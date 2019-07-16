@@ -581,56 +581,94 @@ def is_measure(gate):  # TODO Seperate Them
     # Checks if gate is measure
     return True if gate.name == 'measure' else False
 
+def is_expect(gate, n):
+    if hasattr(gate, 'params'):
+        avail_basis = ['I', 'X', 'Y', 'Z']
+        chk = [x in avail_basis for x in str(gate.params[0])]
+        return True if gate.name == 'measure' and len(chk) == n and all(chk) else False
+    else:
+        return False
 
 def is_reset(gate):
     # Checks if gate is reset
     return True if gate.name == 'reset' else False
 
+def is_expect_dummy(gate):
+    return True if gate.name == 'dummy_expect' else False
 
 def is_measure_dummy(gate):
     # Checks if gate is dummy measure
     return True if gate.name == 'dummy_measure' else False
 
-
 def is_reset_dummy(gate):
     # Checks if gate is dummy reset
     return True if gate.name == 'dummy_reset' else False
 
-
 def qubit_stack(i_set, num_qubits):
-    instruction_set = [[] for _ in range(num_qubits)]
-    for instruction in i_set:
 
+    instruction_set = [[] for _ in range(num_qubits)]
+    incl_expec = [] 
+    for idx, instruction in enumerate(i_set):
         if not is_measure(instruction) and not is_reset(instruction):
             for qubit in instruction.qubits:
                 instruction_set[qubit].append(instruction)
+
+        elif is_expect(instruction, num_qubits):
+            
+            if instruction.params[0] in incl_expec:
+                continue
+            else:
+                for qubit in range(num_qubits):
+                    dummy = deepcopy(instruction)
+                    dummy.qubits[0] = qubit
+                    dummy.memory[0] = qubit
+                    instruction_set[qubit].append(dummy)
+                incl_expec.append(instruction.params[0])
+
         elif is_measure(instruction):
-            if instruction_set[instruction.qubits[0]] and not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
+            if instruction_set[instruction.qubits[0]]:
+                
+                if instruction != i_set[-1]:
+                    if is_expect(i_set[idx+1], num_qubits) and i_set[idx+1].qubits[0] == instruction.qubits[0]:
+                        if is_measure_dummy(instruction_set[instruction.qubits[0]][-2]):
+                            instruction_set[instruction.qubits[0]][-2] = instruction
+                            continue
+
+                if not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
+                    instruction_set[instruction.qubits[0]].append(instruction)
+                    dummy = deepcopy(instruction)
+                    dummy.name = 'dummy_measure'
+                    dummy.qubits[0] = -1
+                    for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
+                        instruction_set[qubit].append(dummy)
+                else:
+                    instruction_set[instruction.qubits[0]][-1] = instruction
+            else:
                 instruction_set[instruction.qubits[0]].append(instruction)
                 dummy = deepcopy(instruction)
                 dummy.name = 'dummy_measure'
                 dummy.qubits[0] = -1
                 for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
                     instruction_set[qubit].append(dummy)
-            else:
-                # Checks if the first instruction is measure
-                if instruction_set[instruction.qubits[0]]:
-                    instruction_set[instruction.qubits[0]][-1] = instruction
-                else:
-                    instruction_set[instruction.qubits[0]].append(instruction)
+        
         elif is_reset(instruction):
-            if not is_reset_dummy(instruction_set[instruction.qubits[0]][-1]):
+            if instruction_set[instruction.qubits[0]]:
+                if not is_reset_dummy(instruction_set[instruction.qubits[0]][-1]):
+                    instruction_set[instruction.qubits[0]].append(instruction)
+                    dummy = deepcopy(instruction)
+                    dummy.name = 'dummy_reset'
+                    dummy.qubits[0] = -1
+                    for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
+                        instruction_set[qubit].append(dummy)
+                else:
+                    instruction_set[instruction.qubits[0]][-1] = instruction
+            else:
                 instruction_set[instruction.qubits[0]].append(instruction)
                 dummy = deepcopy(instruction)
                 dummy.name = 'dummy_reset'
                 dummy.qubits[0] = -1
                 for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
                     instruction_set[qubit].append(dummy)
-            else:
-                if instruction_set[instruction.qubits[0]]:
-                    instruction_set[instruction.qubits[0]][-1] = instruction
-                else:
-                    instruction_set[instruction.qubits[0]].append(instruction)
 
     stack_depth = max([len(stack) for stack in instruction_set])
     return instruction_set, stack_depth
@@ -639,11 +677,9 @@ def qubit_stack(i_set, num_qubits):
 def partition(i_set, num_qubits):
     i_stack, depth = qubit_stack(i_set, num_qubits)
     level, sequence = 0, [[] for _ in range(depth)]
-
     while i_set:
         # Qubits included in the partition
         qubit_included = []
-
         if level == len(sequence):
             sequence.append([])
 
@@ -655,7 +691,7 @@ def partition(i_set, num_qubits):
                 continue
 
             # Check for dummy gate
-            if is_measure_dummy(gate) or is_reset_dummy(gate):
+            if is_measure_dummy(gate) or is_reset_dummy(gate) or is_expect_dummy(gate):
                 continue
             # Check for single gate
             elif is_single(gate):
@@ -686,6 +722,7 @@ def partition(i_set, num_qubits):
                 # If not then don't add it.
                 else:
                     continue
+
             elif is_measure(gate): #TODO Add Bell Measure Partition
 
                 all_dummy = True

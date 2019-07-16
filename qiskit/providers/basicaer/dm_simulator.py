@@ -318,7 +318,7 @@ class DmSimulatorPy(BaseBackend):
                 supplement_data[basis][0](mqb, mcb, mcregb, 
                                 self._error_params['measurement'])
         
-    def _pauli_string_expectation(self, qubits, cmembits , cregbits, basis, add_param = None):
+    def _pauli_string_expectation(self, qubits, basis, add_param = None):
         """
         Returns expectation value for a given string of pauli matrices.
 
@@ -846,7 +846,7 @@ class DmSimulatorPy(BaseBackend):
                         setattr(part[idx], 'params', ['Z'])
                 
                 if part[bf_id:idx]:
-                    validated_inst.append(part[bf_id:idx])
+                    validated_inst.append(part[bf_id:idx+1])
 
         if set_flag:
             logger.warning('No basis choice provided for measurement. Default value set to Pauli Z [Computational Basis]')
@@ -981,10 +981,10 @@ class DmSimulatorPy(BaseBackend):
         # Initialize classical memory to all 0
         self._classical_memory = 0
         self._classical_register = 0
-        
+
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
-            
+        
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
 
@@ -995,7 +995,6 @@ class DmSimulatorPy(BaseBackend):
         for clock in range(levels):
 
             for operation in partitioned_instructions[clock]:
-
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
                     conditional_bit_set = (self._classical_register >> conditional) & 1
@@ -1033,7 +1032,6 @@ class DmSimulatorPy(BaseBackend):
                     pass
                 # Check if measure
                 elif operation.name == 'measure':
-                    print(operation)
                     params = operation.params
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
@@ -1042,10 +1040,11 @@ class DmSimulatorPy(BaseBackend):
 
                     sngl_measure = False
                     part_measure = False
+                    exp_measure = False
                     ensm_measure = False
 
                     len_pi = len(partitioned_instructions[clock])
-                    
+
                     if len_pi == 1:
                         sngl_measure = True
                     elif len_pi == self._number_of_qubits:
@@ -1053,21 +1052,24 @@ class DmSimulatorPy(BaseBackend):
                     else:
                         part_measure = True
 
+                    if len(params[0]) == self._number_of_qubits and params[0] != 'Bell':
+                        ensm_measure = False
+                        exp_measure = True
+
+                    for mt in partitioned_instructions[clock]:
+                        if mt.params != params:
+                            ensm_measure = False
+                            part_measure = False
+                            break
+
                     if params[0] == 'Bell':
                         sngl_measure = True
-
-                    if ensm_measure:
-                        for mt in partitioned_instructions[clock]:
-                            if para != params:
-                                ensm_measure = False
-                                part_measure = True
-                                break                  
 
                     if len(params) == 1:
                         params.append(None)
 
-                    cregbit = operation.register[0] if hasattr(operation, 'register') else None
-
+                    cregbit = operation.register[0] if hasattr(operation, 'register') else None 
+                    
                     if sngl_measure:
                         if params[0] == 'X':
                             self._add_qasm_measure_X(
@@ -1083,25 +1085,27 @@ class DmSimulatorPy(BaseBackend):
                         else:
                             self._add_qasm_measure_Z(
                                 qubit,cmembit,cregbit,self._error_params['measurement'])       
+                        #partitioned_instructions[clock].remove(operation)
 
                     elif part_measure:
-                        bf_bell = False
                         qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
-                        bs_mes_list = [x.params[0] for x in partitioned_instructions[clock]]
-                        ap_mes_list = [x.params[1] for x in partitioned_instructions[clock]]
                         cmem_mes_list = [x.memory[0] for x in partitioned_instructions[clock]]
                         creg_mes_list = []
 
-                        for x in range(len_pi):
-                            cregbit = partitioned_instructions[clock][x].register[0] if hasattr(partitioned_instructions[clock][x], 'register') else None
+                        for x in partitioned_instructions[clock]:
+                            cregbit = x.register[0] if hasattr(
+                                x, 'register') else None
                             creg_mes_list.append(cregbit)
 
                         self._add_partial_measure(
                             qu_mes_list, cmem_mes_list, creg_mes_list,
-                            self._error_params['measurement'], bs_mes_list, add_param=ap_mes_list)
+                            self._error_params['measurement'], params[0], add_param=params[1])
                         
                         break
-                    
+                    elif exp_measure:
+                        qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
+                        self._pauli_string_expectation(qu_mes_list, params[0])
+                        break
                     else:
                         self._add_ensemble_measure(params[0], params[1], 
                                             self._error_params['measurement'])

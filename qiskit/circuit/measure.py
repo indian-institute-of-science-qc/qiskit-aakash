@@ -25,11 +25,9 @@ class Measure(Instruction):
 
     def __init__(self, basis, add_param):
         """Create new measurement instruction."""
-        avail_basis = ['X', 'Y', 'Z', 'Bell', 'N']
+        avail_basis = ['I', 'X', 'Y', 'Z', 'Bell', 'N']
         
-        if basis is not None and add_param is None:
-            super().__init__("measure", 1, 1, [basis])
-        elif basis == 'N' and add_param is not None:
+        if basis == 'N' and add_param is not None:
             super().__init__("measure", 1, 1, [basis, add_param])
         elif basis == 'Bell' and add_param is not None:
             super().__init__("measure", 1, 1, [basis, add_param])
@@ -38,9 +36,12 @@ class Measure(Instruction):
         elif basis == 'N' and add_param is None:
             raise QiskitError('Vector should be provided with this measurement basis.')
         elif basis == 'Bell' and add_param is None:
-            raise QiskitError('Bell string should be provided with this measurement basis.')            
-        elif basis is not None and basis not in avail_basis:
-            raise QiskitError('Invalid basis provided.')
+            raise QiskitError('Bell string should be provided with this measurement basis.')
+        elif basis is not None and add_param is None:
+            if not all([x in avail_basis for x in basis[0]]):
+                raise QiskitError('Invalid basis provided.')
+            else:
+                super().__init__("measure", 1, 1, [basis[0]])
         else:
             super().__init__("measure", 1, 1, [])
 
