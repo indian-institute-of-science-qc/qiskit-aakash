@@ -335,8 +335,9 @@ class DmSimulatorPy(BaseBackend):
         q_2 = max(qubit_1, qubit_2)
 
         #update density matrix
+        
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
-        k = [0.0,0.0,0.0,0.0]
+        
         for i in range(4):
             for j in range(4):
                 if i != j:
@@ -346,12 +347,13 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix[:,2,:,2,:] *= err_param
         self._densitymatrix[:,3,:,3,:] *= err_param
 
+        k = [0.0,0.0,0.0,0.0]
         k[0] = self._densitymatrix[:,0,:,0,:].sum()
         k[1] = self._densitymatrix[:,1,:,1,:].sum()
         k[2] = self._densitymatrix[:,2,:,2,:].sum()
         k[3] = self._densitymatrix[:,3,:,3,:].sum()
         
-        bell_probabilities = [0, 0, 0, 0] # Corresponds to 00,11,22,33
+        bell_probabilities = [0., 0., 0., 0.] 
         bell_probabilities[0] = 0.25*(k[0] + k[1] - k[2] + k[3])
         bell_probabilities[1] = 0.25*(k[0] - k[1] + k[2] + k[3])
         bell_probabilities[2] = 0.25*(k[0] + k[1] + k[2] - k[3])
@@ -1053,15 +1055,12 @@ class DmSimulatorPy(BaseBackend):
                     elif part_measure:
                         bf_bell = False
                         qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
-                        bs_mes_list = ['Z' for x in partitioned_instructions[clock]]
-                        ap_mes_list = [None for x in partitioned_instructions[clock]]
+                        bs_mes_list = [x.params[0] for x in partitioned_instructions[clock]]
+                        ap_mes_list = [x.params[1] for x in partitioned_instructions[clock]]
                         cmem_mes_list = [x.memory[0] for x in partitioned_instructions[clock]]
                         creg_mes_list = []
 
                         for x in range(len_pi):
-                            bs_mes_list[x] = partitioned_instructions[clock][x].params[0]
-                            if bs_mes_list[x] == 'N':
-                                ap_mes_list[x] = partitioned_instructions[clock][x].params[1]
                             cregbit = partitioned_instructions[clock][x].register[0] if hasattr(partitioned_instructions[clock][x], 'register') else None
                             creg_mes_list.append(cregbit)
 
