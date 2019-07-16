@@ -350,6 +350,8 @@ class DmSimulatorPy(BaseBackend):
         k[1] = self._densitymatrix[:,1,:,1,:].sum()
         k[2] = self._densitymatrix[:,2,:,2,:].sum()
         k[3] = self._densitymatrix[:,3,:,3,:].sum()
+        
+        bell_probabilities = [0, 0, 0, 0] # Corresponds to 00,11,22,33
         bell_probabilities[0] = 0.25*(k[0] + k[1] - k[2] + k[3])
         bell_probabilities[1] = 0.25*(k[0] - k[1] + k[2] + k[3])
         bell_probabilities[2] = 0.25*(k[0] + k[1] + k[2] - k[3])
@@ -641,6 +643,9 @@ class DmSimulatorPy(BaseBackend):
 
         if 'depolarization_factor' in backend_options:
             self._depolarization_factor = backend_options['depolarization_factor']
+        
+        if 'bell_depolarization_factor' in backend_options:
+            self.bell_depolarization_factor = backend_options['bell_depolarization_factor']
 
         if 'chop_threshold' in backend_options:
             self._chop_threshold = backend_options['chop_threshold']
@@ -662,7 +667,8 @@ class DmSimulatorPy(BaseBackend):
                                              'decoherence':self._decoherence_factor, 
                                              'amplitude_decay':self._decay_factor}
                                             })
-        self._error_params.update({'measurement':self._depolarization_factor})
+        self._error_params.update({'measurement': self._depolarization_factor,
+                                   'measurement_bell': self._bell_depolarization_factor})
 
     def _initialize_densitymatrix(self):
         """
@@ -765,45 +771,48 @@ class DmSimulatorPy(BaseBackend):
             densitymatrix = None
             return vec
 
-    def _validate_measure_sampling(self, experiment):
-        """Determine if measure sampling is allowed for an experiment
+    def _validate_measure(self, insts):
+        """Determines whether ensemble measurement is needed to be done for the experiment and
+            repartition the instruction sequence by checking for Bell basis measurement. 
 
         Args:
             experiment (QobjExperiment): a qobj experiment.
         """
-        # If shots=1 we should disable measure sampling.
-        # This is also required for densitymatrix simulator to return the
-        # correct final densitymatrix without silently dropping final measurements.
-        if self._shots <= 1:
-            self._sample_measure = False
-            return
+        validated_inst = []
+        measure_flag = False
+        self._sample_measure = True
 
-        # Check for config flag
-        if hasattr(experiment.config, 'allows_measure_sampling'):
-            self._sample_measure = experiment.config.allows_measure_sampling
-        # If flag isn't found do a simple test to see if a circuit contains
-        # no reset instructions, and no gates instructions after
-        # the first measure.
-        else:
-            measure_flag = False
-            for instruction in experiment.instructions:
-                # If circuit contains reset operations we cannot sample
-                if instruction.name == "reset":
+        for part in insts:
+            if not part:
+                continue
+            if part[0].name != 'measure':
+                if part[0].name != 'barrier':
                     self._sample_measure = False
-                    return
-                # If circuit contains a measure option then we can
-                # sample only if all following operations are measures
-                if measure_flag:
-                    # If we find a non-measure instruction
-                    # we cannot do measure sampling
-                    if instruction.name not in ["measure", "barrier", "id", "u0"]:
-                        self._sample_measure = False
-                        return
-                elif instruction.name == "measure":
-                    measure_flag = True
-            # If we made it to the end of the circuit without returning
-            # measure sampling is allowed
-            self._sample_measure = True
+                validated_inst.append(part)
+                continue
+            else:
+                measure_flag = True
+                bf_id = 0
+               
+                for idx in range(len(part)):
+                        
+                    para = getattr(part[idx], 'params', None)
+    
+                    if para is not None:
+                        part[idx].params[0] = str(para[0])
+                        if str(para[0]) == 'Bell':
+                            part[idx].params[1] = str(para[1])
+                            if part[bf_id:idx]:
+                                validated_inst.append(part[bf_id:idx])
+                            validated_inst.append([part[idx]])
+                            bf_id = idx+1
+                    else:
+                        setattr(part[idx], 'params', ['Z'])
+                
+                if part[bf_id:idx]:
+                    validated_inst.append(part[bf_id:idx])
+
+        return validated_inst, len(validated_inst)
 
     def run(self, qobj, backend_options=None):
         """Run qobj asynchronously.
@@ -940,6 +949,8 @@ class DmSimulatorPy(BaseBackend):
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
 
+        partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
+        print('Hi', partitioned_instructions)
         end_processing = time.time()
         start_runtime = time.time()
 
@@ -984,7 +995,8 @@ class DmSimulatorPy(BaseBackend):
                     pass
                 # Check if measure
                 elif operation.name == 'measure':
-                    params = getattr(operation, 'params', None)
+                    print(operation)
+                    params = operation.params
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
                     cregbit = operation.register[0] if hasattr(
@@ -1003,21 +1015,15 @@ class DmSimulatorPy(BaseBackend):
                     else:
                         part_measure = True
 
+                    if params[0] == 'Bell':
+                        sngl_measure = True
+
                     if ensm_measure:
                         for mt in partitioned_instructions[clock]:
-                            para = getattr(mt, 'params', None)
-                            if para is not None and params is not None and para != params:
+                            if para != params:
                                 ensm_measure = False
                                 part_measure = True
                                 break                  
-
-                    if params is not None:
-                        params[0] = str(params[0])
-                    else:
-                        params = ['Z']
-
-                    if params[0] == 'Bell':
-                        sngl_measure = True
 
                     if len(params) == 1:
                         params.append(None)
@@ -1035,12 +1041,13 @@ class DmSimulatorPy(BaseBackend):
                             self._add_qasm_measure_N(
                                 qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
                         elif params[0] == 'Bell':
-                            self._add_bell_basis_measure(int(params[1][0], int(params[1][1])))
+                            self._add_bell_basis_measure(int(params[1][0]), int(params[1][1]), err_param = self._error_params['measurement_bell'])
                         else:
                             self._add_qasm_measure_Z(
                                 qubit,cmembit,cregbit,self._error_params['measurement'])       
 
                     elif part_measure:
+                        bf_bell = False
                         qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
                         bs_mes_list = ['Z' for x in partitioned_instructions[clock]]
                         ap_mes_list = [None for x in partitioned_instructions[clock]]
@@ -1050,7 +1057,7 @@ class DmSimulatorPy(BaseBackend):
                         for x in range(len_pi):
                             bs_mes_list[x] = partitioned_instructions[clock][x].params[0]
                             if bs_mes_list[x] == 'N':
-                                ap_mes_list[x] = partitioned_instructions[clock][x].params[1] 
+                                ap_mes_list[x] = partitioned_instructions[clock][x].params[1]
                             cregbit = partitioned_instructions[clock][x].register[0] if hasattr(partitioned_instructions[clock][x], 'register') else None
                             creg_mes_list.append(cregbit)
 
@@ -1110,8 +1117,9 @@ class DmSimulatorPy(BaseBackend):
         # Add final creg data to memory list
         if self._number_of_cmembits > 0:
             if self._sample_measure:
+                pass
                 # If sampling we generate all shot samples from the final densitymatrix
-                memory = self._add_sample_measure(measure_sample_ops, self._shots)
+                #memory = self._add_sample_measure(measure_sample_ops, self._shots)
             else:
                 # Turn classical_memory (int) into bit string and pad zero for unused cmembits
                 outcome = bin(self._classical_memory)[2:]
