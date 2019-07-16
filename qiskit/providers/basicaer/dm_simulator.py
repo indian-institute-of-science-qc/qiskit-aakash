@@ -318,6 +318,38 @@ class DmSimulatorPy(BaseBackend):
                 supplement_data[basis][0](mqb, mcb, mcregb, 
                                 self._error_params['measurement'])
         
+    def _pauli_string_expectation(self, qubits, cmembits , cregbits, basis, add_param = None):
+        """
+        Returns expectation value for a given string of pauli matrices.
+
+        Args:
+            qubits (list): list of qubits where identity is not applied.
+            basis (list): list of measurement instruction (alphabet from {'x', 'y', 'z'}) corresponding to qubits that are                   measured.
+        Returns:
+            expectation (float): expectation value of the pauli string.
+
+        """
+
+        for i in range(len(qubits)):
+            qubit = qubits[i]
+            self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
+            if basis[i] == 'x':
+                self._densitymatrix[:,0,:] = 0
+                self._densitymatrix[:,2,:] = 0
+                self._densitymatrix[:,3,:] = 0
+            elif basis[i] == 'y':
+                self._densitymatrix[:,0,:] = 0
+                self._densitymatrix[:,1,:] = 0
+                self._densitymatrix[:,3,:] = 0
+            elif basis[i] == 'z':
+                self._densitymatrix[:,0,:] = 0
+                self._densitymatrix[:,1,:] = 0
+                self._densitymatrix[:,2,:] = 0
+        expectation = 0.0
+        expectation = self._densitymatrix.sum()
+
+        return expectation
+
     def _add_bell_basis_measure(self, qubit_1, qubit_2, err_param):
         """
         Apply a Bell basis measure instruction to two qubits.
