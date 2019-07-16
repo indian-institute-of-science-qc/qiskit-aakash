@@ -54,7 +54,8 @@ logger = logging.getLogger(__name__)
 class QasmSimulatorPy(BaseBackend):
     """Python implementation of a qasm simulator."""
 
-    MAX_QUBITS_MEMORY = int(log2(local_hardware_info()['memory'] * (1024 ** 3) / 16))
+    MAX_QUBITS_MEMORY = int(
+        log2(local_hardware_info()['memory'] * (1024 ** 3) / 16))
 
     DEFAULT_CONFIGURATION = {
         'backend_name': 'qasm_simulator',
@@ -111,12 +112,12 @@ class QasmSimulatorPy(BaseBackend):
 
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the statevector simulator
-    SHOW_FINAL_STATE = False
+    SHOW_FINAL_STATE = True
 
     def __init__(self, configuration=None, provider=None):
         super().__init__(configuration=(
             configuration or QasmBackendConfiguration.from_dict(self.DEFAULT_CONFIGURATION)),
-                         provider=provider)
+            provider=provider)
 
         # Define attributes in __init__.
         self._local_random = np.random.RandomState()
@@ -181,7 +182,8 @@ class QasmSimulatorPy(BaseBackend):
         # Axis for numpy.sum to compute probabilities
         axis = list(range(self._number_of_qubits))
         axis.remove(self._number_of_qubits - 1 - qubit)
-        probabilities = np.sum(np.abs(self._statevector) ** 2, axis=tuple(axis))
+        probabilities = np.sum(np.abs(self._statevector)
+                               ** 2, axis=tuple(axis))
         # Compute einsum index string for 1-qubit matrix multiplication
         random_number = self._local_random.rand()
         if random_number < probabilities[0]:
@@ -222,7 +224,8 @@ class QasmSimulatorPy(BaseBackend):
             for count, (qubit, cmembit) in enumerate(sorted(measure_params)):
                 qubit_outcome = int((sample & (1 << count)) >> count)
                 membit = 1 << cmembit
-                classical_memory = (classical_memory & (~membit)) | (qubit_outcome << cmembit)
+                classical_memory = (classical_memory & (
+                    ~membit)) | (qubit_outcome << cmembit)
             value = bin(classical_memory)[2:]
             memory.append(hex(int(value, 2)))
         return memory
@@ -239,12 +242,14 @@ class QasmSimulatorPy(BaseBackend):
         outcome, probability = self._get_measure_outcome(qubit)
         # update classical state
         membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
+        self._classical_memory = (self._classical_memory & (
+            ~membit)) | (int(outcome) << cmembit)
 
         if cregbit is not None:
             regbit = 1 << cregbit
             self._classical_register = \
-                (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
+                (self._classical_register & (~regbit)) | (
+                    int(outcome) << cregbit)
 
         # update quantum state
         if outcome == '0':
@@ -507,7 +512,8 @@ class QasmSimulatorPy(BaseBackend):
             for operation in experiment.instructions:
                 conditional = getattr(operation, 'conditional', None)
                 if isinstance(conditional, int):
-                    conditional_bit_set = (self._classical_register >> conditional) & 1
+                    conditional_bit_set = (
+                        self._classical_register >> conditional) & 1
                     if not conditional_bit_set:
                         continue
                 elif conditional is not None:
@@ -545,7 +551,8 @@ class QasmSimulatorPy(BaseBackend):
                 elif operation.name == 'measure':
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
-                    cregbit = operation.register[0] if hasattr(operation, 'register') else None
+                    cregbit = operation.register[0] if hasattr(
+                        operation, 'register') else None
 
                     if self._sample_measure:
                         # If sampling measurements record the qubit and cmembit
@@ -560,7 +567,8 @@ class QasmSimulatorPy(BaseBackend):
                     val = int(operation.val, 16)
 
                     cregbit = operation.register
-                    cmembit = operation.memory if hasattr(operation, 'memory') else None
+                    cmembit = operation.memory if hasattr(
+                        operation, 'memory') else None
 
                     compared = (self._classical_register & mask) - val
 
@@ -577,26 +585,31 @@ class QasmSimulatorPy(BaseBackend):
                     elif relation == '>=':
                         outcome = (compared >= 0)
                     else:
-                        raise BasicAerError('Invalid boolean function relation.')
+                        raise BasicAerError(
+                            'Invalid boolean function relation.')
 
                     # Store outcome in register and optionally memory slot
                     regbit = 1 << cregbit
                     self._classical_register = \
-                        (self._classical_register & (~regbit)) | (int(outcome) << cregbit)
+                        (self._classical_register & (~regbit)) | (
+                            int(outcome) << cregbit)
                     if cmembit is not None:
                         membit = 1 << cmembit
                         self._classical_memory = \
-                            (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
+                            (self._classical_memory & (~membit)) | (
+                                int(outcome) << cmembit)
                 else:
                     backend = self.name()
                     err_msg = '{0} encountered unrecognized operation "{1}"'
-                    raise BasicAerError(err_msg.format(backend, operation.name))
+                    raise BasicAerError(
+                        err_msg.format(backend, operation.name))
 
             # Add final creg data to memory list
             if self._number_of_cmembits > 0:
                 if self._sample_measure:
                     # If sampling we generate all shot samples from the final statevector
-                    memory = self._add_sample_measure(measure_sample_ops, self._shots)
+                    memory = self._add_sample_measure(
+                        measure_sample_ops, self._shots)
                 else:
                     # Turn classical_memory (int) into bit string and pad zero for unused cmembits
                     outcome = bin(self._classical_memory)[2:]

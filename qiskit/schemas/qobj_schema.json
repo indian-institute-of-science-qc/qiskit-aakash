@@ -567,7 +567,7 @@
                             ]
                         },
                         "params": {
-                            "maxItems": 0
+                            "maxItems": 2
                         },
                         "qubits": {
                             "minItems": 1

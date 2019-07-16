@@ -93,6 +93,7 @@ class BasicAerProvider(BaseProvider):
         return {
             'dm_simulator_py': 'dm_simulator',
             'qasm_simulator_py': 'qasm_simulator',
+            'dm_simulator_py': 'dm_simulator',
             'statevector_simulator_py': 'statevector_simulator',
             'unitary_simulator_py': 'unitary_simulator',
             'local_qasm_simulator_py': 'qasm_simulator',

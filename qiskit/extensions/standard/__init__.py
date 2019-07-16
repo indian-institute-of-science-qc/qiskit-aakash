@@ -45,3 +45,15 @@ from .ch import CHGate
 from .crz import CrzGate
 from .cu3 import Cu3Gate
 from .rzz import RZZGate
+from .rx import rx
+from .ry import ry
+from .rz import rz
+from .h import h
+from .u3 import u3
+from .x import x
+from .y import y
+from .z import z
+from .s import s
+from .swap import swap
+from .t import t
+

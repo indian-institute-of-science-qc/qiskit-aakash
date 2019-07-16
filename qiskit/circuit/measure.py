@@ -23,9 +23,27 @@ from qiskit.exceptions import QiskitError
 class Measure(Instruction):
     """Quantum measurement in the computational basis."""
 
-    def __init__(self):
+    def __init__(self, basis, add_param):
         """Create new measurement instruction."""
-        super().__init__("measure", 1, 1, [])
+        avail_basis = ['I', 'X', 'Y', 'Z', 'Bell', 'N']
+        
+        if basis == 'N' and add_param is not None:
+            super().__init__("measure", 1, 1, [basis, add_param])
+        elif basis == 'Bell' and add_param is not None:
+            super().__init__("measure", 1, 1, [basis, add_param])
+        elif basis != 'N' and add_param is not None:
+            raise QiskitError('Vector cannot be provided with this measurement basis.')
+        elif basis == 'N' and add_param is None:
+            raise QiskitError('Vector should be provided with this measurement basis.')
+        elif basis == 'Bell' and add_param is None:
+            raise QiskitError('Bell string should be provided with this measurement basis.')
+        elif basis is not None and add_param is None:
+            if not all([x in avail_basis for x in basis[0]]):
+                raise QiskitError('Invalid basis provided.')
+            else:
+                super().__init__("measure", 1, 1, [basis[0]])
+        else:
+            super().__init__("measure", 1, 1, [])
 
     def broadcast_arguments(self, qargs, cargs):
         qarg = qargs[0]
@@ -41,7 +59,7 @@ class Measure(Instruction):
             raise QiskitError('register size error')
 
 
-def measure(self, qubit, cbit):
+def measure(self, qubit, cbit, basis=None, add_param=None):
     """Measure quantum bit into classical bit (tuples).
 
     Args:
@@ -55,7 +73,7 @@ def measure(self, qubit, cbit):
         QiskitError: if qubit is not in this circuit or bad format;
             if cbit is not in this circuit or not creg.
     """
-    return self.append(Measure(), [qubit], [cbit])
+    return self.append(Measure(basis, add_param), [qubit], [cbit])
 
 
 QuantumCircuit.measure = measure
