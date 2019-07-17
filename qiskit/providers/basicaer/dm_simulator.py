@@ -223,6 +223,7 @@ class DmSimulatorPy(BaseBackend):
         """Perform complete computational basis measurement for current densitymatrix.
 
         Args:
+            basis       (string): Direction of measurement (same for all qubits)- 'X', 'Y', 'Z' or 'N'.
             err_param   (float): Reduction in polarization during measurement
         Returns:
             list: Complete list of probabilities. 
@@ -256,8 +257,9 @@ class DmSimulatorPy(BaseBackend):
         prob = {}
         for i in range(2**self._number_of_qubits):
             prob.update({prob_key[i]: probabilities[i]})
-        max_prob = max(prob, key=prob.get) 
 
+        max_str = max(prob, key=prob.get) 
+        max_prob = prob[max_str]
 
     def _add_partial_measure(self, qubits, cmembits , cregbits , err_param, basis, add_param = None):
         """Perform complete computational basis measurement for current densitymatrix.
@@ -318,36 +320,36 @@ class DmSimulatorPy(BaseBackend):
                 supplement_data[basis][0](mqb, mcb, mcregb, 
                                 self._error_params['measurement'])
         
-    def _pauli_string_expectation(self, qubits, basis, add_param = None):
+    def _pauli_string_expectation(self, basis, err_param, add_param = None):
         """
         Returns expectation value for a given string of pauli matrices.
 
         Args:
-            qubits (list): list of qubits where identity is not applied.
-            basis (list): list of measurement instruction (alphabet from {'x', 'y', 'z'}) corresponding to qubits that are                   measured.
+            basis (list): list of measurement instruction (alphabet from {'I', 'X', 'Y', 'Z'}) corresponding to operator that is                   measured.
         Returns:
             expectation (float): expectation value of the pauli string.
 
         """
-
-        for i in range(len(qubits)):
-            qubit = qubits[i]
-            self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
-            if basis[i] == 'x':
-                self._densitymatrix[:,0,:] = 0
+        bas_ind = {'I':0, 'X':1, 'Y':2, 'Z':3}
+        for i in range(self._number_of_qubits):
+            self._densitymatrix = np.reshape(self._densitymatrix,(4**(i),4,4**(self._number_of_qubits-i-1)))
+            if basis[i] == 'X':
+                self._densitymatrix[:,1,:] *= err_param 
                 self._densitymatrix[:,2,:] = 0
                 self._densitymatrix[:,3,:] = 0
-            elif basis[i] == 'y':
-                self._densitymatrix[:,0,:] = 0
+            elif basis[i] == 'Y':
                 self._densitymatrix[:,1,:] = 0
+                self._densitymatrix[:,2,:] *= err_param
                 self._densitymatrix[:,3,:] = 0
-            elif basis[i] == 'z':
-                self._densitymatrix[:,0,:] = 0
+            elif basis[i] == 'Z':
                 self._densitymatrix[:,1,:] = 0
                 self._densitymatrix[:,2,:] = 0
-        expectation = 0.0
-        expectation = self._densitymatrix.sum()
-
+                self._densitymatrix[:,3,:] *= err_param
+        
+        self._densitymatrix = np.reshape(self._densitymatrix, self._number_of_qubits * [4])
+        index = tuple([bas_ind[x] for x in basis])
+        expectation = self._densitymatrix[index] * 2**self._number_of_qubits
+        
         return expectation
 
     def _add_bell_basis_measure(self, qubit_1, qubit_2, err_param):
@@ -380,11 +382,13 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix[:,3,:,3,:] *= err_param
 
         k = [0.0,0.0,0.0,0.0]
-        k[0] = self._densitymatrix[:,0,:,0,:].sum()
-        k[1] = self._densitymatrix[:,1,:,1,:].sum()
-        k[2] = self._densitymatrix[:,2,:,2,:].sum()
-        k[3] = self._densitymatrix[:,3,:,3,:].sum()
-        
+
+        index = [0 for x in range(self._number_of_qubits)]
+        for i in range(4):
+            index[qubit_1] = i
+            index[qubit_2] = i
+            k[i] = self._densitymatrix[tuple(index)] * 2**self._number_of_qubits
+
         bell_probabilities = [0., 0., 0., 0.] 
         bell_probabilities[0] = 0.25*(k[0] + k[1] - k[2] + k[3])
         bell_probabilities[1] = 0.25*(k[0] - k[1] + k[2] + k[3])
@@ -408,36 +412,20 @@ class DmSimulatorPy(BaseBackend):
 
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
-        p_3 = 0.0
    
         self._densitymatrix[:,1,:] = 0
         self._densitymatrix[:,2,:] = 0
         self._densitymatrix[:,3,:] *= err_param
-        p_3 = self._densitymatrix[:,3,:].sum()
         
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
 
-        probability_of_zero = 0.5 * (1 + p_3)
+        index = [0 for x in range(self._number_of_qubits)]
+        index[qubit] = 1
+        p_1 = self._densitymatrix[tuple(index)] * 2**self._number_of_qubits
+
+        probability_of_zero = 0.5 * (1 + p_1)
         probability_of_one = 1 - probability_of_zero
-
-
-        if probability_of_zero > probability_of_one:
-            outcome, probability = 0,probability_of_zero
-        else:
-            outcome, probability = 1, probability_of_one
-
-        membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (
-            ~membit)) | (int(outcome) << cmembit)
-
-        if cregbit is not None:
-            regbit = 1 << cregbit
-            self._classical_register = \
-                (self._classical_register & (~regbit)) | (
-                    int(outcome) << cregbit)
-
-        return outcome,probability
 
     def _add_qasm_measure_Y(self, qubit, cmembit, cregbit=None, err_param=1.0):
         """Apply a Y basis measure instruction to a qubit. 
@@ -452,36 +440,20 @@ class DmSimulatorPy(BaseBackend):
 
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
-        p_2 = 0.0
 
         self._densitymatrix[:,1,:] = 0
         self._densitymatrix[:,3,:] = 0
         self._densitymatrix[:,2,:] *= err_param
-        p_2 = self._densitymatrix[:,2,:].sum()
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
 
+        index = [0 for x in range(self._number_of_qubits)]
+        index[qubit] = 2
+        p_2 = self._densitymatrix[tuple(index)] * 2**self._number_of_qubits
+
         probability_of_zero = 0.5 * (1 + p_2)
         probability_of_one = 1 - probability_of_zero
-
-
-        if probability_of_zero > probability_of_one:
-            outcome, probability = 0, probability_of_zero
-        else:
-            outcome, probability = 1, probability_of_one
-
-        membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (
-            ~membit)) | (int(outcome) << cmembit)
-
-        if cregbit is not None:
-            regbit = 1 << cregbit
-            self._classical_register = \
-                (self._classical_register & (~regbit)) | (
-                    int(outcome) << cregbit)
-
-        return outcome, probability
 
     def _add_qasm_measure_Z(self, qubit, cmembit, cregbit=None, err_param=1.0):
         """Apply a Z basis measure instruction to a qubit. 
@@ -498,35 +470,20 @@ class DmSimulatorPy(BaseBackend):
         #print(err_param)
         self._densitymatrix = np.reshape(
             self._densitymatrix, (4**(qubit), 4, 4**(self._number_of_qubits-qubit-1)))
-        p_3 = 0.0
-
+        
         self._densitymatrix[:, 1, :] = 0
         self._densitymatrix[:, 2, :] = 0
         self._densitymatrix[:, 3, :] *= err_param
-        p_3 = self._densitymatrix[:, 3, :].sum()
 
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
+        
+        index = [0 for x in range(self._number_of_qubits)]
+        index[qubit] = 3
+        p_3 = self._densitymatrix[tuple(index)] * 2**self._number_of_qubits
 
         probability_of_zero = 0.5 * (1 + p_3)
         probability_of_one = 1 - probability_of_zero
-
-        if probability_of_zero > probability_of_one:
-            outcome, probability = 0, probability_of_zero
-        else:
-            outcome, probability = 1, probability_of_one
-
-        membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (
-            ~membit)) | (int(outcome) << cmembit)
-
-        if cregbit is not None:
-            regbit = 1 << cregbit
-            self._classical_register = \
-                (self._classical_register & (~regbit)) | (
-                    int(outcome) << cregbit)
-
-        return outcome, probability
 
     def _add_qasm_measure_N(self, qubit , cmembit , cregbit = None, n = np.array([0.0,0.0,1.0]), err_param = 1.0):
         """Apply a general n-axis measure instruction to a qubit. 
@@ -543,8 +500,6 @@ class DmSimulatorPy(BaseBackend):
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
 
-        p_n = 0.0
-
         temp = n[0]*self._densitymatrix[:,1,:] + n[1]*self._densitymatrix[:,2,:] + \
                        n[2]*self._densitymatrix[:,3,:]
         temp *= err_param
@@ -553,31 +508,20 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix[:,2,:] = temp*n[1]
         self._densitymatrix[:,3,:] = temp*n[2]
 
-        p_n =  temp.sum()
-
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
 
+        index = [0 for x in range(self._number_of_qubits)]
+        
+        p_n = 0.0
+        for i in range(3):
+            index[qubit] = i+1
+            p_n += self._densitymatrix[tuple(index)]
+        
+        p_n *= 2**self._number_of_qubits
+        
         probability_of_zero = 0.5 * (1 + p_n)
         probability_of_one = 1 - probability_of_zero
-
-
-        if probability_of_zero > probability_of_one:
-            outcome, probability = 0, probability_of_zero
-        else:
-            outcome, probability = 1, probability_of_one
-
-        membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (
-            ~membit)) | (int(outcome) << cmembit)
-
-        if cregbit is not None:
-            regbit = 1 << cregbit
-            self._classical_register = \
-                (self._classical_register & (~regbit)) | (
-                    int(outcome) << cregbit)
-
-        return outcome, probability
 
     def _add_qasm_reset(self, qubit):
         """Apply a reset instruction to a qubit.
