@@ -337,6 +337,30 @@ class QasmSimulatorPy(BaseBackend):
         """Return the current statevector in JSON Result spec format"""
         vec = np.reshape(self._statevector, 2 ** self._number_of_qubits)
         # Expand complex numbers
+        """
+        dens = vec.copy()
+        trans = []
+        # print(dens)
+        import itertools
+        bina1 = [x for x in itertools.product(
+            [0, 1], repeat=self._number_of_qubits)]
+        bina2 = [''.join(str(y) for y in x) for x in bina1]
+        for idx in bina2:
+            a = int(idx, 2)
+            b = int(idx[::-1], 2)
+            #print(a, b)
+            if a not in trans and b not in trans:
+                trans.append(a)
+                trans.append(b)
+                dens[a], dens[b] = dens[b], dens[a]
+
+        densitymatrix = np.outer(dens, np.conj(dens))
+        r = np.asarray(np.round(densitymatrix, 4))
+        #print('Density matrix is {}'.format(r))
+        np.savetxt("a1.txt", np.asarray(np.round(densitymatrix, 4)),
+                   fmt='%1.3f', newline="\n")
+
+        """
         vec = np.stack([vec.real, vec.imag], axis=1)
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0

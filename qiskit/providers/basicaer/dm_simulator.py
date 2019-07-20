@@ -704,7 +704,7 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = np.reshape(self._densitymatrix,
                                        self._number_of_qubits * [4])
 
-    def _compute_densitymatrix(self, vec):
+    def _compute_densitymatrix1(self, vec):
         '''
             Generates density matrix from a given coefficient matrix
         '''
@@ -736,17 +736,65 @@ class DmSimulatorPy(BaseBackend):
 
         return densitymatrix
 
+    def _compute_densitymatrix(self, vec):
+        '''
+            Generates density matrix from a given coefficient matrix
+        '''
+
+        densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
+
+        dot_pro = np.array([[1, 0, 0, 1],
+                            [0, 1, 1, 0],
+                            [0, complex(0, -1), complex(0, 1), 0],
+                            [1, 0, 0, -1]]
+                           ).T
+
+        nonzero_indices = [(0, 3), (1, 2), (1, 2), (0, 3)]
+        prod_for_index = [2**(self._number_of_qubits-i-1) for i in range(self._number_of_qubits)]
+        ind_mat = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+
+        den_creatp = [x for x in itertools.product([0, 1, 2, 3], repeat=self._number_of_qubits)]
+
+
+        for idxp in den_creatp:
+
+            b = 0
+            arr = [nonzero_indices[i] for i in idxp]
+            den_create = itertools.product(*arr)
+
+            for idxe in den_create:
+                a = 1
+                for index in zip(idxp, idxe):
+                    a *= dot_pro[index]
+
+                b += a*vec[idxe]
+
+            index_list = [ind_mat[i] for i in idxp]
+            final_index = tuple(sum([prod_for_index[i]*index_list[i] for i in range(self._number_of_qubits)]))
+            densitymatrix[final_index] = b
+
+        if not self._error_included:
+            np.savetxt("a.txt", np.asarray(
+                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+        else:
+            np.savetxt("a1.txt", np.asarray(
+                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+
+        return densitymatrix
+
     def _get_densitymatrix(self):
         """Return the current densitymatrix in JSON Result spec format"""
-        # Coefficients
-        vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
-        vec[abs(vec) < self._chop_threshold] = 0.0
-        #pprint.pprint(vec)
+
         if self._get_den_mat:
-            densitymatrix = self._compute_densitymatrix(vec)
+            densitymatrix = self._compute_densitymatrix(
+                self._densitymatrix.real)
+            vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+            vec[abs(vec) < self._chop_threshold] = 0.0
             return vec, densitymatrix
         else:
             densitymatrix = None
+            vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+            vec[abs(vec) < self._chop_threshold] = 0.0
             return vec
 
     def _validate_measure(self, insts):
