@@ -133,123 +133,55 @@ def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
     return state
 
 
-def U3_merge(theta, phi, lamb, tol):
-    """Performs merge operation when both the gates are U3 by transforming the Y-Z decomposition of the gates to the Z-Y decomposition.
+def U3_merge(xi, theta1, theta2):
+    """Performs merge operation when both the gates are U3 by transforming the Y-Z-Y decomposition of the gates to the Z-Y-Z decomposition.
         Args:
-            theta   (float) :  Ry(theta1) 
-            phi     (float) :  Rz(theta2)
-            lamb    (float) :  Rz(theta3)
-            tol     (float) :  Tolerance limit
+            [xi, theta1, theta2] (list, type:float ):  {Ry(theta1) , Rz(xi) , Ry(theta2)}
+            0 <= theta1, theta2 <= Pi , 0 <= xi <= 2*Pi
         Return
             [β, α, γ] (list, type:float ):  {Rz(α) , Ry(β) , Rz(γ)}
+            0 <= β <= Pi , 0 <= α, γ <= 2*Pi     
 
-    Matrix Form
+    Input Matrix Form
     {
         E^(-((I xi)/2))*cos[theta1/2]*cos[theta2/2] - 
         E^((I xi)/2)*sin[theta1/2]*sin[theta2/2]	(1,1)
 
-       -E^(((I xi)/2))*cos[theta2/2]*sin[theta1/2] - 
+       -E^(((I xi)/2))*sin[theta1/2]*cos[theta2/2] - 
         E^(-((I xi)/2))*cos[theta1/2]*sin[theta2/2]  (1,2)
 
-        E^(-((I xi)/2))*cos[theta2/2]*sin[theta1/2] + 
+        E^(-((I xi)/2))*sin[theta1/2]*cos[theta2/2] + 
         E^((I xi)/2)*cos[theta1/2]*sin[theta2/2]	(2,1)
 
         E^((I xi)/2)*cos[theta1/2]*cos[theta2/2] - 
         E^(-((I xi)/2))*sin[theta1/2]*sin[theta2/2]  (2,2)
     }
+    Output Matrix Form
+    {
+        E^(-I(α + γ)/2)*cos[β/2]    -E^(-I(α - γ)/2)*sin[β/2]
+
+        E^(I(α - γ)/2)*sin[β/2]     E^(I(α + γ)/2)*cos[β/2]
+    }
 
     """
-    xi = theta
-    theta1 = phi
-    theta2 = lamb
-    atol = 1e-8
-    # for storing all the solutions
-    solutions = []
-    if np.abs(np.cos(xi)) < tol:
-        return [theta2-theta1, xi, 0]
-    elif np.abs(np.sin(theta1+theta2)) < tol:
-        phi_minus_lambda = [np.pi/2, 3*np.pi/2, np.pi/2, 3*np.pi/2]
-        
-        stheta_1 = np.arcsin(np.sin(xi) * np.sin(-theta1 + theta2))
-        stheta_2 = -stheta_1
-        stheta_3 = np.pi - stheta_1
-        stheta_4 = np.pi - stheta_2
-        stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
-        cthet = [round(np.cos(xi)/np.cos(x), 10) for x in stheta]
-        phi_plus_lambda = list(map(lambda x:
-                                   np.arccos(np.cos(theta1 + theta2) * x), cthet))
 
-        sphi = [(term[0] + term[1]) / 2 for term in
-                zip(phi_plus_lambda, phi_minus_lambda)]
-        slam = [(term[0] - term[1]) / 2 for term in
-                zip(phi_plus_lambda, phi_minus_lambda)]
-        solutions = list(zip(stheta, sphi, slam))
-    elif np.abs(np.cos(theta1+theta2)) < tol:
-        phi_plus_lambda = [np.pi/2, 3*np.pi/2, np.pi/2, 3*np.pi/2]
-        
-        stheta_1 = np.arccos(np.sin(xi) * np.cos(theta1 - theta2))
-        stheta_2 = stheta_1
-        stheta_3 = -stheta_1
-        stheta_4 = -stheta_2
-        stheta = [stheta_1, stheta_2, stheta_3, stheta_4]
-        ctheta = [np.cos(xi)/np.sin(x) for x in stheta]
-        cthet = [round(np.cos(xi)/np.sin(x), 10) for x in stheta]
-        phi_minus_lambda = list(map(lambda x:
-                                    np.arccos(np.sin(theta1 + theta2) * x), cthet))
+    sxi = np.sin(xi*0.5)
+    cxi = np.cos(xi*0.5)
+    sth1p2 = np.sin((theta1+theta2)*0.5)
+    cth1p2 = np.cos((theta1+theta2)*0.5)
+    sth1m2 = np.sin((theta1-theta2)*0.5)
+    cth1m2 = np.cos((theta1-theta2)*0.5)
 
-        sphi = [(term[0] + term[1]) / 2 for term in
-                zip(phi_plus_lambda, phi_minus_lambda)]
-        slam = [(term[0] - term[1]) / 2 for term in
-                zip(phi_plus_lambda, phi_minus_lambda)]
-        solutions = list(zip(stheta, sphi, slam))
-    else:
-        sinxi = np.sin(xi)
-        cosxi = np.cos(xi)
-        costheta12 = np.cos(theta1 + theta2)
-        phi_plus_lambda = np.arctan(sinxi * np.cos(theta1 - theta2) /
-                                    (cosxi * costheta12))
-        phi_minus_lambda = np.arctan(sinxi * np.sin(-theta1 +
-                                                    theta2) /
-                                     (cosxi * np.sin(theta1 +
-                                                     theta2)))
-        sphi = (phi_plus_lambda + phi_minus_lambda) / 2
-        slam = (phi_plus_lambda - phi_minus_lambda) / 2
-        cossphislam = np.cos(sphi + slam)
-        arccos = np.arccos(cosxi * costheta12 / cossphislam)
-        solutions.append((arccos, sphi, slam))
-        solutions.append((arccos, sphi + np.pi / 2, slam + np.pi / 2))
-        solutions.append((arccos, sphi + np.pi / 2, slam - np.pi / 2))
-        solutions.append((arccos, sphi + np.pi, slam))
+    apg2 = np.arctan2(sxi*cth1m2, cxi*cth1p2)
+    amg2 = np.arctan2(-sxi*sth1m2, cxi*sth1p2)
 
-    # Choose the first solution with desired accuracy
-    for ans in solutions:
+    alpha = apg2 + amg2
+    gamma = apg2 - amg2
 
-        sinxi = np.sin(xi)
-        cosxi = np.cos(xi)
-        sintheta = np.sin(ans[0])
-        costheta = np.cos(ans[0])
-        cost1 = ans[1] + ans[2]
-        cost2 = ans[1] - ans[2]
-        sint1 = theta1 + theta2
-        sint2 = theta1 - theta2
+    cb2 = np.sqrt((cxi*cth1p2)**2 + (sxi*cth1m2)**2)
+    beta = 2 * np.arccos(cb2)
 
-        delta1 = np.abs(np.cos(cost1) * costheta - cosxi * np.cos(sint1))
-        if delta1 > tol:
-            continue
-
-        delta2 = np.abs(np.sin(cost1) * costheta - sinxi * np.cos(sint2))
-        if delta2 > tol:
-            continue
-
-        delta3 = np.abs(np.cos(cost2) * sintheta - cosxi * np.sin(sint1))
-        if delta3 > tol:
-            continue
-
-        delta4 = np.abs(np.sin(cost2) * sintheta - sinxi * np.sin(-sint2))
-        if delta4 > tol:
-            continue
-
-        return ans
+    return beta, alpha, gamma
 
 
 def mergeU(gate1, gate2):
@@ -288,16 +220,15 @@ def mergeU(gate1, gate2):
             temp[0].params[1] = gate1[0].params[1] + gate2[0].params[0]
             temp[0].params[2] = gate1[0].params[2]
     elif gate1[0].name == 'u3' and gate2[0].name == 'u3':
-        atol = 1e-8
-        theta = float(gate2[0].params[2] + gate1[0].params[1]) * 0.5
-        phi = float(gate2[0].params[0]) * 0.5
-        lamb = float(gate1[0].params[0]) * 0.5
+        theta = float(gate2[0].params[2] + gate1[0].params[1]) 
+        phi = float(gate2[0].params[0]) 
+        lamb = float(gate1[0].params[0])
 
-        res = U3_merge(theta, phi, lamb, atol)
+        res = U3_merge(theta, phi, lamb)
 
-        temp[0].params[0] = 2*res[0]
-        temp[0].params[1] = gate2[0].params[1] + 2*res[1]
-        temp[0].params[2] = gate1[0].params[2] + 2*res[2]
+        temp[0].params[0] = res[0]
+        temp[0].params[1] = gate2[0].params[1] + res[1]
+        temp[0].params[2] = gate1[0].params[2] + res[2]
     else:
         raise QiskitError(
             'Encountered unrecognized instructions: %s, %s' % gate1[0].name, gate2[0].name)
