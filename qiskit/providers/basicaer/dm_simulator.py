@@ -736,41 +736,55 @@ class DmSimulatorPy(BaseBackend):
 
         return densitymatrix
 
-    def _compute_densitymatrix(self, vec):
+    def _compute_densitymatrix(self, dmpauli):
         '''
-            Generates density matrix from a given coefficient matrix
+            Converts the density matrix from the Pauli basis to the standard matrix basis.
+            rho = sum_{i,j,...=0,1,2,3} a_{i,j...} sigma_i x sigma_j x ...    [Pauli basis]
+                = sum_{mu,nu,...=00,01,10,11} b_{mu,nu,...} e_mu x e_nu x ... [matrix basis]
+            a_{i,j,...}   : 4**n real components
+            b_{mu,nu,...} : 4**n complex components   
+            Both the bases are orthogonal, and nonzero overlaps of the basis vectors are:
+                i={0,3} <-> mu={00,11} and i={1,2} <-> mu={01,10}
+            Matching components using orthogonal projections gives:
+            b_{mu,nu,...} = sum_{i,j,...} a_{i,j,...} <e_mu,sigma_i> x <e_nu,sigma_j> x ...
+            Only 2**n terms on the r.h.s. contribute with nonzero overlaps.
+
+            Arg:
+            dmpauli (float) : 4**n real components in the Pauli basis for n qubits
+
+            Return:
+            densitymatrix (complex) : 2**n x 2**n components in the matrix basis
         '''
 
         densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
 
-        dot_pro = np.array([[1, 0, 0, 1],
+        dot_prod = np.array([[1, 0, 0, 1],
                             [0, 1, 1, 0],
                             [0, complex(0, -1), complex(0, 1), 0],
                             [1, 0, 0, -1]]
                            ).T
 
-        nonzero_indices = [(0, 3), (1, 2), (1, 2), (0, 3)]
-        prod_for_index = [2**(self._number_of_qubits-i-1) for i in range(self._number_of_qubits)]
+        nonzero_overlaps = [(0, 3), (1, 2), (1, 2), (0, 3)]
+        binary_index_value = [2**(self._number_of_qubits-i-1) for i in range(self._number_of_qubits)]
         ind_mat = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
 
-        den_creatp = [x for x in itertools.product([0, 1, 2, 3], repeat=self._number_of_qubits)]
+        ind_mu = [x for x in itertools.product([0, 1, 2, 3], repeat=self._number_of_qubits)]
 
-
-        for idxp in den_creatp:
+        for idxb in ind_mu:
 
             b = 0
-            arr = [nonzero_indices[i] for i in idxp]
-            den_create = itertools.product(*arr)
+            arr = [nonzero_overlaps[i] for i in idxb]
+            ind_i = itertools.product(*arr)
 
-            for idxe in den_create:
-                a = 1
-                for index in zip(idxp, idxe):
-                    a *= dot_pro[index]
+            for idxa in ind_i:
+                total_overlap = 1
+                for index in zip(idxb, idxa):
+                    total_overlap *= dot_prod[index]
 
-                b += a*vec[idxe]
+                b += total_overlap*dmpauli[idxa]
 
-            index_list = [ind_mat[i] for i in idxp]
-            final_index = tuple(sum([prod_for_index[i]*index_list[i] for i in range(self._number_of_qubits)]))
+            index_list = [ind_mat[i] for i in idxb]
+            final_index = tuple(sum([binary_index_value[i]*index_list[i] for i in range(self._number_of_qubits)]))
             densitymatrix[final_index] = b
 
         if not self._error_included:
