@@ -706,7 +706,7 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = np.reshape(self._densitymatrix,
                                        self._number_of_qubits * [4])
 
-    def _compute_densitymatrix(self, vec):
+    def _compute_densitymatrix1(self, vec):
         '''
             Generates density matrix from a given coefficient matrix
         '''
@@ -737,17 +737,79 @@ class DmSimulatorPy(BaseBackend):
 
         return densitymatrix
 
+    def _compute_densitymatrix(self, dmpauli):
+        '''
+            Converts the density matrix from the Pauli basis to the standard matrix basis.
+            rho = sum_{i,j,...=0,1,2,3} a_{i,j...} sigma_i x sigma_j x ...    [Pauli basis]
+                = sum_{mu,nu,...=00,01,10,11} b_{mu,nu,...} e_mu x e_nu x ... [matrix basis]
+            a_{i,j,...}   : 4**n real components
+            b_{mu,nu,...} : 4**n complex components   
+            Both the bases are orthogonal, and nonzero overlaps of the basis vectors are:
+                i={0,3} <-> mu={00,11} and i={1,2} <-> mu={01,10}
+            Matching components using orthogonal projections gives:
+            b_{mu,nu,...} = sum_{i,j,...} a_{i,j,...} <e_mu,sigma_i> x <e_nu,sigma_j> x ...
+            Only 2**n terms on the r.h.s. contribute with nonzero overlaps.
+
+            Arg:
+            dmpauli (float) : 4**n real components in the Pauli basis for n qubits
+
+            Return:
+            densitymatrix (complex) : 2**n x 2**n components in the matrix basis
+        '''
+
+        densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
+
+        dot_prod = np.array([[1, 0, 0, 1],
+                            [0, 1, 1, 0],
+                            [0, complex(0, -1), complex(0, 1), 0],
+                            [1, 0, 0, -1]]
+                           ).T
+
+        nonzero_overlaps = [(0, 3), (1, 2), (1, 2), (0, 3)]
+        binary_index_value = [2**(self._number_of_qubits-i-1) for i in range(self._number_of_qubits)]
+        ind_mat = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+
+        ind_mu = [x for x in itertools.product([0, 1, 2, 3], repeat=self._number_of_qubits)]
+
+        for idxb in ind_mu:
+
+            b = 0
+            arr = [nonzero_overlaps[i] for i in idxb]
+            ind_i = itertools.product(*arr)
+
+            for idxa in ind_i:
+                total_overlap = 1
+                for index in zip(idxb, idxa):
+                    total_overlap *= dot_prod[index]
+
+                b += total_overlap*dmpauli[idxa]
+
+            index_list = [ind_mat[i] for i in idxb]
+            final_index = tuple(sum([binary_index_value[i]*index_list[i] for i in range(self._number_of_qubits)]))
+            densitymatrix[final_index] = b
+
+        if not self._error_included:
+            np.savetxt("a.txt", np.asarray(
+                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+        else:
+            np.savetxt("a1.txt", np.asarray(
+                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+
+        return densitymatrix
+
     def _get_densitymatrix(self):
         """Return the current densitymatrix in JSON Result spec format"""
-        # Coefficients
-        vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
-        vec[abs(vec) < self._chop_threshold] = 0.0
-        #pprint.pprint(vec)
+
         if self._get_den_mat:
-            densitymatrix = self._compute_densitymatrix(vec)
+            densitymatrix = self._compute_densitymatrix(
+                self._densitymatrix.real)
+            vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+            vec[abs(vec) < self._chop_threshold] = 0.0
             return vec, densitymatrix
         else:
             densitymatrix = None
+            vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+            vec[abs(vec) < self._chop_threshold] = 0.0
             return vec
 
     def _validate_measure(self, insts):
