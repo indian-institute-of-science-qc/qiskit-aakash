@@ -262,9 +262,11 @@ class DmSimulatorPy(BaseBackend):
         max_prob = prob[max_str]
 
     def _add_partial_measure(self, qubits, cmembits , cregbits , err_param, basis, add_param = None):
-        """Perform complete computational basis measurement for current densitymatrix.
+        """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
 
         Args:
+            qubits      (list): Locations where measurement is performed.
+            basis       (string): Direction along which measurement is performed.
             err_param   (float): Reduction in polarization during measurement
         Returns:
             list: Complete list of probabilities. 
@@ -275,7 +277,7 @@ class DmSimulatorPy(BaseBackend):
                             'N':[self._add_qasm_measure_N, [0, 1, 2, 3]] 
                         }
 
-        measured_qubits = qubits #list({qubit for qubit, cmembit in measure_params})
+        measured_qubits = qubits        
         num_measured = len(measured_qubits)
         axis = list(range(self._number_of_qubits))
         for qubit in reversed(measured_qubits):
@@ -724,8 +726,7 @@ class DmSimulatorPy(BaseBackend):
             for idx in range(1, len(creat)):
                 op = np.kron(op, pauli_basis[creat[idx]])
             densitymatrix += op*vec[i]
-            op = None
-
+            op = None   
         
         if not self._error_included:
             np.savetxt("a.txt", np.asarray(
@@ -901,7 +902,6 @@ class DmSimulatorPy(BaseBackend):
             seed_simulator = self._qobj_config.seed_simulator
         else:
             # For compatibility on Windows force dyte to be int32
-            ## TODO
             # and set the maximum value to be (4 ** 31) - 1
             seed_simulator = np.random.randint(2147483647, dtype='int32')
 
@@ -1002,6 +1002,7 @@ class DmSimulatorPy(BaseBackend):
 
                     for mt in partitioned_instructions[clock]:
                         if mt.params != params:
+                            sngl_measure = True
                             ensm_measure = False
                             part_measure = False
                             break
@@ -1029,7 +1030,7 @@ class DmSimulatorPy(BaseBackend):
                         else:
                             self._add_qasm_measure_Z(
                                 qubit,cmembit,cregbit,self._error_params['measurement'])       
-                        #partitioned_instructions[clock].remove(operation)
+                        partitioned_instructions[clock].remove(operation)
 
                     elif part_measure:
                         qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
@@ -1047,8 +1048,8 @@ class DmSimulatorPy(BaseBackend):
                         
                         break
                     elif exp_measure:
-                        qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
-                        self._pauli_string_expectation(qu_mes_list, params[0])
+                        #qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
+                        self._pauli_string_expectation(params[0], self._error_params['measurement'])
                         break
                     else:
                         self._add_ensemble_measure(params[0], params[1], 
