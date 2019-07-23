@@ -375,10 +375,10 @@ class DmSimulatorPy(BaseBackend):
 
         k = [0.0,0.0,0.0,0.0]
 
-        index = [0 for x in range(self._number_of_qubits)]
+        index = [0 for x in range(5)]
         for i in range(4):
-            index[qubit_1] = i
-            index[qubit_2] = i
+            index[1] = i
+            index[3] = i
             k[i] = self._densitymatrix[tuple(index)] * 2**self._number_of_qubits
 
         bell_probabilities = [0., 0., 0., 0.] 
@@ -405,7 +405,13 @@ class DmSimulatorPy(BaseBackend):
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
    
+        self._densitymatrix[:,1,:] *= err_param
+        self._densitymatrix[:,2,:] = 0
         self._densitymatrix[:,3,:] = 0
+        
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                         self._number_of_qubits * [4])
+
         index = [0 for x in range(self._number_of_qubits)]
         index[qubit] = 1
         p_1 = self._densitymatrix[tuple(index)] * 2**self._number_of_qubits
@@ -488,7 +494,14 @@ class DmSimulatorPy(BaseBackend):
         Return
             probability_of_zero (float): is the probability of getting zero state as outcome.   
         """
-
+        # checks if the given n is an unit vector
+        norm = np.linalg.norm(n)
+        if norm == 1:
+            pass
+        else:
+            n = n/norm
+            print("Given direction for the measurement is normalised to be unit vector!!")
+            
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
 
