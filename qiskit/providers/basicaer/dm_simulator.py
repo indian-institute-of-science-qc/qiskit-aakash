@@ -848,9 +848,12 @@ class DmSimulatorPy(BaseBackend):
                                 validated_inst.append(part[bf_id:idx])
                             validated_inst.append([part[idx]])
                             bf_id = idx+1
+                        else:
+                            validated_inst.append([part[idx]])
                     else:
                         set_flag = True
                         setattr(part[idx], 'params', ['Z'])
+                        validated_inst.append([part[idx]])
                 
                 if part[bf_id:idx]:
                     validated_inst.append(part[bf_id:idx+1])
