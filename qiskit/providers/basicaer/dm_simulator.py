@@ -269,7 +269,7 @@ class DmSimulatorPy(BaseBackend):
         return prob, max_str, max_prob
 
     def _add_partial_measure(self, measured_qubits, cmembits, cregbits, err_param, basis, add_param=None):
-        """Perform complete computational basis measurement for current densitymatrix.
+    """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
 
         Args:
         measured_qubits (int) : list of measured qubits
