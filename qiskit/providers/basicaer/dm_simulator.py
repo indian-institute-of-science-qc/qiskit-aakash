@@ -269,7 +269,7 @@ class DmSimulatorPy(BaseBackend):
         return prob, max_str, max_prob
 
     def _add_partial_measure(self, measured_qubits, cmembits, cregbits, err_param, basis, add_param=None):
-    """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
+        """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
 
         Args:
         measured_qubits (int) : list of measured qubits
@@ -281,7 +281,8 @@ class DmSimulatorPy(BaseBackend):
         Returns:
             1. dictionary mapping key : probabilities
             2. string corresponding to maximum probability
-            3. value of maximum probability     """
+            3. value of maximum probability     
+        """
 
         supplement_data = { 'X':[self._add_qasm_measure_X, [0, 1]], 
                             'Y':[self._add_qasm_measure_Y, [0, 2]], 
@@ -489,13 +490,6 @@ class DmSimulatorPy(BaseBackend):
         Return
             probability_of_zero (float): is the probability of getting zero state as outcome.   
         """
-        # checks if the given n is an unit vector
-        norm = np.linalg.norm(n)
-        if norm == 1:
-            pass
-        else:
-            n = n/norm
-            print("Given direction for the measurement is normalised to be unit vector!!")
             
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
@@ -812,6 +806,22 @@ class DmSimulatorPy(BaseBackend):
             vec[abs(vec) < self._chop_threshold] = 0.0
             return vec
 
+    def _unit_vector_normalisation(self, n):
+        """ Checks if the given direction vector for measurement in N basis is valid or not. If not it normalised it to be an unit vector.
+
+        Args:
+            n (list): measurement direction.
+        """
+        norm = np.linalg.norm(n)
+        flag = False
+        if norm == 1:
+            pass
+        else:
+            n = n/norm
+            flag = True
+        if flag:
+            logger.warning('Given direction for the measurement was not normalised. It has been normalised to be unit vector!!')
+
     def _validate_measure(self, insts):
         """Determines whether ensemble measurement is needed to be done for the experiment and
             repartition the instruction sequence by checking for Bell basis measurement. 
@@ -1088,6 +1098,7 @@ class DmSimulatorPy(BaseBackend):
                             self._add_qasm_measure_Y(
                                 qubit, cmembit, cregbit, self._error_params['measurement'])
                         elif params[0] == 'N':
+                            params[1] = self._unit_vector_normalisation(params[1])
                             self._add_qasm_measure_N(
                                 qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
                         elif params[0] == 'Bell':
