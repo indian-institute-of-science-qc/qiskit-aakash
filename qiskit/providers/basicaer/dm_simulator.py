@@ -220,46 +220,54 @@ class DmSimulatorPy(BaseBackend):
                                          self._number_of_qubits * [4])
 
     def _add_ensemble_measure(self, basis, add_param, err_param):
+        print('dm_simulator : _add_ensemble_measure')
         """Perform complete computational basis measurement for current densitymatrix.
 
         Args:
             basis       (string): Direction of measurement (same for all qubits)- 'X', 'Y', 'Z' or 'N'.
             err_param   (float): Reduction in polarization during measurement
+            add_param : parameters specifying components of N
         Returns:
-            list: Complete list of probabilities. 
+            1. complete list of probabilities
+            2. dictionary mapping key : probabilities 
+            3. string corresponding to maximum probability
+            4. value of maximum probability
         """
-        supplement_data = {'X': [0, 1], 'Y': [0, 2], 'Z': [0, 3], 'N': [0, 1, 2, 3]}
-        
+        supplement_data = {'X': [0, 1], 'Y': [
+            0, 2], 'Z': [0, 3], 'N': [0, 1, 2, 3]}
+
         # We get indices used for Probability Measurement via this.
-        measure_ind = [x for x in itertools.product(supplement_data[basis],repeat=self._number_of_qubits)]
-        # We get coefficient values stored at those indices via this. 
+        measure_ind = [x for x in itertools.product(
+            supplement_data[basis], repeat=self._number_of_qubits)]
+        # We get coefficient values stored at those indices via this.
         operator_ind = [self._densitymatrix[x] for x in measure_ind]
         # We get permutations of signs for summing those coefficient values.
 
         if basis != 'N':
-            operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
+            operator_mes = np.array(
+                [[1, err_param], [1, -err_param]], dtype=float)
             for i in range(self._number_of_qubits-1):
-                operator_mes = np.kron(np.array([[1, err_param], [1, -err_param]]), operator_mes)
+                operator_mes = np.kron(
+                    np.array([[1, err_param], [1, -err_param]]), operator_mes)
         else:
             n = add_param*err_param
-            operator_mes = np.array([[1, n[0], n[1], n[2]],[1, -n[0], -n[1], -n[2]]])
+            operator_mes = np.array(
+                [[1, n[0], n[1], n[2]], [1, -n[0], -n[1], -n[2]]])
             for i in range(self._number_of_qubits-1):
-                operator_mes = np.kron(np.array([[1, n[0], n[1], n[2]],[1, -n[0], -n[1], -n[2]]]), 
-                                        operator_mes)
+                operator_mes = np.kron(np.array([[1, n[0], n[1], n[2]], [1, -n[0], -n[1], -n[2]]]),
+                                       operator_mes)
 
         # We get 2**n probabilities via this.
         probabilities = np.reshape(
-                            np.array([np.sum(np.multiply(operator_ind, x)) for x in operator_mes]), 
-                            2**self._number_of_qubits)
+            np.array([np.sum(np.multiply(operator_ind, x))
+                      for x in operator_mes]),
+            2**self._number_of_qubits)
 
-        key = [x for x in itertools.product([0,1],repeat = self._number_of_qubits)]
-        prob_key = [''.join(str(y) for y in x) for x in key]
-        prob = {}
-        for i in range(2**self._number_of_qubits):
-            prob.update({prob_key[i]: probabilities[i]})
+        prob_key = ["".join(s) for s in itertools.product("01", repeat=3)]
+        prob = dict(zip(prob_key, probabilities))
+        max_str, max_prob = max(prob, key=prob.get), prob[max_str]
 
-        max_str = max(prob, key=prob.get) 
-        max_prob = prob[max_str]
+        return prob, max_str, max_prob
 
     def _add_partial_measure(self, qubits, cmembits , cregbits , err_param, basis, add_param = None):
         """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
