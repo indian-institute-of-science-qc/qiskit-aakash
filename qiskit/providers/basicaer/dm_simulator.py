@@ -400,9 +400,9 @@ class DmSimulatorPy(BaseBackend):
         # update density matrix
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
    
-        self._densitymatrix[:,1,:] = 0
+        self._densitymatrix[:,3,:] = 0
         self._densitymatrix[:,2,:] = 0
-        self._densitymatrix[:,3,:] *= err_param
+        self._densitymatrix[:,1,:] *= err_param
         
         self._densitymatrix = np.reshape(self._densitymatrix,
                                          self._number_of_qubits * [4])
@@ -517,7 +517,7 @@ class DmSimulatorPy(BaseBackend):
         probability_of_one = 1 - probability_of_zero
 
         return probability_of_zero
-    
+        
     def _add_qasm_reset(self, qubit):
         """Apply a reset instruction to a qubit.
 
