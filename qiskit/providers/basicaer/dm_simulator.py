@@ -220,7 +220,6 @@ class DmSimulatorPy(BaseBackend):
                                          self._number_of_qubits * [4])
 
     def _add_ensemble_measure(self, basis, add_param, err_param):
-        print('dm_simulator : _add_ensemble_measure')
         """Perform complete computational basis measurement for current densitymatrix.
 
         Args:
@@ -263,64 +262,41 @@ class DmSimulatorPy(BaseBackend):
                       for x in operator_mes]),
             2**self._number_of_qubits)
 
-        prob_key = ["".join(s) for s in itertools.product("01", repeat=3)]
+        prob_key = ["".join(s) for s in itertools.product("01", repeat=self._number_of_qubits)]
         prob = dict(zip(prob_key, probabilities))
         max_str, max_prob = max(prob, key=prob.get), prob[max_str]
 
         return prob, max_str, max_prob
 
-    def _add_partial_measure(self, qubits, cmembits , cregbits , err_param, basis, add_param = None):
-        """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
+    def _add_partial_measure(self, measured_qubits, cmembits, cregbits, err_param, basis, add_param=None):
+    """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
 
         Args:
-            qubits      (list): Locations where measurement is performed.
-            basis       (string): Direction along which measurement is performed.
-            err_param   (float): Reduction in polarization during measurement
+        measured_qubits (int) : list of measured qubits
+        cmembits: classical memory bits
+        cregbits: classical register bits
+        basis       (string): Direction of measurement (same for all qubits)- 'X', 'Y', 'Z' or 'N'.
+        err_param   (float): Reduction in polarization during measurement
+        add_param : parameters specifying components of N
         Returns:
-            list: Complete list of probabilities. 
-        """
+            1. dictionary mapping key : probabilities
+            2. string corresponding to maximum probability
+            3. value of maximum probability     """
+
         supplement_data = { 'X':[self._add_qasm_measure_X, [0, 1]], 
                             'Y':[self._add_qasm_measure_Y, [0, 2]], 
                             'Z':[self._add_qasm_measure_Z, [0, 3]],
                             'N':[self._add_qasm_measure_N, [0, 1, 2, 3]] 
                         }
-
-        measured_qubits = qubits        
         num_measured = len(measured_qubits)
-        axis = list(range(self._number_of_qubits))
-        for qubit in reversed(measured_qubits):
-            axis.remove(qubit)
-        
-        # We get indices used for Probability Measurement via this.
-        measure_ind = [x for x in itertools.product(
-            supplement_data[basis][1], repeat=self._number_of_qubits)]
-        # We get coefficient values stored at those indices via this.
-        operator_ind = [self._densitymatrix[x] for x in measure_ind]
-        
-        if basis != 'N':
-            # We get permutations of signs for summing those coefficient values.
-            operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
-            for i in range(self._number_of_qubits-1):
-                operator_mes = np.kron(
-                    np.array([[1, err_param], [1, -err_param]]), operator_mes)
-        else:
-            n = add_param*err_param
-            operator_mes = np.array([[1, n[0], n[1], n[2]],[1, -n[0], -n[1], -n[2]]])
-            for i in range(self._number_of_qubits-1):
-                operator_mes = np.kron(np.array([[1, n[0], n[1], n[2]],[1, -n[0], -n[1], -n[2]]]), 
-                                        operator_mes)
-
-        probabilities = np.reshape(np.sum(np.reshape(np.array([np.sum(np.multiply(
-            operator_ind, x)) for x in operator_mes]), self._number_of_qubits * [2]),  
+        axis = list(set(range(self._number_of_qubits)) - set(measured_qubits))        
+        prob_list, max_str, max_prob = _add_ensemble_measure(basis, add_param, err_param)
+        prob_ensemble = np.array(list(prob_list.values()))
+        probabilities = np.reshape(np.sum(np.reshape(prob_ensemble, self._number_of_qubits * [2]),  
             axis=tuple(axis)), 2**num_measured)
-    
-        key = [x for x in itertools.product(
-            [0, 1], repeat=num_measured)]
-        prob_key = [''.join(str(y) for y in x) for x in key]
-        prob = {}
-        for i in range(2**num_measured):
-            prob.update({prob_key[i]: probabilities[i]})
-        max_prob = max(prob, key=prob.get)
+        prob_key = ["".join(s) for s in itertools.product("01", repeat=num_measured)]
+        prob = dict(zip(prob_key, probabilities))
+        max_str, max_prob = max(prob, key=prob.get), prob[max_str]
 
         for mqb,mcb,mcregb in list(zip(measured_qubits,cmembits,cregbits)):
             if basis == 'N' and add_param is not None:
@@ -329,6 +305,7 @@ class DmSimulatorPy(BaseBackend):
             else:
                 supplement_data[basis][0](mqb, mcb, mcregb, 
                                 self._error_params['measurement'])
+        return prob, max_str, max_prob
         
     def _pauli_string_expectation(self, basis, err_param, add_param = None):
         """
@@ -393,10 +370,10 @@ class DmSimulatorPy(BaseBackend):
 
         k = [0.0,0.0,0.0,0.0]
 
-        index = [0 for x in range(self._number_of_qubits)]
+        index = [0 for x in range(5)]
         for i in range(4):
-            index[qubit_1] = i
-            index[qubit_2] = i
+            index[1] = i
+            index[3] = i
             k[i] = self._densitymatrix[tuple(index)] * 2**self._number_of_qubits
 
         bell_probabilities = [0., 0., 0., 0.] 
@@ -437,6 +414,8 @@ class DmSimulatorPy(BaseBackend):
         probability_of_zero = 0.5 * (1 + p_1)
         probability_of_one = 1 - probability_of_zero
 
+        return probability_of_zero
+
     def _add_qasm_measure_Y(self, qubit, cmembit, cregbit=None, err_param=1.0):
         """Apply a Y basis measure instruction to a qubit. 
         Post-measurement density matrix is returned in the same array.
@@ -464,6 +443,8 @@ class DmSimulatorPy(BaseBackend):
 
         probability_of_zero = 0.5 * (1 + p_2)
         probability_of_one = 1 - probability_of_zero
+
+        return probability_of_zero
 
     def _add_qasm_measure_Z(self, qubit, cmembit, cregbit=None, err_param=1.0):
         """Apply a Z basis measure instruction to a qubit. 
@@ -494,6 +475,8 @@ class DmSimulatorPy(BaseBackend):
 
         probability_of_zero = 0.5 * (1 + p_3)
         probability_of_one = 1 - probability_of_zero
+
+        return probability_of_zero
 
     def _add_qasm_measure_N(self, qubit , cmembit , cregbit = None, n = np.array([0.0,0.0,1.0]), err_param = 1.0):
         """Apply a general n-axis measure instruction to a qubit. 
@@ -540,6 +523,8 @@ class DmSimulatorPy(BaseBackend):
         probability_of_zero = 0.5 * (1 + p_n)
         probability_of_one = 1 - probability_of_zero
 
+        return probability_of_zero
+        
     def _add_qasm_reset(self, qubit):
         """Apply a reset instruction to a qubit.
 
