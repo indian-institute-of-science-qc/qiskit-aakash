@@ -3,11 +3,15 @@ from qiskit import BasicAer, execute
 import numpy as np
 
 backend1 = BasicAer.get_backend('dm_simulator')
-backend2 = BasicAer.get_backend('qasm_simulator') # run on local simulator by default
-options = {}
+backend2 = BasicAer.get_backend('qasm_simulator') # run on local sor by defaultimulat
+
+coeff_val = np.load('stored_coefficients.npy')
+options = {'initial_densitymatrix' : coeff_val, 'custom_densitymatrix' : 'stored_density_matrix'}
+
 q = QuantumRegister(5)
 c = ClassicalRegister(5)
 circ = QuantumCircuit(q,c)
+
 def generator(k):
     return (np.pi*2)/(2**k)
 
