@@ -293,8 +293,8 @@ class DmSimulatorPy(BaseBackend):
         axis = list(set(range(self._number_of_qubits)) - set(measured_qubits))
 
         # Calculate the probabilities
-        prob_list, max_str, max_prob = _add_ensemble_measure(basis, add_param, err_param)
-        prob_ensemble = np.array(list(prob_list.values()))
+        prob_dict, max_str, max_prob = self._add_ensemble_measure(basis, add_param, err_param)
+        prob_ensemble = np.array(list(prob_dict.values()))
         probabilities = np.reshape(np.sum(np.reshape(prob_ensemble, self._number_of_qubits * [2]),  
             axis=tuple(axis)), 2**num_measured)
         
@@ -551,6 +551,8 @@ class DmSimulatorPy(BaseBackend):
             return
         if self._custom_densitymatrix == 'binary_string':
             return 
+        if self._custom_densitymatrix == 'stored_density_matrix':
+            return
         # Check densitymatrix is correct length for number of qubits
         length = np.size(self._initial_densitymatrix)
         ##print(length, self._number_of_qubits)
@@ -589,6 +591,8 @@ class DmSimulatorPy(BaseBackend):
             self._custom_densitymatrix = backend_options['custom_densitymatrix']
             if self._custom_densitymatrix == 'binary_string':
                 self._initial_densitymatrix = backend_options['initial_densitymatrix']
+            elif self._custom_densitymatrix == 'stored_density_matrix':
+                self._initial_densitymatrix = backend_options['initial_densitymatrix']
 
         # Error for Single Qubit Rotation Gates
         if 'rotation_error' in backend_options:
@@ -621,9 +625,11 @@ class DmSimulatorPy(BaseBackend):
             T_1 = backend_options['decay_factor'][1]
             self._decay_factor = np.exp(-del_T/T_1)
 
+         # Error due to Depolarization (or bit-flip) during measurement
         if 'depolarization_factor' in backend_options:
             self._depolarization_factor = backend_options['depolarization_factor']
         
+        # Error due to Depolarization during measurement
         if 'bell_depolarization_factor' in backend_options:
             self.bell_depolarization_factor = backend_options['bell_depolarization_factor']
 
@@ -652,57 +658,64 @@ class DmSimulatorPy(BaseBackend):
 
     def _initialize_densitymatrix(self):
         """
-            Set the initial densitymatrix for simulation
-            Default: All Zero [((I+sigma(3))/2)**num_qubits]
-            Custom: max_mixed - Maximally Mixed [(I/2)**num_qubits]
-                    uniform_superpos - Uniform Superposition [((I+sigma(1))/2)**num_qubits]
-                    thermal_state - Thermalized State 
-                    [([[1-p, 0],[0, p]])**num_qubits]
+            Initialize the density matrix for simulation.
+            Default: All Zero State [((I+sigma(3))/2)**num_qubits]
+            Custom: max_mixed - Maximally Mixed State [(I/2)**num_qubits]
+                    uniform_superpos - Uniform Superposition State [((I+sigma(1))/2)**num_qubits]
+                    thermal_state - Thermalized State [([[1-p, 0],[0, p]])**num_qubits]
             ** -> Tensor product.
        """
 
-
-        if self._initial_densitymatrix is None and self._custom_densitymatrix is None:
-            self._densitymatrix = np.array([1,0,0,1], dtype=float)
-            for i in range(self._number_of_qubits-1):
-                self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
-        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'max_mixed':
-            self._densitymatrix = np.array([1,0,0,0], dtype=float)
-            for i in range(self._number_of_qubits-1):
-                self._densitymatrix = np.kron([1,0,0,0], self._densitymatrix)
-        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'uniform_superpos':
-            self._densitymatrix = np.array([1,1,0,0], dtype=float)
-            for i in range(self._number_of_qubits-1):
-                self._densitymatrix = np.kron([1,1,0,0], self._densitymatrix)
-        elif self._initial_densitymatrix is None and self._custom_densitymatrix == 'thermal_state':
-            tf = 1-2*self._thermal_factor
-            self._densitymatrix = np.array([1,0,0,tf], 
-                                                dtype=float)
-            for i in range(self._number_of_qubits-1):
-                self._densitymatrix = np.kron([1,0,0,tf],
-                                                    self._densitymatrix)
-        elif self._initial_densitymatrix is not None and self._custom_densitymatrix == 'binary_string':
-            if len(self._initial_densitymatrix) != self._number_of_qubits:
-                raise BasicAerError('Wrong input binary string length')
-            if self._initial_densitymatrix[0] == '0':
-                self._densitymatrix = np.array([1,0,0,1], dtype=float)
-            else:
-                self._densitymatrix = np.array([1,0,0,-1], dtype=float) 
-            for idx in self._initial_densitymatrix[1:]:
-                if idx == '0':
-                    self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
-                else:
-                    self._densitymatrix = np.kron([1,0,0,-1],self._densitymatrix)
-            self._initialize_densitymatrix = None      #For Normalization        
-                                                          
-        else:
-            self._densitymatrix = self._initial_densitymatrix.copy()
-        
-        # Normalize
         if self._initial_densitymatrix is None:
+            if self._custom_densitymatrix is None:
+                self._densitymatrix = np.array([1,0,0,1], dtype=float)
+                for i in range(self._number_of_qubits-1):
+                    self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
+            elif self._custom_densitymatrix == 'max_mixed':
+                self._densitymatrix = np.array([1,0,0,0], dtype=float)
+                for i in range(self._number_of_qubits-1):
+                    self._densitymatrix = np.kron([1,0,0,0], self._densitymatrix)
+            elif self._custom_densitymatrix == 'uniform_superpos':
+                self._densitymatrix = np.array([1,1,0,0], dtype=float)
+                for i in range(self._number_of_qubits-1):
+                    self._densitymatrix = np.kron([1,1,0,0], self._densitymatrix)
+            elif self._custom_densitymatrix == 'thermal_state':
+                tf = 1-2*self._thermal_factor
+                self._densitymatrix = np.array([1,0,0,tf], dtype=float)
+                for i in range(self._number_of_qubits-1):
+                    self._densitymatrix = np.kron([1,0,0,tf], self._densitymatrix)
+            else:
+                raise BasicAerError('_custom_densitymatrix value is invalid')
+            # Normalize the density matrix
             self._densitymatrix *= 0.5**(self._number_of_qubits)
+
+
+        else:
+            # Binary string is encoded in the self._initial_densitymatrix
+            if self._custom_densitymatrix == 'binary_string':
+                if len(self._initial_densitymatrix) != self._number_of_qubits:
+                    raise BasicAerError('Wrong input binary string length')
+                if self._initial_densitymatrix[0] == '0':
+                    self._densitymatrix = np.array([1,0,0,1], dtype=float)
+                else:
+                    self._densitymatrix = np.array([1,0,0,-1], dtype=float) 
+                for idx in self._initial_densitymatrix[1:]:
+                    if idx == '0':
+                        self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
+                    else:
+                        self._densitymatrix = np.kron([1,0,0,-1],self._densitymatrix)
+                # Normalize the density matrix
+                self._densitymatrix *= 0.5**(self._number_of_qubits)
+
+            # Stored density matrix is encoded in the self._initial_densitymatrix 
+            elif self._custom_densitymatrix == 'stored_density_matrix':
+                if len(self._initial_densitymatrix) != 4**self._number_of_qubits:
+                    raise BasicAerError('Wrong input stored density matrix')
+                self._densitymatrix = self._initial_densitymatrix.copy()
+            else:
+                raise BasicAerError('_custom_densitymatrix value is invalid')
         
-        # Reshape to rank-N tensor
+       # Reshape to rank-N tensor
         self._densitymatrix = np.reshape(self._densitymatrix,
                                        self._number_of_qubits * [4])
 
@@ -1235,3 +1248,7 @@ class DmSimulatorPy(BaseBackend):
             elif 'measure' not in [op.name for op in experiment.instructions]:
                 logger.warning('No measurements in circuit "%s", '
                                'classical register will remain all zeros.', name)
+    
+    def store_density_matrix(self):
+        densitymatrix = np.reshape(self._densitymatrix, 4**self._number_of_qubits)
+        np.save("stored_coefficients", densitymatrix)
