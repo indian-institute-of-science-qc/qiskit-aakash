@@ -263,7 +263,8 @@ class DmSimulatorPy(BaseBackend):
 
         prob_key = ["".join(s) for s in itertools.product("01", repeat=self._number_of_qubits)]
         prob = dict(zip(prob_key, probabilities))
-        max_str, max_prob = max(prob, key=prob.get), prob[max_str]
+        max_str = max(prob, key=prob.get)
+        max_prob = prob[max_str]
 
         return prob, max_str, max_prob
 
@@ -300,7 +301,8 @@ class DmSimulatorPy(BaseBackend):
         prob_key = ["".join(s) for s in itertools.product("01", repeat=num_measured)]
         prob = dict(zip(prob_key, probabilities))
         
-        max_str, max_prob = max(prob, key=prob.get), prob[max_str]
+        max_str = max(prob, key=prob.get)
+        max_prob = prob[max_str]
 
         # Update the density matrix
         for mqb,mcb,mcregb in list(zip(measured_qubits,cmembits,cregbits)):
