@@ -167,7 +167,7 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt))
 
         for idx in gate: # For Rotations in the Decomposed Gate list
-            self._densitymatrix = rt_gate_dm_matrix(
+            self._densitymatrix = rot_gate_dm_matrix(
                 idx[0], idx[1], self._error_params['one_qubit_gates'][idx[0]], self._densitymatrix, qubit, self._number_of_qubits)
 
         self._densitymatrix = np.reshape(self._densitymatrix,
@@ -185,9 +185,6 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = cx_gate_dm_matrix(self._densitymatrix,
                                                 qubit0, qubit1, self._error_params['two_qubit_gates'],self._number_of_qubits)
         
-        self._densitymatrix = np.reshape(self._densitymatrix,
-                                        self._number_of_qubits * [4])
-
     def _add_decoherence_and_amp_decay(self, level, f, p, g):
         """ Apply decoherence transofrmation and amplitude decay transformation independently 
             to all the qubits. Off-diagonal elements of the density get contracted by a factor
@@ -868,7 +865,7 @@ class DmSimulatorPy(BaseBackend):
                 for idx in range(len(part)):
                         
                     para = getattr(part[idx], 'params', None)
-    
+
                     if para is not None:
                         part[idx].params[0] = str(para[0])
                         if str(para[0]) == 'Bell':
@@ -987,7 +984,7 @@ class DmSimulatorPy(BaseBackend):
         self._classical_memory = 0
         self._classical_register = 0
         #self._sample_measure = False
-        # Validate the dimension of initial densitymatrix if set
+        # Validate the dimension of initial density matrix if set
         self._validate_initial_densitymatrix()
         # Get the seed looking in circuit, qobj, and then random.
         if hasattr(experiment.config, 'seed_simulator'):
@@ -1047,17 +1044,14 @@ class DmSimulatorPy(BaseBackend):
                             value >>= 1
                         if value != int(operation.conditional.val, 16):
                             continue
-
-                if operation.name in ('U', 'u1', 'u2', 'u3'):
+ 
+                if operation.name in ('u1','u3'):
                     params = getattr(operation, 'params', None)
                     gate = single_gate_dm_matrix(operation.name, params)
                     qubit = operation.qubits[0]
                     self._add_unitary_single(gate, qubit)
-                elif operation.name in ('id', 'u0'):
-                    pass
-                # Check if CX gate
-                elif operation.name in ('CX', 'cx'):
-                    #a, b = self._get_densitymatrix()
+                # Check if C-NOT gate
+                elif operation.name == 'cx':
                     qubit0 = operation.qubits[0]
                     qubit1 = operation.qubits[1]
                     self._add_unitary_two(qubit0, qubit1)
@@ -1128,7 +1122,7 @@ class DmSimulatorPy(BaseBackend):
                         partitioned_instructions[clock].remove(operation)
 
                     elif part_measure:
-                        qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
+                        qubit_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
                         cmem_mes_list = [x.memory[0] for x in partitioned_instructions[clock]]
                         creg_mes_list = []
 
@@ -1138,15 +1132,15 @@ class DmSimulatorPy(BaseBackend):
                             creg_mes_list.append(cregbit)
 
                         self._add_partial_measure(
-                            qu_mes_list, cmem_mes_list, creg_mes_list,
+                            qubit_mes_list, cmem_mes_list, creg_mes_list,
                             self._error_params['measurement'], params[0], add_param=params[1])
-                        
                         break
+
                     elif exp_measure:
-                        #qu_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
                         self._pauli_string_expectation(params[0], self._error_params['measurement'])
                         break
-                    else:
+
+                    elif ensm_measure:
                         self._add_ensemble_measure(params[0], params[1], 
                                             self._error_params['measurement'])
                         break
