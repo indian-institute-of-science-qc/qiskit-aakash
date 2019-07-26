@@ -613,17 +613,13 @@ class DmSimulatorPy(BaseBackend):
         if 'thermal_factor' in backend_options:
             self._thermal_factor = backend_options['thermal_factor']
 
-        # Error due to Decoherence
+        # Error due to Decoherence: decoherence factor = exp(-del_T/T_2)
         if 'decoherence_factor' in backend_options:
-            del_T = backend_options['decoherence_factor'][0]
-            T_2 = backend_options['decoherence_factor'][1]
-            self._decoherence_factor = np.exp(-del_T/T_2)
+            self._decoherence_factor = backend_options['decoherence_factor']
 
-        # Error due to State Decay (1 -> 0)
+        # Error due to State Decay (1 -> 0): decay_factor = exp(-del_T/T_1)
         if 'decay_factor' in backend_options:
-            del_T = backend_options['decay_factor'][0]
-            T_1 = backend_options['decay_factor'][1]
-            self._decay_factor = np.exp(-del_T/T_1)
+            self._decay_factor = backend_options['decay_factor']
 
          # Error due to Depolarization (or bit-flip) during measurement
         if 'depolarization_factor' in backend_options:
@@ -988,31 +984,31 @@ class DmSimulatorPy(BaseBackend):
         self._classical_register = 0
         #self._sample_measure = False
         # Validate the dimension of initial densitymatrix if set
-        self._validate_initial_densitymatrix()
-        # Get the seed looking in circuit, qobj, and then random.
-        if hasattr(experiment.config, 'seed_simulator'):
-            seed_simulator = experiment.config.seed_simulator
-        elif hasattr(self._qobj_config, 'seed_simulator'):
-            seed_simulator = self._qobj_config.seed_simulator
-        else:
-            # For compatibility on Windows force dyte to be int32
-            # and set the maximum value to be (4 ** 31) - 1
-            seed_simulator = np.random.randint(2147483647, dtype='int32')
+        # self._validate_initial_densitymatrix()
+        # # Get the seed looking in circuit, qobj, and then random.
+        # if hasattr(experiment.config, 'seed_simulator'):
+        #     seed_simulator = experiment.config.seed_simulator
+        # elif hasattr(self._qobj_config, 'seed_simulator'):
+        #     seed_simulator = self._qobj_config.seed_simulator
+        # else:
+        #     # For compatibility on Windows force dyte to be int32
+        #     # and set the maximum value to be (4 ** 31) - 1
+        #     seed_simulator = np.random.randint(2147483647, dtype='int32')
 
-        self._local_random.seed(seed=seed_simulator)
-        # Check if measure sampling is supported for current circuit
-        #self._validate_measure_sampling(experiment)
+        # self._local_random.seed(seed=seed_simulator)
+        # # Check if measure sampling is supported for current circuit
+        # #self._validate_measure_sampling(experiment)
 
-        # List of final counts for all shots
-        memory = []
-        # Check if we can sample measurements, if so we only perform 1 shot
-        # and sample all outcomes from the final state vector
-        if self._sample_measure:
-            measure_sample_ops = []
-            # Store (qubit, cmembit) pairs for all measure ops in circuit to
-            # be sampled
-        else:
-            shots = self._shots
+        # # List of final counts for all shots
+        # memory = []
+        # # Check if we can sample measurements, if so we only perform 1 shot
+        # # and sample all outcomes from the final state vector
+        # if self._sample_measure:
+        #     measure_sample_ops = []
+        #     # Store (qubit, cmembit) pairs for all measure ops in circuit to
+        #     # be sampled
+        # else:
+        #     shots = self._shots
 
         self._initialize_densitymatrix()
         self._initialize_errors()
@@ -1194,21 +1190,21 @@ class DmSimulatorPy(BaseBackend):
                             )
 
         # Add final creg data to memory list
-        if self._number_of_cmembits > 0:
-            if self._sample_measure:
-                pass
-                # If sampling we generate all shot samples from the final densitymatrix
-                #memory = self._add_sample_measure(measure_sample_ops, self._shots)
-            else:
-                # Turn classical_memory (int) into bit string and pad zero for unused cmembits
-                outcome = bin(self._classical_memory)[2:]
-                memory.append(hex(int(outcome, 2)))
+        # if self._number_of_cmembits > 0:
+        #     if self._sample_measure:
+        #         pass
+        #         # If sampling we generate all shot samples from the final densitymatrix
+        #         #memory = self._add_sample_measure(measure_sample_ops, self._shots)
+        #     else:
+        #         # Turn classical_memory (int) into bit string and pad zero for unused cmembits
+        #         outcome = bin(self._classical_memory)[2:]
+        #         memory.append(hex(int(outcome, 2)))
 
-        # Add data
-        data = {'counts': dict(Counter(memory))}
-        # Optionally add memory list
-        if self._memory:
-            data['memory'] = memory
+        # # Add data
+        data = {}
+        # # Optionally add memory list
+        # if self._memory:
+        #     data['memory'] = memory
         # Optionally add final densitymatrix
         if self.SHOW_FINAL_STATE:
             if self._get_den_mat:
@@ -1217,14 +1213,14 @@ class DmSimulatorPy(BaseBackend):
                 data['coeffmatrix'] = self._get_densitymatrix()
 
             # Remove empty counts and memory for densitymatrix simulator
-            if not data['counts']:
-                data.pop('counts')
-            if 'memory' in data and not data['memory']:
-                data.pop('memory')
+            # if not data['counts']:
+            #     data.pop('counts')
+            # if 'memory' in data and not data['memory']:
+            #     data.pop('memory')
         end_runtime = time.time()
         return {'name': experiment.header.name,
-                'seed_simulator': seed_simulator,
-                'shots': self._shots,
+                # 'seed_simulator': seed_simulator,
+                # 'shots': self._shots,
                 'data': data,
                 'status': 'DONE',
                 'success': True,
