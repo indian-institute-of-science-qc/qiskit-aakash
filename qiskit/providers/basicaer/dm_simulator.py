@@ -727,12 +727,12 @@ class DmSimulatorPy(BaseBackend):
             op = None
 
         
-        if not self._error_included:
-            np.savetxt("a.txt", np.asarray(
-                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
-        else:
-            np.savetxt("a1.txt", np.asarray(
-                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+        # if not self._error_included:
+        #     np.savetxt("a.txt", np.asarray(
+        #         np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+        # else:
+        #     np.savetxt("a1.txt", np.asarray(
+        #         np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
 
         return densitymatrix
 
@@ -759,10 +759,10 @@ class DmSimulatorPy(BaseBackend):
         densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
 
         dot_prod = np.array([[1, 0, 0, 1],
-                            [0, 1, 1, 0],
-                            [0, complex(0, -1), complex(0, 1), 0],
-                            [1, 0, 0, -1]]
-                           ).T
+                             [0, 1, complex(0, -1), 0],
+                             [0, 1, complex(0, 1), 0],
+                             [1, 0, 0, -1]]
+                            )
 
         nonzero_overlaps = [(0, 3), (1, 2), (1, 2), (0, 3)]
         binary_index_value = [2**(self._number_of_qubits-i-1) for i in range(self._number_of_qubits)]
@@ -787,12 +787,12 @@ class DmSimulatorPy(BaseBackend):
             final_index = tuple(sum([binary_index_value[i]*index_list[i] for i in range(self._number_of_qubits)]))
             densitymatrix[final_index] = b
 
-        if not self._error_included:
-            np.savetxt("a.txt", np.asarray(
-                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
-        else:
-            np.savetxt("a1.txt", np.asarray(
-                np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+        # if not self._error_included:
+        #     np.savetxt("a.txt", np.asarray(
+        #         np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+        # else:
+        #     np.savetxt("a1.txt", np.asarray(
+        #         np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
 
         return densitymatrix
 

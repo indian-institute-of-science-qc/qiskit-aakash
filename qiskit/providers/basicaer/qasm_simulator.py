@@ -112,7 +112,7 @@ class QasmSimulatorPy(BaseBackend):
 
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the statevector simulator
-    SHOW_FINAL_STATE = True
+    SHOW_FINAL_STATE = False
 
     def __init__(self, configuration=None, provider=None):
         super().__init__(configuration=(
@@ -337,7 +337,7 @@ class QasmSimulatorPy(BaseBackend):
         """Return the current statevector in JSON Result spec format"""
         vec = np.reshape(self._statevector, 2 ** self._number_of_qubits)
         # Expand complex numbers
-        """
+
         dens = vec.copy()
         trans = []
         # print(dens)
@@ -360,7 +360,6 @@ class QasmSimulatorPy(BaseBackend):
         np.savetxt("a1.txt", np.asarray(np.round(densitymatrix, 4)),
                    fmt='%1.3f', newline="\n")
 
-        """
         vec = np.stack([vec.real, vec.imag], axis=1)
         # Truncate small values
         vec[abs(vec) < self._chop_threshold] = 0.0
