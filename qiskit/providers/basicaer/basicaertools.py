@@ -75,6 +75,7 @@ def single_gate_dm_matrix(gate, params=None):
         array: Decomposition in terms of 'ry', 'rz' with their angles. 
     """
     decomp_gate = []
+    param = list(map(float, params))
 
     if gate in ('U', 'u3'):
         decomp_gate.append(['rz', param[2]])
@@ -364,7 +365,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state[:, 2, :, 2, :] = s*temp_dm[:, 2, :, 1, :] - c*temp_dm[:, 3, :, 1, :]
         state[:, 3, :, 2, :] = c*temp_dm[:, 2, :, 1, :] + s*temp_dm[:, 3, :, 1, :]
 
-    state =  np.reshape(state, self._number_of_qubits * [4])
+    state =  np.reshape(state, num_qubits * [4])
 
     return state
 

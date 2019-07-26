@@ -118,6 +118,7 @@ class DmSimulatorPy(BaseBackend):
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the densitymatrix simulator
     SHOW_FINAL_STATE = True
+    BELL_BASIS = False
     DEBUG = True
 
     def __init__(self, configuration=None, provider=None):
@@ -140,6 +141,10 @@ class DmSimulatorPy(BaseBackend):
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
         self._qobj_config = None
+        self._ensemble_prob = None
+        self._partial_prob = None
+        self._bell_probabilities = None
+        self._reduced_bell_densitymatrix = None
         # Errors
         self._error_params = {}
         self._rotation_error = None         # [<cos(fluctuation)>, mean] , Single Rotation gates errors
@@ -259,11 +264,11 @@ class DmSimulatorPy(BaseBackend):
             2**self._number_of_qubits)
 
         prob_key = ["".join(s) for s in itertools.product("01", repeat=self._number_of_qubits)]
-        prob = dict(zip(prob_key, probabilities))
-        max_str = max(prob, key=prob.get)
-        max_prob = prob[max_str]
+        self._ensemble_prob = dict(zip(prob_key, probabilities))
+        max_str = max(self._ensemble_prob, key=self._ensemble_prob.get)
+        max_prob = self._ensemble_prob[max_str]
 
-        return prob, max_str, max_prob
+        return max_str, max_prob
 
     def _add_partial_measure(self, measured_qubits, cmembits, cregbits, err_param, basis, add_param=None):
         """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
@@ -296,10 +301,10 @@ class DmSimulatorPy(BaseBackend):
             axis=tuple(axis)), 2**num_measured)
         
         prob_key = ["".join(s) for s in itertools.product("01", repeat=num_measured)]
-        prob = dict(zip(prob_key, probabilities))
+        self._partial_prob = dict(zip(prob_key, probabilities))
         
-        max_str = max(prob, key=prob.get)
-        max_prob = prob[max_str]
+        max_str = max(self._partial_prob, key=self._partial_prob.get)
+        max_prob = self._partial_prob[max_str]
 
         # Update the density matrix
         for mqb,mcb,mcregb in list(zip(measured_qubits,cmembits,cregbits)):
@@ -309,7 +314,7 @@ class DmSimulatorPy(BaseBackend):
             else:
                 supplement_data[basis][0](mqb, mcb, mcregb, 
                                 self._error_params['measurement'])
-        return prob, max_str, max_prob
+        return max_str, max_prob
         
     def _pauli_string_expectation(self, basis, err_param, add_param = None):
         """
@@ -348,14 +353,12 @@ class DmSimulatorPy(BaseBackend):
         """
         Apply a Bell basis measure instruction for two qubits.
         Post measurement density matrix is updated in the same array.
+        write Four probabilities in the (|00>+|11>,|00>-|11>,|01>+|10>,|01>-|10>) basis in self._bell_probabilities 
 
         Args:
             qubit_1 (int): first qubit of the Bell pair.
             qubit_2 (int): second qubit of the Bell pair.
             err_param (float): Reduction in polarization during measurement.
-        
-        Returns:
-            Four probabilities in the (|00>+|11>,|00>-|11>,|01>+|10>,|01>-|10>) basis.
         """
         q_1 = min(qubit_1, qubit_2)
         q_2 = max(qubit_1, qubit_2)
@@ -363,6 +366,13 @@ class DmSimulatorPy(BaseBackend):
         #update density matrix
         
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
+        
+        # Reduced density matrix 
+        self._reduced_bell_densitymatrix = np.zeros((4,4))
+        for i in range(4):
+            for j in range(4):
+                self._reduced_bell_densitymatrix[i,j] = self._densitymatrix[0,i,0,j,0]
+        self.BELL_BASIS = True
         
         for i in range(4):
             for j in range(4):
@@ -374,22 +384,19 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix[:,3,:,3,:] *= err_param
 
         k = [0.0,0.0,0.0,0.0]
-
-        index = [0 for x in range(5)]
         for i in range(4):
-            index[1] = i
-            index[3] = i
-            k[i] = self._densitymatrix[tuple(index)] * 2**self._number_of_qubits
+            k[i] = self._densitymatrix[0,i,0,i,0] * 2**self._number_of_qubits
 
-        bell_probabilities = [0., 0., 0., 0.] 
+        bell_probabilities = [0., 0., 0., 0.]
         bell_probabilities[0] = 0.25*(k[0] + k[1] - k[2] + k[3])
         bell_probabilities[1] = 0.25*(k[0] - k[1] + k[2] + k[3])
         bell_probabilities[2] = 0.25*(k[0] + k[1] + k[2] - k[3])
         bell_probabilities[3] = 0.25*(k[0] - k[1] - k[2] - k[3])
 
-        self._densitymatrix = np.reshape(self._densitymatrix,self._number_of_qubits*[4])
+        bell_states = [r'$\frac{|00\rangle + |11\rangle}{\sqrt(2)}$', r'$\frac{|00\rangle - |11\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle + |10\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle - |10\rangle}{\sqrt(2)}$']
+        self._bell_probabilities = dict(zip(bell_states,bell_probabilities))
 
-        return bell_probabilities
+        self._densitymatrix = np.reshape(self._densitymatrix,self._number_of_qubits*[4])
     
     def _add_qasm_measure_X(self, qubit, cmembit,cregbit=None, err_param=1.0):
         """Apply a X basis measure instruction to a qubit. 
@@ -979,33 +986,9 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = 0
         self._classical_memory = 0
         self._classical_register = 0
-        #self._sample_measure = False
+
         # Validate the dimension of initial densitymatrix if set
-        # self._validate_initial_densitymatrix()
-        # # Get the seed looking in circuit, qobj, and then random.
-        # if hasattr(experiment.config, 'seed_simulator'):
-        #     seed_simulator = experiment.config.seed_simulator
-        # elif hasattr(self._qobj_config, 'seed_simulator'):
-        #     seed_simulator = self._qobj_config.seed_simulator
-        # else:
-        #     # For compatibility on Windows force dyte to be int32
-        #     # and set the maximum value to be (4 ** 31) - 1
-        #     seed_simulator = np.random.randint(2147483647, dtype='int32')
-
-        # self._local_random.seed(seed=seed_simulator)
-        # # Check if measure sampling is supported for current circuit
-        # #self._validate_measure_sampling(experiment)
-
-        # # List of final counts for all shots
-        # memory = []
-        # # Check if we can sample measurements, if so we only perform 1 shot
-        # # and sample all outcomes from the final state vector
-        # if self._sample_measure:
-        #     measure_sample_ops = []
-        #     # Store (qubit, cmembit) pairs for all measure ops in circuit to
-        #     # be sampled
-        # else:
-        #     shots = self._shots
+        self._validate_initial_densitymatrix()
 
         self._initialize_densitymatrix()
         self._initialize_errors()
@@ -1183,38 +1166,27 @@ class DmSimulatorPy(BaseBackend):
                                 g = self._error_params['memory']['amplitude_decay']
                             )
 
-        # Add final creg data to memory list
-        # if self._number_of_cmembits > 0:
-        #     if self._sample_measure:
-        #         pass
-        #         # If sampling we generate all shot samples from the final densitymatrix
-        #         #memory = self._add_sample_measure(measure_sample_ops, self._shots)
-        #     else:
-        #         # Turn classical_memory (int) into bit string and pad zero for unused cmembits
-        #         outcome = bin(self._classical_memory)[2:]
-        #         memory.append(hex(int(outcome, 2)))
-
-        # # Add data
+        # Add data
         data = {}
-        # # Optionally add memory list
-        # if self._memory:
-        #     data['memory'] = memory
-        # Optionally add final densitymatrix
+
+        # Adding Bell basis, ensmble and partial measurement probabilities to the result dictionary
+        if self._ensemble_prob:
+            data['ensemble_probablity'] = self._ensemble_prob
+        if self._partial_prob:
+            data['partial_measurement_probability'] = self._partial_prob
+        if self._bell_probabilities:
+            data['bell_probabilities'] = self._bell_probabilities
+        if self.BELL_BASIS:
+            data['reduced_bell_densitymatrix'] = self._reduced_bell_densitymatrix
+        
         if self.SHOW_FINAL_STATE:
             if self._get_den_mat:
                 data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
             else:
                 data['coeffmatrix'] = self._get_densitymatrix()
 
-            # Remove empty counts and memory for densitymatrix simulator
-            # if not data['counts']:
-            #     data.pop('counts')
-            # if 'memory' in data and not data['memory']:
-            #     data.pop('memory')
         end_runtime = time.time()
         return {'name': experiment.header.name,
-                # 'seed_simulator': seed_simulator,
-                # 'shots': self._shots,
                 'data': data,
                 'status': 'DONE',
                 'success': True,
