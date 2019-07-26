@@ -172,7 +172,7 @@ def U3_merge(xi, theta1, theta2):
 
 def mergeU(gate1, gate2):
     """
-    Merges Unitary Gates acting consecutively on a same qubit within in partions
+    Merges Unitary Gates acting consecutively on the same qubit within a partion
     Args:
         Gate1   ([Inst, index])
         Gate2   ([Inst, index])
@@ -182,7 +182,6 @@ def mergeU(gate1, gate2):
 
     temp = None
     # To preserve the sequencing we choose the smaller index while merging.
-
     if gate1[1] < gate2[1]:
         temp = deepcopy(gate1)
     else:
@@ -200,7 +199,7 @@ def mergeU(gate1, gate2):
         if gate1[0].name == 'u1' and gate2[0].name == 'u3':
             temp[0].params[0] = gate2[0].params[0]
             temp[0].params[1] = gate2[0].params[1]
-            temp[0].params[2] = (gate2[0].params[2] + gate1[0].params[0])
+            temp[0].params[2] = gate2[0].params[2] + gate1[0].params[0]
         elif gate1[0].name == 'u3' and gate2[0].name == 'u1':
             temp[0].params[0] = gate1[0].params[0]
             temp[0].params[1] = gate1[0].params[1] + gate2[0].params[0]
@@ -223,11 +222,11 @@ def mergeU(gate1, gate2):
 
 def merge_gates(inst):
     """
-    To merge unitary gate calls the helper function iteratively on the pair of consecutive qubits.
+    Unitary rotation gate calls on a single qubit are merged iteratively, by combining consecutive gate pairs.
     Args:
-        Inst [[inst, index]]:   Instructions to be merged
+        Inst [[inst, index]]:   Instruction list to be merged
     Return
-        Inst [Qasm Inst]:       Merged List
+        Inst [Qasm Inst]:       Merged instruction
     """
 
     if len(inst) < 2:
@@ -242,11 +241,11 @@ def merge_gates(inst):
 
 def single_gate_merge(inst, num_qubits):
     """
-        Merges the single gates applied consecutively on a circuit
+        Merges single gates applied consecutively to each qubit in the circuit
         Args:
             inst [QASM Inst]:   List of instructions (original)
         Return
-            inst [QASM Inst]:   List of instructions with merging
+            inst [QASM Inst]:   List of instructions after merging
     """
 
     single_gt = [[] for x in range(num_qubits)]
