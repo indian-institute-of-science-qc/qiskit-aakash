@@ -141,6 +141,7 @@ class DmSimulatorPy(BaseBackend):
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
         self._qobj_config = None
+        # GLobal variable
         self._ensemble_prob = None
         self._partial_prob = None
         self._bell_probabilities = None
@@ -229,9 +230,8 @@ class DmSimulatorPy(BaseBackend):
             err_param   (float): Reduction in polarization during measurement
             add_param : parameters specifying components of N
         Returns:
-            1. dictionary mapping key : probabilities 
-            2. string corresponding to maximum probability
-            3. value of maximum probability
+            1. string corresponding to maximum probability
+            2. value of maximum probability
         """
         supplement_data = {'X': [0, 1], 'Y': [
             0, 2], 'Z': [0, 3], 'N': [0, 1, 2, 3]}
@@ -281,9 +281,8 @@ class DmSimulatorPy(BaseBackend):
             err_param   (float): Reduction in polarization during measurement
             add_param : parameters specifying components of unit vector N
         Returns:
-            1. dictionary mapping key : probabilities
-            2. string corresponding to maximum probability
-            3. value of maximum probability     
+            1. string corresponding to maximum probability
+            2. value of maximum probability     
         """
 
         supplement_data = { 'X':[self._add_qasm_measure_X, [0, 1]], 
