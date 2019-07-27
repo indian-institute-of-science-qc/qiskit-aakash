@@ -124,6 +124,7 @@ class DmSimulatorPy(BaseBackend):
     BELL_BASIS = False
     PLOTTING = False
     DEBUG = True
+    STORE_LOCAL = False
 
     def __init__(self, configuration=None, provider=None):
 
@@ -277,6 +278,10 @@ class DmSimulatorPy(BaseBackend):
             plt.title(f"Probability Distribution for ensemble measurement in {basis} basis")
             plt.xticks(rotation='vertical')
             plt.show()
+        
+        # Store the density matrix in a local file
+        if self.STORE_LOCAL:
+            self.store_density_matrix()
 
         return max_str, max_prob
 
@@ -380,7 +385,7 @@ class DmSimulatorPy(BaseBackend):
         self._reduced_bell_densitymatrix = np.zeros((4,4))
         for i in range(4):
             for j in range(4):
-                self._reduced_bell_densitymatrix[i,j] = self._densitymatrix[0,i,0,j,0]
+                self._reduced_bell_densitymatrix[i,j] = self._densitymatrix[0,i,0,j,0] * 2**(self._number_of_qubits - 2)
         self.BELL_BASIS = True
 
         for i in range(4):
@@ -689,7 +694,9 @@ class DmSimulatorPy(BaseBackend):
         
         if 'plot' in backend_options:
             self.PLOTTING = backend_options['plot'] 
-
+        
+        if 'store_densitymatrix' in backend_options:
+            self.STORE_LOCAL = backend_options['store_densitymatrix']
 
     def _initialize_errors(self):
 
