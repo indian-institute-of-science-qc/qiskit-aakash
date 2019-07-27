@@ -6,22 +6,11 @@ import time
 import matplotlib.pyplot as plt
 import glob
 plt.style.use('seaborn')
-options = {
-    "initial_densitymatrix": None,
-    "chop_threshold": 1e-15,
-    "thermal_factor": 0.,
-    "decoherence_factor": 1.,
-    "depolarization_factor": 1.,
-    "bell_depolarization_factor": 1.,
-    "decay_factor": 1.,
-    "rotation_error": {'rx': [1., 0.], 'ry': [1., 0.], 'rz': [1., 0.]},
-    "tsp_model_error": [1., 0.]
-}
 
 
 def change_options():
     options = {
-        "initial_densitymatrix": None,
+
         "chop_threshold": 1e-15,
         "thermal_factor": 0.,
         "decoherence_factor": 1.,
@@ -46,6 +35,13 @@ def make_circuit(num_qubits, num_instructions):
 
 with open("results_error.csv", 'w') as f:
     pass
+with open('./change.csv', 'w') as f:
+    pass
+
+
+def find_change(without_error, with_error):
+
+    return str(np.trace(np.dot(without_error, with_error)))
 
 
 def record_memory_usage():
@@ -63,12 +59,28 @@ total_runtime1 = 0.0
 total_memory_usage1 = 0.0
 
 
-def change_options():
+change_options()
+
+qubits = 3
+num_gates = 10
+make_circuit(qubits, num_gates)
+
+print("Running without errors")
+p2 = subprocess.Popen(
+    f"mprof clean && mprof run --include-children python circuit.py 0", shell=True)
+p2.communicate()
+
+without_error = np.loadtxt('without_error.csv', dtype=np.complex128)
+
+
+for i in range(5):
+    print("Running with error")
+
     options = {
-        "initial_densitymatrix": None,
+
         "chop_threshold": 1e-15,
         "thermal_factor": 0.,
-        "decoherence_factor": 1.,
+        "decoherence_factor": 1. - 0.001*i,
         "depolarization_factor": 1.,
         "bell_depolarization_factor": 1.,
         "decay_factor": 1.,
@@ -78,12 +90,6 @@ def change_options():
     with open("./options.pkl", 'wb') as f:
         pickle.dump(options, f)
 
-
-for i in range(3):
-    qubits = 3+i
-    num_gates = 100
-    make_circuit(qubits, num_gates)
-    print("Running dm")
     p2 = subprocess.Popen(
         f"mprof clean && mprof run --include-children python circuit.py 1", shell=True)
     p2.communicate()
@@ -91,7 +97,12 @@ for i in range(3):
 
     with open("./results_error.csv", "a") as f:
         f.write(
-            f"{total_memory_usage1},{total_runtime1},{num_gates},{qubits}\n")
+            f"{total_memory_usage2},{total_runtime2},{num_gates},{qubits}\n")
+
+    with open('./change.csv', 'a') as f:
+        f.write(find_change(without_error, np.loadtxt(
+            'with_error.csv', dtype=np.complex128)))
+        f.write("\n")
 
 
-# subprocess.run("python ./plot.py".split())
+subprocess.run("python ./plot.py".split())

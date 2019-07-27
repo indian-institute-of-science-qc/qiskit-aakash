@@ -162,7 +162,7 @@ class DmSimulatorPy(BaseBackend):
         self._bell_depolarization_factor = None
         # TEMP
         self._sample_measure = False
-        self._get_den_mat = False
+        self._get_den_mat = True
         self._error_included = False
 
     def _add_unitary_single(self, gate, qubit):
@@ -1041,7 +1041,7 @@ class DmSimulatorPy(BaseBackend):
         self._classical_register = 0
 
         # Validate the dimension of initial densitymatrix if set
-        self._validate_initial_densitymatrix()
+        # self._validate_initial_densitymatrix()
 
         self._initialize_densitymatrix()
         self._initialize_errors()

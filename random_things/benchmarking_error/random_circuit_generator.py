@@ -20,7 +20,7 @@ which_back = int(sys.argv[1])
 
 """)
 print("backend1 = BasicAer.get_backend('dm_simulator')")
-print("backend2 = BasicAer.get_backend('qasm_simulator')")
+
 print('options = {}')
 print(f'q = QuantumRegister({qubits})')
 print(f'c = ClassicalRegister({qubits})')
@@ -56,12 +56,12 @@ with open('./options.pkl', 'rb') as f:
 
 circuits = [qc]
 if which_back == 0:
-
     time_start = time.time()
-    job = execute(circuits, backend2, **options)
+    job = execute(circuits, backend1, **options)
     result = job.result()
     run_time = time.time() - time_start
-    with open("./results_error.csv",'a') as f:
+    np.savetxt("./without_error.csv", result['results'][0]['data']['densitymatrix'])
+    with open("./results_error.csv", 'a') as f:
         f.write(f"{run_time},")
 
 if which_back == 1:
@@ -69,8 +69,8 @@ if which_back == 1:
     job = execute(circuits, backend1, **options)
     result = job.result()
     run_time = time.time() - time_start
-    with open("./results_error.csv",'a') as f:
+    np.savetxt("./with_error.csv", result['results'][0]['data']['densitymatrix'])
+    with open("./results_error.csv", 'a') as f:
         f.write(f"{run_time},")
-
 """
 )
