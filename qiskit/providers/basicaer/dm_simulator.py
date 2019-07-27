@@ -38,6 +38,9 @@ from math import log2
 from collections import Counter
 import numpy as np
 import itertools
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 
 from qiskit.util import local_hardware_info
 from qiskit.providers.models import QasmBackendConfiguration
@@ -119,6 +122,7 @@ class DmSimulatorPy(BaseBackend):
     # This should be set to True for the densitymatrix simulator
     SHOW_FINAL_STATE = True
     BELL_BASIS = False
+    PLOTTING = False
     DEBUG = True
 
     def __init__(self, configuration=None, provider=None):
@@ -268,6 +272,12 @@ class DmSimulatorPy(BaseBackend):
         max_str = max(self._ensemble_prob, key=self._ensemble_prob.get)
         max_prob = self._ensemble_prob[max_str]
 
+        if self.PLOTTING:
+            plt.bar(self._ensemble_prob.keys(),self._ensemble_prob.values())
+            plt.title(f"Probability Distribution for ensemble measurement in {basis} basis")
+            plt.xticks(rotation='vertical')
+            plt.show()
+
         return max_str, max_prob
 
     def _add_partial_measure(self, measured_qubits, cmembits, cregbits, err_param, basis, add_param=None):
@@ -372,7 +382,7 @@ class DmSimulatorPy(BaseBackend):
             for j in range(4):
                 self._reduced_bell_densitymatrix[i,j] = self._densitymatrix[0,i,0,j,0]
         self.BELL_BASIS = True
-        
+
         for i in range(4):
             for j in range(4):
                 if i != j:
@@ -396,6 +406,40 @@ class DmSimulatorPy(BaseBackend):
         self._bell_probabilities = dict(zip(bell_states,bell_probabilities))
 
         self._densitymatrix = np.reshape(self._densitymatrix,self._number_of_qubits*[4])
+
+        # plot the resultant reduced density matrix
+        self._plot_reduced_bell_basis()
+    
+    def _plot_reduced_bell_basis(self):
+        '''
+        Plots the reduced density matrix
+        '''
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        _x = range(4)
+        _y = range(4)
+        _xx, _yy = np.meshgrid(_x, _y)
+        x, y = _xx.ravel(), _yy.ravel()
+        top = self._reduced_bell_densitymatrix[x,y]
+        bottom = np.zeros_like(top)
+        width = 0.5
+        depth = 0.5
+        values = np.linspace(0.2, 1., x.ravel().shape[0])
+        colors = cm.rainbow(values)
+        z_up_lim = np.amax(self._reduced_bell_densitymatrix)
+        z_low_lim = np.amin(self._reduced_bell_densitymatrix)
+
+        ax.set_zlim3d(z_low_lim,z_up_lim)
+        ax.w_xaxis.set_ticks(x)
+        ax.w_yaxis.set_ticks(y)
+        ax.set_title("Reduced Density Matrix in Pauli Basis")
+        ax.set_xlabel("First Qubit")
+        ax.set_ylabel("Second qubit")
+        ax.set_zlabel("Coefficient value")
+
+        ax.bar3d(x-0.25, y-0.25, bottom, width, depth, top, color=colors, alpha=0.8, shade=True)
+
+        plt.show()
     
     def _add_qasm_measure_X(self, qubit, cmembit,cregbit=None, err_param=1.0):
         """Apply a X basis measure instruction to a qubit. 
@@ -642,6 +686,9 @@ class DmSimulatorPy(BaseBackend):
         
         if 'debug' in backend_options:
             DEBUG = backend_options['debug']
+        
+        if 'plot' in backend_options:
+            self.PLOTTING = backend_options['plot'] 
 
 
     def _initialize_errors(self):
