@@ -63,46 +63,33 @@ def single_gate_matrix(gate, params=None):
                       -np.exp(1j * lam) * np.sin(theta / 2)],
                      [np.exp(1j * phi) * np.sin(theta / 2),
                       np.exp(1j * phi + 1j * lam) * np.cos(theta / 2)]])
-
+                      
 
 def single_gate_dm_matrix(gate, params=None):
-    """Get the matrix for a single qubit in density matrix formalism.
+    """Get the rotation matrix for a single qubit in density matrix formalism.
 
     Args:
         gate(str): the single qubit gate name
         params(list): the operation parameters op['params']
     Returns:
-        array: A numpy array representing the matrix
+        array: Decomposition in terms of 'ry', 'rz' with their angles. 
     """
-
-    # Converting sym to floats improves the performance of the simulator 10x.
-    # This a is a probable a FIXME since it might show bugs in the simulator.
-
     decomp_gate = []
-    param = list(map(float, single_gate_params(gate, params)))
+    param = list(map(float, params))
 
-    # Decomposition is Rz(Phi)Ry(Theta)Rz(Lamb)
-    # Order of application goes Right to Left
-
-    # if param[2]:    # Lamb
-    decomp_gate.append(['rz', param[2]])
-    # if param[0]:    # Theta
-    decomp_gate.append(['ry', param[0]])
-    # if param[1]:    # Phi
-    decomp_gate.append(['rz', param[1]])
+    if gate in ('U', 'u3'):
+        decomp_gate.append(['rz', param[2]])
+        decomp_gate.append(['ry', param[0]])
+        decomp_gate.append(['rz', param[1]])
+    elif gate == 'u1':
+        decomp_gate.append(['rz', param[0]])
+    else:
+        raise QiskitError('Gate is not among the valid types: %s' % gate)
 
     return decomp_gate
 
-    '''
-    return np.array([[1,0,0,0],
-                    [0,np.sin(lam)*np.sin(phi)+ np.cos(theta)*np.cos(phi)*np.cos(lam),np.cos(theta)*np.cos(phi)*np.sin(lam)- np.cos(lam)*np.sin(phi),np.sin(theta)*np.cos(phi)],
-                    [0,np.cos(theta)*np.sin(phi)*np.cos(lam)- np.sin(lam)*np.cos(phi),np.cos(phi)*np.cos(lam) + np.cos(theta)*np.sin(phi)*np.sin(lam), np.sin(theta)*np.sin(phi)],
-                    [0,-np.cos(lam)*np.sin(theta), np.sin(theta)*np.sin(lam), np.cos(theta)]
-                    ])
-    '''
 
-
-def rt_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
+def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
     """   
     The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
     Args:
@@ -268,23 +255,29 @@ def single_gate_merge(inst, num_qubits):
     for ind, op in enumerate(inst):
         # To preserve the sequencing of the instructions
         opx = [op, ind]
-        # Check if non-unitary gate marks a partition
-        if opx[0].name in ('cx', 'measure', 'bfunc', 'reset'):
+        # Gates that are not single qubit rotations separate merging segments
+        if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset', 'barrier'):
             for idx, sg in enumerate(single_gt):
                 if sg:
                     inst_merged.append(merge_gates(sg))
                     single_gt[idx] = []
+            if opx[0].name == 'CX':
+                opx[0].name = 'cx'
             inst_merged.append(opx[0])
-        # Unitary gates are appended to their respective qubits
-        elif opx[0].name in ('u1', 'u2', 'u3'):
-            if opx[0].name == 'u2':
+        # Single qubit rotations are appended to their respective qubit instructions
+        elif opx[0].name in ('U', 'u1', 'u2', 'u3'):
+            if opx[0].name == 'U':
+                opx[0].name = 'u3'
+            elif opx[0].name == 'u2':
                 opx[0].name = 'u3'
                 opx[0].params.insert(0, np.pi/2)
             single_gt[op.qubits[0]].append(opx)
+        elif opx[0].name in ['id', 'u0']:
+            continue
         else:
             raise QiskitError('Encountered unrecognized instruction: %s' % op)
 
-    # To merge the final left out gates
+    # To merge the final remaining gates
     for gts in single_gt:
         if gts:
             inst_merged.append(merge_gates(gts))
@@ -299,6 +292,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state - density matrix
         q_1 (int): Control qubit 
         q_2 (int): Target qubit
+        Note : Ordering of qubits (MSB right, LSB left)
 
     The error model adds a fluctuation "a" to the angle producing the X rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
@@ -309,9 +303,6 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
                      which equals <cos(a)>.
     """
 
-    # Remark - ordering of qubits (MSB right, LSB left)
-    #print(q_1, q_2)
-    #q_1, q_2 = q_2, q_1
     # Calculating all cos and sin in advance
     cav = err_param[0]
     c2av = 4*cav - 3 # assuming small fluctuations in angle "a"
@@ -326,7 +317,6 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         raise QiskitError('Qubit Labels out of bound in CX Gate')
     elif q_2 > q_1:
         # Reshape Density Matrix
-
         rt, mt2, ct, mt1, lt = 4**(num_qubits-q_2 - 1), 4, 4**(q_2-q_1-1), 4, 4**(q_1)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
@@ -375,6 +365,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state[:, 2, :, 2, :] = s*temp_dm[:, 2, :, 1, :] - c*temp_dm[:, 3, :, 1, :]
         state[:, 3, :, 2, :] = c*temp_dm[:, 2, :, 1, :] + s*temp_dm[:, 3, :, 1, :]
 
+    state =  np.reshape(state, num_qubits * [4])
 
     return state
 
