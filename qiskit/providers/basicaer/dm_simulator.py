@@ -151,7 +151,7 @@ class DmSimulatorPy(BaseBackend):
         self._bell_depolarization_factor = None
         # TEMP
         self._sample_measure = False
-        self._get_den_mat = True
+        self._get_den_mat = False
         self._error_included = False
 
     def _add_unitary_single(self, gate, qubit):

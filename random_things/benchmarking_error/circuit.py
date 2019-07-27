@@ -1,0 +1,142 @@
+import numpy as np
+import filecmp
+import pickle
+from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+from qiskit import BasicAer, execute
+
+import time
+import sys
+
+which_back = int(sys.argv[1])
+
+
+backend1 = BasicAer.get_backend('dm_simulator')
+backend2 = BasicAer.get_backend('qasm_simulator')
+options = {}
+q = QuantumRegister(5)
+c = ClassicalRegister(5)
+qc = QuantumCircuit(q, c)
+qc.u1(4.29585,q[1])
+qc.ccx(q[0],q[3],q[4])
+qc.u2(3.1913,3.53892,q[3])
+qc.u2(2.82876,5.29708,q[4])
+qc.ccx(q[3],q[2],q[0])
+qc.u3(0.09085,4.42708,2.84134,q[3])
+qc.cx(q[2],q[4])
+qc.cx(q[1],q[4])
+qc.ccx(q[2],q[3],q[4])
+qc.cx(q[4],q[1])
+qc.u1(1.69704,q[2])
+qc.u3(0.61186,5.70501,3.18188,q[0])
+qc.u1(3.19021,q[1])
+qc.u1(4.60291,q[4])
+qc.u2(0.75698,4.56753,q[0])
+qc.u1(2.04432,q[0])
+qc.u1(1.53405,q[1])
+qc.u2(0.66695,1.85284,q[3])
+qc.u3(0.07178,1.61553,3.97099,q[2])
+qc.u2(4.42165,1.43029,q[2])
+qc.cx(q[2],q[1])
+qc.ccx(q[3],q[1],q[0])
+qc.cx(q[2],q[1])
+qc.cx(q[3],q[2])
+qc.ccx(q[1],q[2],q[4])
+qc.u2(1.46372,0.57113,q[4])
+qc.cx(q[2],q[0])
+qc.u3(0.97674,1.00252,2.04867,q[3])
+qc.u3(0.84794,3.05076,0.60523,q[0])
+qc.u3(0.15481,1.23732,0.28273,q[1])
+qc.ccx(q[4],q[1],q[0])
+qc.u3(0.07436,3.74995,3.1481,q[4])
+qc.ccx(q[0],q[4],q[3])
+qc.ccx(q[4],q[1],q[2])
+qc.ccx(q[2],q[1],q[0])
+qc.u3(1.16037,3.03499,0.60804,q[3])
+qc.u3(1.19617,0.22121,2.68317,q[4])
+qc.u2(4.32738,0.77866,q[4])
+qc.cx(q[1],q[2])
+qc.u3(0.3504,0.19731,2.23851,q[2])
+qc.u1(4.5287,q[4])
+qc.u2(0.33045,1.98738,q[1])
+qc.u2(4.81249,0.8529,q[2])
+qc.u2(3.40758,4.51971,q[0])
+qc.u1(3.77837,q[0])
+qc.u1(4.9873,q[4])
+qc.u1(1.17567,q[4])
+qc.cx(q[4],q[2])
+qc.cx(q[0],q[4])
+qc.u1(3.74305,q[0])
+qc.u2(1.3512,5.32139,q[2])
+qc.u2(4.44085,3.12579,q[1])
+qc.u2(5.46698,5.74526,q[0])
+qc.u2(0.79165,0.41398,q[4])
+qc.u2(1.68731,1.91153,q[2])
+qc.u2(0.42182,2.75351,q[0])
+qc.cx(q[0],q[3])
+qc.ccx(q[0],q[2],q[3])
+qc.ccx(q[2],q[0],q[4])
+qc.u2(1.7855,2.69256,q[2])
+qc.ccx(q[3],q[4],q[0])
+qc.u1(4.98218,q[2])
+qc.ccx(q[2],q[1],q[4])
+qc.ccx(q[0],q[4],q[3])
+qc.u2(0.70163,2.83372,q[0])
+qc.ccx(q[2],q[3],q[0])
+qc.u1(3.01932,q[4])
+qc.cx(q[4],q[3])
+qc.cx(q[2],q[0])
+qc.cx(q[3],q[0])
+qc.u1(1.52233,q[0])
+qc.ccx(q[3],q[2],q[4])
+qc.u2(2.67866,5.47674,q[0])
+qc.ccx(q[0],q[2],q[4])
+qc.u1(5.83172,q[3])
+qc.cx(q[4],q[0])
+qc.u2(0.38423,0.1194,q[2])
+qc.u3(1.81868,1.39314,3.8426,q[0])
+qc.cx(q[3],q[2])
+qc.u1(4.90951,q[4])
+qc.cx(q[2],q[3])
+qc.cx(q[2],q[0])
+qc.u2(3.13761,5.67519,q[4])
+qc.u1(3.12365,q[4])
+qc.u1(3.72298,q[0])
+qc.u2(1.14296,4.14824,q[0])
+qc.u2(0.21717,2.33236,q[2])
+qc.cx(q[0],q[4])
+qc.cx(q[4],q[0])
+qc.cx(q[2],q[3])
+qc.u2(5.77097,2.24989,q[1])
+qc.u2(4.62899,6.00501,q[3])
+qc.cx(q[2],q[4])
+qc.cx(q[4],q[2])
+qc.u1(4.12371,q[4])
+qc.u1(1.89765,q[3])
+qc.u3(0.09088,1.20781,4.82909,q[0])
+qc.u2(4.49802,3.25506,q[0])
+qc.u1(1.28922,q[1])
+qc.cx(q[1],q[2])
+
+with open('./options.pkl', 'rb') as f:
+    options= pickle.load(f)
+
+
+circuits = [qc]
+if which_back == 0:
+
+    time_start = time.time()
+    job = execute(circuits, backend2, **options)
+    result = job.result()
+    run_time = time.time() - time_start
+    with open("./results_error.csv",'a') as f:
+        f.write(f"{run_time},")
+
+if which_back == 1:
+    time_start = time.time()
+    job = execute(circuits, backend1, **options)
+    result = job.result()
+    run_time = time.time() - time_start
+    with open("./results_error.csv",'a') as f:
+        f.write(f"{run_time},")
+
+
