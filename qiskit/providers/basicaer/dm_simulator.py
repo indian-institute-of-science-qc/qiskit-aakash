@@ -121,7 +121,6 @@ class DmSimulatorPy(BaseBackend):
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the densitymatrix simulator
     SHOW_FINAL_STATE = True
-    BELL_BASIS = False
     PLOTTING = False
     DEBUG = True
     STORE_LOCAL = False
@@ -146,11 +145,6 @@ class DmSimulatorPy(BaseBackend):
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
         self._qobj_config = None
-        # GLobal variable
-        self._ensemble_prob = None
-        self._partial_prob = None
-        self._bell_probabilities = None
-        self._reduced_bell_densitymatrix = None
         # Errors
         self._error_params = {}
         self._rotation_error = None         # [<cos(fluctuation)>, mean] , Single Rotation gates errors
@@ -269,12 +263,12 @@ class DmSimulatorPy(BaseBackend):
             2**self._number_of_qubits)
 
         prob_key = ["".join(s) for s in itertools.product("01", repeat=self._number_of_qubits)]
-        self._ensemble_prob = dict(zip(prob_key, probabilities))
-        max_str = max(self._ensemble_prob, key=self._ensemble_prob.get)
-        max_prob = self._ensemble_prob[max_str]
+        prob = dict(zip(prob_key, probabilities))
+        max_str = max(prob, key=prob.get)
+        max_prob = prob[max_str]
 
         if self.PLOTTING:
-            plt.bar(self._ensemble_prob.keys(),self._ensemble_prob.values())
+            plt.bar(prob.keys(),prob.values())
             plt.title(f"Probability Distribution for ensemble measurement in {basis} basis")
             plt.xticks(rotation='vertical')
             plt.show()
@@ -283,7 +277,7 @@ class DmSimulatorPy(BaseBackend):
         if self.STORE_LOCAL:
             self.store_density_matrix()
 
-        return max_str, max_prob
+        return prob, max_str, max_prob
 
     def _add_partial_measure(self, measured_qubits, cmembits, cregbits, err_param, basis, add_param=None):
         """Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
@@ -315,10 +309,10 @@ class DmSimulatorPy(BaseBackend):
             axis=tuple(axis)), 2**num_measured)
         
         prob_key = ["".join(s) for s in itertools.product("01", repeat=num_measured)]
-        self._partial_prob = dict(zip(prob_key, probabilities))
+        partial_prob = dict(zip(prob_key, probabilities))
         
-        max_str = max(self._partial_prob, key=self._partial_prob.get)
-        max_prob = self._partial_prob[max_str]
+        max_str = max(partial_prob, key=partial_prob.get)
+        max_prob = partial_prob[max_str]
 
         # Update the density matrix
         for mqb,mcb,mcregb in list(zip(measured_qubits,cmembits,cregbits)):
@@ -328,7 +322,7 @@ class DmSimulatorPy(BaseBackend):
             else:
                 supplement_data[basis][0](mqb, mcb, mcregb, 
                                 self._error_params['measurement'])
-        return max_str, max_prob
+        return partial_prob, max_str, max_prob
         
     def _pauli_string_expectation(self, basis, err_param, add_param = None):
         """
@@ -367,12 +361,15 @@ class DmSimulatorPy(BaseBackend):
         """
         Apply a Bell basis measure instruction for two qubits.
         Post measurement density matrix is updated in the same array.
-        write Four probabilities in the (|00>+|11>,|00>-|11>,|01>+|10>,|01>-|10>) basis in self._bell_probabilities 
+        Four Bell probabilities are calculated in the (|00>+|11>,|00>-|11>,|01>+|10>,|01>-|10>) basis. 
 
         Args:
             qubit_1 (int): first qubit of the Bell pair.
             qubit_2 (int): second qubit of the Bell pair.
             err_param (float): Reduction in polarization during measurement.
+        Returns (as global variables):
+            reduced_bell_densitymatrix for the two qubits (prior to measurement)
+            bell_probabilities for the four orthogonal Bell states (after measurement)
         """
         q_1 = min(qubit_1, qubit_2)
         q_2 = max(qubit_1, qubit_2)
@@ -382,11 +379,10 @@ class DmSimulatorPy(BaseBackend):
         self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
         
         # Reduced density matrix 
-        self._reduced_bell_densitymatrix = np.zeros((4,4))
+        reduced_bell_densitymatrix = np.zeros((4,4))
         for i in range(4):
             for j in range(4):
-                self._reduced_bell_densitymatrix[i,j] = self._densitymatrix[0,i,0,j,0] * 2**(self._number_of_qubits - 2)
-        self.BELL_BASIS = True
+                reduced_bell_densitymatrix[i,j] = self._densitymatrix[0,i,0,j,0] * 2**(self._number_of_qubits - 2)
 
         for i in range(4):
             for j in range(4):
@@ -407,15 +403,18 @@ class DmSimulatorPy(BaseBackend):
         bell_probabilities[2] = 0.25*(k[0] + k[1] + k[2] - k[3])
         bell_probabilities[3] = 0.25*(k[0] - k[1] - k[2] - k[3])
 
-        bell_states = [r'$\frac{|00\rangle + |11\rangle}{\sqrt(2)}$', r'$\frac{|00\rangle - |11\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle + |10\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle - |10\rangle}{\sqrt(2)}$']
-        self._bell_probabilities = dict(zip(bell_states,bell_probabilities))
+        # bell_states = [r'$\frac{|00\rangle + |11\rangle}{\sqrt(2)}$', r'$\frac{|00\rangle - |11\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle + |10\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle - |10\rangle}{\sqrt(2)}$']
+        bell_states = ['Bell_1','Bell_2','Bell_3','Bell_4']
+        bell_probabilities = dict(zip(bell_states,bell_probabilities))
 
         self._densitymatrix = np.reshape(self._densitymatrix,self._number_of_qubits*[4])
 
         # plot the resultant reduced density matrix
-        self._plot_reduced_bell_basis()
+        if self.PLOTTING:
+            self._plot_reduced_bell_basis(reduced_bell_densitymatrix)
+        return bell_probabilities, reduced_bell_densitymatrix
     
-    def _plot_reduced_bell_basis(self):
+    def _plot_reduced_bell_basis(self,reduced_bell_densitymatrix):
         '''
         Plots the reduced density matrix
         '''
@@ -425,14 +424,14 @@ class DmSimulatorPy(BaseBackend):
         _y = range(4)
         _xx, _yy = np.meshgrid(_x, _y)
         x, y = _xx.ravel(), _yy.ravel()
-        top = self._reduced_bell_densitymatrix[x,y]
+        top = reduced_bell_densitymatrix[x,y]
         bottom = np.zeros_like(top)
         width = 0.5
         depth = 0.5
         values = np.linspace(0.2, 1., x.ravel().shape[0])
         colors = cm.rainbow(values)
-        z_up_lim = np.amax(self._reduced_bell_densitymatrix)
-        z_low_lim = np.amin(self._reduced_bell_densitymatrix)
+        z_up_lim = np.amax(reduced_bell_densitymatrix)
+        z_low_lim = np.amin(reduced_bell_densitymatrix)
 
         ax.set_zlim3d(z_low_lim,z_up_lim)
         ax.w_xaxis.set_ticks(x)
@@ -1043,6 +1042,9 @@ class DmSimulatorPy(BaseBackend):
         # Validate the dimension of initial densitymatrix if set
         self._validate_initial_densitymatrix()
 
+        # Add data
+        data = {}
+
         self._initialize_densitymatrix()
         self._initialize_errors()
         # Initialize classical memory to all 0
@@ -1054,8 +1056,10 @@ class DmSimulatorPy(BaseBackend):
         
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
-
+        
+        print(levels)
         partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
+        print(levels)
         end_processing = time.time()
         start_runtime = time.time()
 
@@ -1147,7 +1151,9 @@ class DmSimulatorPy(BaseBackend):
                             self._add_qasm_measure_N(
                                 qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
                         elif params[0] == 'Bell':
-                            self._add_bell_basis_measure(int(params[1][0]), int(params[1][1]), err_param = self._error_params['measurement_bell'])
+                            bell_probabilities, reduced_bell_densitymatrix = self._add_bell_basis_measure(int(params[1][0]), int(params[1][1]), err_param = self._error_params['measurement_bell'])
+                            data[f'bell_probabilities{params[1][0]}{params[1][1]}'] = bell_probabilities
+                            data[f'reduced_bell_densitymatrix{params[1][0]}{params[1][1]}'] = reduced_bell_densitymatrix
                         else:
                             self._add_qasm_measure_Z(
                                 qubit,cmembit,cregbit,self._error_params['measurement'])       
@@ -1163,18 +1169,18 @@ class DmSimulatorPy(BaseBackend):
                                 x, 'register') else None
                             creg_mes_list.append(cregbit)
 
-                        self._add_partial_measure(
+                        data['partial_probability'], max_str, max_prob = self._add_partial_measure(
                             qubit_mes_list, cmem_mes_list, creg_mes_list,
                             self._error_params['measurement'], params[0], add_param=params[1])
                         break
 
                     elif exp_measure:
-                        self._pauli_string_expectation(params[0], self._error_params['measurement'])
+                        data['Pauli_string_expectation'] = self._pauli_string_expectation(params[0], self._error_params['measurement'])
                         break
 
                     elif ensm_measure:
-                        self._add_ensemble_measure(params[0], params[1], 
-                                            self._error_params['measurement'])
+                        data['ensemble_probablity'], max_str, max_prob = self._add_ensemble_measure(params[0], params[1], 
+                                            self._error_params['measurement'])              
                         break
 
                 elif operation.name == 'bfunc':
@@ -1218,19 +1224,6 @@ class DmSimulatorPy(BaseBackend):
                                 p = self._error_params['memory']['thermalization'], 
                                 g = self._error_params['memory']['amplitude_decay']
                             )
-
-        # Add data
-        data = {}
-
-        # Adding Bell basis, ensmble and partial measurement probabilities to the result dictionary
-        if self._ensemble_prob:
-            data['ensemble_probablity'] = self._ensemble_prob
-        if self._partial_prob:
-            data['partial_measurement_probability'] = self._partial_prob
-        if self._bell_probabilities:
-            data['bell_probabilities'] = self._bell_probabilities
-        if self.BELL_BASIS:
-            data['reduced_bell_densitymatrix'] = self._reduced_bell_densitymatrix
         
         if self.SHOW_FINAL_STATE:
             if self._get_den_mat:
@@ -1240,6 +1233,7 @@ class DmSimulatorPy(BaseBackend):
 
         end_runtime = time.time()
         return {'name': experiment.header.name,
+                'number_of_clock_cycles': levels,
                 'data': data,
                 'status': 'DONE',
                 'success': True,
