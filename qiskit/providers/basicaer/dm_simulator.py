@@ -791,14 +791,7 @@ class DmSimulatorPy(BaseBackend):
             for idx in range(1, len(creat)):
                 op = np.kron(op, pauli_basis[creat[idx]])
             densitymatrix += op*vec[i]
-            op = None   
-        
-        # if not self._error_included:
-        #     np.savetxt("a.txt", np.asarray(
-        #         np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
-        # else:
-        #     np.savetxt("a1.txt", np.asarray(
-        #         np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+            op = None
 
         return densitymatrix
 
@@ -929,12 +922,9 @@ class DmSimulatorPy(BaseBackend):
                                 validated_inst.append(part[bf_id:idx])
                             validated_inst.append([part[idx]])
                             bf_id = idx+1
-                        else:
-                            validated_inst.append([part[idx]])
                     else:
                         set_flag = True
                         setattr(part[idx], 'params', ['Z'])
-                        validated_inst.append([part[idx]])
                 
                 if part[bf_id:idx]:
                     validated_inst.append(part[bf_id:idx+1])
