@@ -156,8 +156,9 @@ class DmSimulatorPy(BaseBackend):
         self._bell_depolarization_factor = None
         # TEMP
         self._sample_measure = False
-        self._get_den_mat = False
+        self._get_den_mat = True
         self._error_included = False
+        self.result_dict = None
 
     def _add_unitary_single(self, gate, qubit):
         """Apply an arbitrary 1-qubit unitary matrix.
@@ -659,8 +660,8 @@ class DmSimulatorPy(BaseBackend):
                 raise BasicAerError('Error! Incorrect transition model error parameter, Expected argument : A list of 2 reals ranging between 0 and 1 both inclusive.')
             else:
                 self._tsp_model_error = backend_options['tsp_model_error']
-           
 
+                
         # Error due to Thermalization
         if 'thermal_factor' in backend_options:
             self._thermal_factor = backend_options['thermal_factor']
@@ -935,6 +936,9 @@ class DmSimulatorPy(BaseBackend):
         
         return validated_inst, len(validated_inst)
 
+
+
+
     def run(self, qobj, backend_options=None):
         """Run qobj asynchronously.
 
@@ -1044,13 +1048,16 @@ class DmSimulatorPy(BaseBackend):
 
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
-        
+        print(experiment.instructions)
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
-        
-        print(levels)
+        if self.PLOTTING:
+            print("\nINITIAL PARTITION")
+            self.describe_partition(partitioned_instructions)
         partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
-        print(levels)
+        if self.PLOTTING:
+            print("\nVALIDATED PARTITION")
+            self.describe_partition(partitioned_instructions)
         end_processing = time.time()
         start_runtime = time.time()
 
@@ -1170,7 +1177,7 @@ class DmSimulatorPy(BaseBackend):
                         break
 
                     elif ensm_measure:
-                        data['ensemble_probablity'], max_str, max_prob = self._add_ensemble_measure(params[0], params[1], 
+                        data['ensemble_probability'], max_str, max_prob = self._add_ensemble_measure(params[0], params[1], 
                                             self._error_params['measurement'])              
                         break
 
@@ -1223,6 +1230,15 @@ class DmSimulatorPy(BaseBackend):
                 data['coeffmatrix'] = self._get_densitymatrix()
 
         end_runtime = time.time()
+        self.result_dict = {'name': experiment.header.name,
+                'number_of_clock_cycles': levels,
+                'data': data,
+                'status': 'DONE',
+                'success': True,
+                'processing_time_taken': -start_processing+end_processing,
+                'running_time_taken': -start_runtime+end_runtime,
+                'header': experiment.header.as_dict()}
+
         return {'name': experiment.header.name,
                 'number_of_clock_cycles': levels,
                 'data': data,
@@ -1248,7 +1264,31 @@ class DmSimulatorPy(BaseBackend):
             elif 'measure' not in [op.name for op in experiment.instructions]:
                 logger.warning('No measurements in circuit "%s", '
                                'classical register will remain all zeros.', name)
-    
     def store_density_matrix(self):
         densitymatrix = np.reshape(self._densitymatrix, 4**self._number_of_qubits)
         np.save("stored_coefficients", densitymatrix)
+
+    def describe_partition(self, partition):
+        for current in range(len(partition)):
+            print("\nPartition ", current)
+            current_partition = partition[current]
+            for instruction in range(len(current_partition)):
+                inst = current_partition[instruction]
+                name, qubit = inst.name, inst.qubits
+                if name == 'u3':
+                    param = [round(x, 6) for x in inst.params]
+                    print("U3", "   qubit", qubit, "    ", param)
+                if name == 'u1':
+                    param = [round(x, 6) for x in inst.params]
+                    print("U1", "   qubit", qubit, "    ", param)
+                elif name == 'cx':
+                    print("C-NOT", "   qubit", qubit)
+                if name == 'measure':
+                    param = inst.params
+                    if param[0] == 'Bell':
+                        name = 'Bell Measure'
+                        qubit = [int(x) for x in param[1]]
+                        param = param[0:0]
+                        print(name, "   qubit", qubit)
+                    else:
+                        print(name, "   qubit", qubit, "    ", param)
