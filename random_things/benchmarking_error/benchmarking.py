@@ -8,7 +8,7 @@ import glob
 plt.style.use('seaborn')
 
 
-def change_options():
+def change_options(error, change_per_iter, i):
     options = {
 
         "chop_threshold": 1e-15,
@@ -20,6 +20,10 @@ def change_options():
         "rotation_error": {'rx': [1., 0.], 'ry': [1., 0.], 'rz': [1., 0.]},
         "tsp_model_error": [1., 0.]
     }
+
+    options[error] += change_per_iter*i
+
+    # print(f"Running for {options[error]}")
     with open("./options.pkl", 'wb') as f:
         pickle.dump(options, f)
 
@@ -59,10 +63,10 @@ total_runtime1 = 0.0
 total_memory_usage1 = 0.0
 
 
-change_options()
+change_options('thermal_factor', 0, 1)
 
-qubits = 3
-num_gates = 10
+qubits = 5
+num_gates = 25
 make_circuit(qubits, num_gates)
 
 print("Running without errors")
@@ -73,22 +77,26 @@ p2.communicate()
 without_error = np.loadtxt('without_error.csv', dtype=np.complex128)
 
 
-for i in range(5):
+options = {
+
+    "chop_threshold": 1e-15,
+    "thermal_factor": 0.,
+    "decoherence_factor": 1.,
+    "depolarization_factor": 1.,
+    "bell_depolarization_factor": 1.,
+    "decay_factor": 1.,
+    "rotation_error": {'rx': [1., 0.], 'ry': [1., 0.], 'rz': [1., 0.]},
+    "tsp_model_error": [1., 0.]
+}
+error_vary = 'decoherence_factor'
+change_per_iteration = -0.001/5
+n = 25
+
+for i in range(n):
     print("Running with error")
+    title = f'{error_vary}= {options[error_vary]} -> {options[error_vary] + change_per_iteration*n}'
 
-    options = {
-
-        "chop_threshold": 1e-15,
-        "thermal_factor": 0.,
-        "decoherence_factor": 1. - 0.001*i,
-        "depolarization_factor": 1.,
-        "bell_depolarization_factor": 1.,
-        "decay_factor": 1.,
-        "rotation_error": {'rx': [1., 0.], 'ry': [1., 0.], 'rz': [1., 0.]},
-        "tsp_model_error": [1., 0.]
-    }
-    with open("./options.pkl", 'wb') as f:
-        pickle.dump(options, f)
+    change_options(error_vary, change_per_iteration, i)
 
     p2 = subprocess.Popen(
         f"mprof clean && mprof run --include-children python circuit.py 1", shell=True)
@@ -102,7 +110,6 @@ for i in range(5):
     with open('./change.csv', 'a') as f:
         f.write(find_change(without_error, np.loadtxt(
             'with_error.csv', dtype=np.complex128)))
-        f.write("\n")
+        f.write(f",{options[error_vary] + change_per_iteration*i}\n")
 
-
-subprocess.run("python ./plot.py".split())
+subprocess.run(f"python ./plot.py {title}".split())

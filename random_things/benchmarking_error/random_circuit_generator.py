@@ -61,8 +61,8 @@ if which_back == 0:
     result = job.result()
     run_time = time.time() - time_start
     np.savetxt("./without_error.csv", result['results'][0]['data']['densitymatrix'])
-    with open("./results_error.csv", 'a') as f:
-        f.write(f"{run_time},")
+    # with open("./results_error.csv", 'a') as f:
+    #     f.write(f"{run_time},")
 
 if which_back == 1:
     time_start = time.time()
