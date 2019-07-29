@@ -156,7 +156,7 @@ class DmSimulatorPy(BaseBackend):
         self._bell_depolarization_factor = None
         # TEMP
         self._sample_measure = False
-        self._get_den_mat = True
+        self._get_den_mat = False
         self._error_included = False
 
     def _add_unitary_single(self, gate, qubit):
@@ -658,7 +658,8 @@ class DmSimulatorPy(BaseBackend):
             if type(backend_options['tsp_model_error']) != list or len(backend_options['tsp_model_error']) !=2 or backend_options['tsp_model_error'][0] > 1 or backend_options['tsp_model_error'][1] > 1:
                 raise BasicAerError('Error! Incorrect transition model error parameter, Expected argument : A list of 2 reals ranging between 0 and 1 both inclusive.')
             else:
-                self._ts_model_error = backend_options['tsp_model_error']
+                self._tsp_model_error = backend_options['tsp_model_error']
+           
 
         # Error due to Thermalization
         if 'thermal_factor' in backend_options:
