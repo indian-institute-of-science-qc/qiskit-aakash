@@ -11,7 +11,7 @@ plt.style.use('seaborn')
 data = np.genfromtxt("./results.csv", delimiter=',')
 date_time = datetime.datetime.now()
 
-plt.plot(data[:, -2], data[:, :-2])
+plt.plot(data[:, -1], data[:, :2])
 plt.title(
     f"qubits={int(data[0,-1])} -> {int(data[-1,-1])}, gates={int(data[0,-2])} -> {int(data[-1,-2])}")
 plt.xlabel("Number of gates/qubits")

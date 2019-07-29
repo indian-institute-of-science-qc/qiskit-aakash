@@ -1040,7 +1040,7 @@ class DmSimulatorPy(BaseBackend):
         self._classical_register = 0
 
         # Validate the dimension of initial densitymatrix if set
-        self._validate_initial_densitymatrix()
+        # self._validate_initial_densitymatrix()
 
         # Add data
         data = {}
