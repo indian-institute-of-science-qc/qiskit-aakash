@@ -180,7 +180,7 @@ def mergeU(gate1, gate2):
     Return:
         Gate    ([Inst, index])
     """
-
+    print("Merged ",gate1[0].name, "qubit", gate1[0].qubits, " with ", gate2[0].name, "qubit", gate2[0].qubits)
     temp = None
     # To preserve the sequencing we choose the smaller index while merging.
     if gate1[1] < gate2[1]:

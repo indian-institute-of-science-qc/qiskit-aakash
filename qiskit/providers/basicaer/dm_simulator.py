@@ -1045,18 +1045,18 @@ class DmSimulatorPy(BaseBackend):
         # Initialize classical memory to all 0
         self._classical_memory = 0
         self._classical_register = 0
-
+        print("MERGING U1 and U3 GATES\n")
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
-        print(experiment.instructions)
+        # print(experiment.instructions)
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
-        if self.PLOTTING:
+        '''if self.PLOTTING:
             print("\nINITIAL PARTITION")
-            self.describe_partition(partitioned_instructions)
+            self.describe_partition(partitioned_instructions)'''
         partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
         if self.PLOTTING:
-            print("\nVALIDATED PARTITION")
+            print("\nPARTITIONED CIRCUIT")
             self.describe_partition(partitioned_instructions)
         end_processing = time.time()
         start_runtime = time.time()
