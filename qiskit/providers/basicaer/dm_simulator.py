@@ -17,7 +17,7 @@
 """Contains a (slow) python simulator.
 
 It simulates a qasm quantum circuit (an experiment) that has been compiled
-to run on the simulator. It is exponential in the number of qubits.
+to run on the simulator. Its complexity is exponential in the number of qubits.
 
 The simulator is run using
 
@@ -25,9 +25,8 @@ The simulator is run using
 
     DmSimulatorPy().run(qobj)
 
-Where the input is a Qobj object and the output is a BasicAerJob object, which can
-later be queried for the Result object. The result will contain a 'memory' data
-field, which is a result of measurements for each shot.
+Here the input is a Qobj object and the output is a BasicAerJob object,
+which can later be queried for the Result object.
 """
 
 import uuid
@@ -54,7 +53,13 @@ logger = logging.getLogger(__name__)
 
 
 class DmSimulatorPy(BaseBackend):
-    """Python implementation of a Density Matrix simulator."""
+    """Python implementation of a Density Matrix simulator.
+    The density matrix is expressed in the orthogonal Pauli basis as
+    rho = sum_{ij...} a_{ij...} sigma_i x sigma_j x ...
+    The array "densitymatrix" contains the 4**n real coefficients a_{ij...},
+    with each subscript taking values 0,1,2,3 (equivalently I,X,Y,Z).
+    The default shape for the array a_{ij...} is n*[4].
+    """
 
     MAX_QUBITS_MEMORY = int(log2(local_hardware_info()['memory'] * (1024 ** 3) / 16))
 
