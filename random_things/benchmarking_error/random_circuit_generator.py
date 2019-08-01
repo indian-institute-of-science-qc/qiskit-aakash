@@ -60,7 +60,7 @@ if which_back == 0:
     job = execute(circuits, backend1, **options)
     result = job.result()
     run_time = time.time() - time_start
-    np.savetxt("./without_error.csv", result['results'][0]['data']['densitymatrix'])
+    np.save("./without_error", result['results'][0]['data']['densitymatrix'])
     # with open("./results_error.csv", 'a') as f:
     #     f.write(f"{run_time},")
 
@@ -69,7 +69,7 @@ if which_back == 1:
     job = execute(circuits, backend1, **options)
     result = job.result()
     run_time = time.time() - time_start
-    np.savetxt("./with_error.csv", result['results'][0]['data']['densitymatrix'])
+    np.save("./with_error", result['results'][0]['data']['densitymatrix'])
     with open("./results_error.csv", 'a') as f:
         f.write(f"{run_time},")
 """

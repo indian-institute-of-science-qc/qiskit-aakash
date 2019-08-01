@@ -129,6 +129,8 @@ class DmSimulatorPy(BaseBackend):
     PLOTTING = False
     DEBUG = True
     STORE_LOCAL = False
+    COMPARE = False
+    FILE_EXIST = False
 
     def __init__(self, configuration=None, provider=None):
 
@@ -164,6 +166,8 @@ class DmSimulatorPy(BaseBackend):
         self._get_den_mat = True
         self._error_included = False
         self.result_dict = None
+        self.fidelity = None 
+        self.density_matrix_0 = None 
 
     def _add_unitary_single(self, gate, qubit):
         """Apply an arbitrary 1-qubit unitary transformation.
@@ -283,7 +287,9 @@ class DmSimulatorPy(BaseBackend):
         # Store the density matrix in a local file
         if self.STORE_LOCAL:
             self.store_density_matrix()
-
+        # Compare the current density matrix with stored density matrix
+        if self.COMPARE and self.FILE_EXIST:
+            self.fidelity = self.state_overlap(self.density_matrix_0, np.reshape(self._densitymatrix,4**self._number_of_qubits))
         return prob, max_str, max_prob
 
     def _add_partial_measure(self, measured_qubits, cmembits, cregbits, err_param, basis, add_param=None):
@@ -707,6 +713,14 @@ class DmSimulatorPy(BaseBackend):
         
         if 'store_densitymatrix' in backend_options:
             self.STORE_LOCAL = backend_options['store_densitymatrix']
+
+        if 'compare' in backend_options:
+            self.COMPARE = backend_options['compare']
+            try:
+                self.density_matrix_0 = np.load('stored_coefficients.npy')
+                self.FILE_EXIST = True
+            except FileNotFoundError:
+                print('Stored Coefficient File does not exist')
 
     def _initialize_errors(self):
 
@@ -1229,6 +1243,8 @@ class DmSimulatorPy(BaseBackend):
                 data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
             else:
                 data['coeffmatrix'] = self._get_densitymatrix()
+            if self.fidelity != None:
+                data['fidelity'] = self.fidelity
 
         end_runtime = time.time()
         self.result_dict = {'name': experiment.header.name,
@@ -1265,6 +1281,7 @@ class DmSimulatorPy(BaseBackend):
             elif 'measure' not in [op.name for op in experiment.instructions]:
                 logger.warning('No measurements in circuit "%s", '
                                'classical register will remain all zeros.', name)
+
     def store_density_matrix(self):
         """ Store the density matrix in the specified file.
         """
@@ -1298,3 +1315,11 @@ class DmSimulatorPy(BaseBackend):
                         print(name, "   qubit", qubit)
                     else:
                         print(name, "   qubit", qubit, "    ", param)
+
+
+    def state_overlap(self, density_matrix_1, density_matrix_2):
+        ''' Calculate the overlap between density_matrix_1 and density_matrix_2
+        Args   : density_matrix_1 (4**n) and density_matrix_2 (4**n) in Pauli basis
+        Return : Value of overlap between density_matrix_1 and density_matrix_2 '''
+
+        return np.dot(density_matrix_1, density_matrix_2) * 2**self._number_of_qubits
