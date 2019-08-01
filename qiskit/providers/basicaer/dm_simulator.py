@@ -786,11 +786,14 @@ class DmSimulatorPy(BaseBackend):
                 # Normalize the density matrix
                 self._densitymatrix *= 0.5**(self._number_of_qubits)
 
-            # Stored density matrix is encoded in the self._initial_densitymatrix 
+            # Stored density matrix is encoded in file 'stored_density_matrix.npy' 
             elif self._custom_densitymatrix == 'stored_density_matrix':
-                if len(self._initial_densitymatrix) != 4**self._number_of_qubits:
-                    raise BasicAerError('Wrong input stored density matrix')
-                self._densitymatrix = self._initial_densitymatrix.copy()
+                try:
+                    self._densitymatrix = np.load('stored_density_matrix.npy')
+                    if len(self._densitymatrix) != 4**self._number_of_qubits:
+                        raise BasicAerError('Wrong input stored density matrix')
+                except FileNotFoundError:
+                    print('Stored Coefficient File does not exist')
             else:
                 raise BasicAerError('_custom_densitymatrix value is invalid')
         
@@ -1318,8 +1321,9 @@ class DmSimulatorPy(BaseBackend):
 
 
     def state_overlap(self, density_matrix_1, density_matrix_2):
-        ''' Calculate the overlap between density_matrix_1 and density_matrix_2
+        """ Calculate the state overlap:  Tr(density_matrix_1,density_matrix_2)
         Args   : density_matrix_1 (4**n) and density_matrix_2 (4**n) in Pauli basis
-        Return : Value of overlap between density_matrix_1 and density_matrix_2 '''
+        Return : Value of overlap between density_matrix_1 and density_matrix_2
+        """
 
         return np.dot(density_matrix_1, density_matrix_2) * 2**self._number_of_qubits
