@@ -91,10 +91,15 @@ def single_gate_dm_matrix(gate, params=None):
 
 def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
     """   
-    The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The error model adds a fluctuation to the angle param,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    
     Args:
+        gate (string): Rotation axis
+        param (float): Rotation angle
         err_param[1] is the mean error in the angle param.
         err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param.
+        state is the reshaped density matrix according to the gate location.
     """
 
     c = err_param[0] * np.cos(param + err_param[1])
@@ -121,7 +126,8 @@ def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
 
 def U3_merge(xi, theta1, theta2):
-    """Performs merge operation when both the gates are U3 by transforming the Y-Z-Y decomposition of the gates to the Z-Y-Z decomposition.
+    """ Performs merge operation when both the gates are U3,
+        by transforming the Y-Z-Y decomposition of the gates to the Z-Y-Z decomposition.
         Args:
             [xi, theta1, theta2] (list, type:float ):  {Ry(theta1) , Rz(xi) , Ry(theta2)}
             0 <= theta1, theta2 <= Pi , 0 <= xi <= 2*Pi
@@ -173,7 +179,7 @@ def U3_merge(xi, theta1, theta2):
 
 def mergeU(gate1, gate2):
     """
-    Merges Unitary Gates acting consecutively on the same qubit within a partion
+    Merges Unitary Gates acting consecutively on the same qubit within a partition.
     Args:
         Gate1   ([Inst, index])
         Gate2   ([Inst, index])
@@ -223,7 +229,8 @@ def mergeU(gate1, gate2):
 
 def merge_gates(inst):
     """
-    Unitary rotation gate calls on a single qubit are merged iteratively, by combining consecutive gate pairs.
+    Unitary rotation gates on a single qubit are merged iteratively,
+    by combining consecutive gate pairs.
     Args:
         Inst [[inst, index]]:   Instruction list to be merged
     Return
@@ -242,7 +249,7 @@ def merge_gates(inst):
 
 def single_gate_merge(inst, num_qubits):
     """
-        Merges single gates applied consecutively to each qubit in the circuit
+        Merges single gates applied consecutively to each qubit in the circuit.
         Args:
             inst [QASM Inst]:   List of instructions (original)
         Return
@@ -289,7 +296,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """Apply C-NOT gate in density matrix formalism.
 
         Args:
-        state - density matrix
+        state : density matrix
         q_1 (int): Control qubit 
         q_2 (int): Target qubit
         Note : Ordering of qubits (MSB right, LSB left)
@@ -491,17 +498,16 @@ def is_single(gate):
     # Checks if gate is single
     return True if gate.name in ['u3', 'u1'] else False
 
-
 def is_cx(gate):
     # Checks if gate is CX
     return True if gate.name in ['CX', 'cx'] else False
-
 
 def is_measure(gate):  # TODO Seperate Them
     # Checks if gate is measure
     return True if gate.name == 'measure' else False
 
 def is_expect(gate, n):
+    # Checks if gate is expectation measure
     if hasattr(gate, 'params'):
         avail_basis = ['I', 'X', 'Y', 'Z']
         chk = [x in avail_basis for x in str(gate.params[0])]
@@ -514,6 +520,7 @@ def is_reset(gate):
     return True if gate.name == 'reset' else False
 
 def is_expect_dummy(gate):
+    # Checks if gate is dummy expectation measure
     return True if gate.name == 'dummy_expect' else False
 
 def is_measure_dummy(gate):
@@ -525,6 +532,13 @@ def is_reset_dummy(gate):
     return True if gate.name == 'dummy_reset' else False
 
 def qubit_stack(i_set, num_qubits):
+    """ Divides the sequential instructions for the whole register
+        in to a stack of sequential instructions for each qubit.
+        Multi-qubit instructions appear in the list for each involved qubit.
+    Args:
+        i_set (list): instruction set for the register
+        num_qubits (int): number of qubits
+    """
 
     instruction_set = [[] for _ in range(num_qubits)]
     incl_expec = [] 
@@ -595,6 +609,10 @@ def qubit_stack(i_set, num_qubits):
 
 
 def partition(i_set, num_qubits):
+    """ Partitions the stack of qubit instructions in to a set of sequential levels.
+        Instructions in a single level do not overlap and can be executed in parallel.
+    """
+
     i_stack, depth = qubit_stack(i_set, num_qubits)
     level, sequence = 0, [[] for _ in range(depth)]
     while i_set:
