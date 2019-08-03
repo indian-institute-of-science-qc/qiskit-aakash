@@ -165,7 +165,7 @@ class DmSimulatorPy(BaseBackend):
         self._sample_measure = False
         self._get_den_mat = True
         self._error_included = False
-        self.result_dict = None
+        # self.result_dict = None
         self.fidelity = None 
         self.density_matrix_0 = None 
 
@@ -233,7 +233,6 @@ class DmSimulatorPy(BaseBackend):
     def _add_ensemble_measure(self, basis, add_param, err_param):
         """ Perform complete computational basis measurement for current density matrix.
             The density matrix is not updated.
-            Probability distribution is plotted if 'plot' flag is on.
         Args:
             basis       (string): Direction of measurement (same for all qubits)- 'X', 'Y', 'Z' or 'N'.
             err_param   (float): Reduction in polarization during measurement
@@ -248,7 +247,7 @@ class DmSimulatorPy(BaseBackend):
 
         # We get indices used for Probability Measurement via this.
         measure_ind = [x for x in itertools.product(
-            supplement_data[basis], repeat=self._num)ber_of_qubits)]
+            supplement_data[basis], repeat=self._number_of_qubits)]
         # We get coefficient values stored at those indices via this.
         operator_ind = [self._densitymatrix[x] for x in measure_ind]
         # We get permutations of signs for summing those coefficient values.
@@ -277,12 +276,6 @@ class DmSimulatorPy(BaseBackend):
         prob = dict(zip(prob_key, probabilities))
         max_str = max(prob, key=prob.get)
         max_prob = prob[max_str]
-
-        if self.PLOTTING:
-            plt.bar(prob.keys(),prob.values())
-            plt.title(f"Probability Distribution for ensemble measurement in {basis} basis")
-            plt.xticks(rotation='vertical')
-            plt.show()
         
         # Store the density matrix in a local file
         if self.STORE_LOCAL:
@@ -291,6 +284,15 @@ class DmSimulatorPy(BaseBackend):
         if self.COMPARE and self.FILE_EXIST:
             self.fidelity = self.state_overlap(self.density_matrix_0, np.reshape(self._densitymatrix,4**self._number_of_qubits))
         return prob, max_str, max_prob
+    
+    def _plot_ensemble_measure(self,prob,basis):
+        ''' Plots the probability distribution of 2**n possible results if the 'plot' flag is on.
+        '''
+        if self.PLOTTING:
+            plt.bar(prob.keys(),prob.values())
+            plt.title(f"Probability Distribution for ensemble measurement in {basis} basis")
+            plt.xticks(rotation='vertical')
+            plt.show()
 
     def _add_partial_measure(self, measured_qubits, cmembits, cregbits, err_param, basis, add_param=None):
         """ Perform partial measurement for current density matrix on the specified qubits along the given common basis direction.
@@ -882,14 +884,13 @@ class DmSimulatorPy(BaseBackend):
         """Return the current densitymatrix in JSON Result spec format"""
 
         if self._get_den_mat:
-            densitymatrix = self._compute_densitymatrix(
-                self._densitymatrix.real)
-            vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+            densitymatrix = self._compute_densitymatrix(self._densitymatrix)
+            vec = np.reshape(self._densitymatrix, 4 ** self._number_of_qubits)
             vec[abs(vec) < self._chop_threshold] = 0.0
             return vec, densitymatrix
         else:
             densitymatrix = None
-            vec = np.reshape(self._densitymatrix.real, 4 ** self._number_of_qubits)
+            vec = np.reshape(self._densitymatrix, 4 ** self._number_of_qubits)
             vec[abs(vec) < self._chop_threshold] = 0.0
             return vec
 
@@ -931,25 +932,27 @@ class DmSimulatorPy(BaseBackend):
             else:
                 measure_flag = True
                 bf_id = 0
-               
+                temppart = []
                 for idx in range(len(part)):
                         
                     para = getattr(part[idx], 'params', None)
 
-                    if para is not None:
-                        part[idx].params[0] = str(para[0])
-                        if str(para[0]) == 'Bell':
-                            part[idx].params[1] = str(para[1])
-                            if part[bf_id:idx]:
-                                validated_inst.append(part[bf_id:idx])
-                            validated_inst.append([part[idx]])
-                            bf_id = idx+1
-                    else:
+                    if para is None:
                         set_flag = True
                         setattr(part[idx], 'params', ['Z'])
                 
-                if part[bf_id:idx]:
-                    validated_inst.append(part[bf_id:idx+1])
+                    part[idx].params[0] = str(para[0])
+                    if str(para[0]) == 'Bell':
+                        part[idx].params[1] = str(para[1])
+                        if part[bf_id:idx]:
+                            validated_inst.append(part[bf_id:idx])
+                        validated_inst.append([part[idx]])
+                        bf_id = idx+1
+                    else:
+                        temppart.append(part[idx])
+
+                if temppart:
+                    validated_inst.append(temppart)
 
         if set_flag:
             logger.warning('No basis choice provided for measurement. Default value set to Pauli Z [Computational Basis]')
@@ -1066,12 +1069,11 @@ class DmSimulatorPy(BaseBackend):
         print("MERGING U1 and U3 GATES\n")
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
-        # print(experiment.instructions)
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
-        '''if self.PLOTTING:
+        if self.PLOTTING:
             print("\nINITIAL PARTITION")
-            self.describe_partition(partitioned_instructions)'''
+            self.describe_partition(partitioned_instructions)
         partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
         if self.PLOTTING:
             print("\nPARTITIONED CIRCUIT")
@@ -1131,24 +1133,14 @@ class DmSimulatorPy(BaseBackend):
 
                     if len_pi == 1:
                         sngl_measure = True
-                    elif len_pi == self._number_of_qubits:
+                    elif params[0] == 'Ensemble':
                         ensm_measure = True
+                    elif params[0] == 'Expect':
+                        exp_measure = True
+                    elif params[0] == 'Bell':
+                        sngl_measure = True
                     else:
                         part_measure = True
-
-                    if len(params[0]) == self._number_of_qubits and params[0] != 'Bell':
-                        ensm_measure = False
-                        exp_measure = True
-
-                    for mt in partitioned_instructions[clock]:
-                        if mt.params != params:
-                            sngl_measure = True
-                            ensm_measure = False
-                            part_measure = False
-                            break
-
-                    if params[0] == 'Bell':
-                        sngl_measure = True
 
                     if len(params) == 1:
                         params.append(None)
@@ -1191,12 +1183,19 @@ class DmSimulatorPy(BaseBackend):
                         break
 
                     elif exp_measure:
-                        data['Pauli_string_expectation'] = self._pauli_string_expectation(params[0], self._error_params['measurement'])
+                        data['Pauli_string_expectation'] = self._pauli_string_expectation(str(params[1]), self._error_params['measurement'])
                         break
 
                     elif ensm_measure:
-                        data['ensemble_probability'], max_str, max_prob = self._add_ensemble_measure(params[0], params[1], 
-                                            self._error_params['measurement'])              
+                        if str(params[1]) == 'N':
+                            add_param = params[1][1]
+                            basis = str(params[1][0])
+                        else:
+                            add_param = None
+                            basis = str(params[1])
+                        prob, max_str, max_prob = self._add_ensemble_measure(basis, add_param, self._error_params['measurement'])
+                        self._plot_ensemble_measure(prob,params[0]) 
+                        data['ensemble_probability'] = prob       
                         break
 
                 elif operation.name == 'bfunc':
@@ -1250,14 +1249,14 @@ class DmSimulatorPy(BaseBackend):
                 data['fidelity'] = self.fidelity
 
         end_runtime = time.time()
-        self.result_dict = {'name': experiment.header.name,
-                'number_of_clock_cycles': levels,
-                'data': data,
-                'status': 'DONE',
-                'success': True,
-                'processing_time_taken': -start_processing+end_processing,
-                'running_time_taken': -start_runtime+end_runtime,
-                'header': experiment.header.as_dict()}
+        # self.result_dict = {'name': experiment.header.name,
+        #         'number_of_clock_cycles': levels,
+        #         'data': data,
+        #         'status': 'DONE',
+        #         'success': True,
+        #         'processing_time_taken': -start_processing+end_processing,
+        #         'running_time_taken': -start_runtime+end_runtime,
+        #         'header': experiment.header.as_dict()}
 
         return {'name': experiment.header.name,
                 'number_of_clock_cycles': levels,
@@ -1310,6 +1309,9 @@ class DmSimulatorPy(BaseBackend):
                 elif name == 'cx':
                     print("C-NOT", "   qubit", qubit)
                 if name == 'measure':
+                    parameter = getattr(inst,'params',None)
+                    if parameter is None:
+                        setattr(inst,'params',['Z'])
                     param = inst.params
                     if param[0] == 'Bell':
                         name = 'Bell Measure'

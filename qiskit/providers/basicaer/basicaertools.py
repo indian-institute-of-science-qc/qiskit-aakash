@@ -20,6 +20,7 @@ from string import ascii_uppercase, ascii_lowercase
 import numpy as np
 from copy import deepcopy
 from qiskit.exceptions import QiskitError
+import itertools
 
 
 def single_gate_params(gate, params=None):
@@ -608,7 +609,7 @@ def qubit_stack(i_set, num_qubits):
     return instruction_set, stack_depth
 
 
-def partition(i_set, num_qubits):
+def partition_helper(i_set, num_qubits):
     """ Partitions the stack of qubit instructions in to a set of sequential levels.
         Instructions in a single level do not overlap and can be executed in parallel.
     """
@@ -727,3 +728,33 @@ def partition(i_set, num_qubits):
 
         level += 1
     return sequence, level
+
+def partition(i_set, num_qubits):
+    """ Create partitions
+    Args:
+        i_set (list): instruction set
+        num_qubits (int): number of qubits
+    Returns:
+        part (list): list of parttions
+        levels (int): number of partitions
+    """
+    modified_i_set = []
+    a = []
+    for instruction in i_set:
+        if instruction.name !='barrier':
+            a.append(instruction)
+        else:
+            modified_i_set.append(a)
+            a = []
+    if a:
+        modified_i_set.append(a)
+    print('modified_i_set',modified_i_set)
+    part = []
+    levels = 0
+    for mod_ins in modified_i_set:
+        seq,level = partition_helper(mod_ins,num_qubits)
+        part.append(seq)
+        levels += level
+    part = list(itertools.chain(*part))
+
+    return part, levels    
