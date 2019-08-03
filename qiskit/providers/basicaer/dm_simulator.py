@@ -157,6 +157,7 @@ class DmSimulatorPy(BaseBackend):
         # TEMP
         self._sample_measure = False
         self._get_den_mat = False
+        # self._get_den_mat = True
         self._error_included = False
 
     def _add_unitary_single(self, gate, qubit):
@@ -808,6 +809,8 @@ class DmSimulatorPy(BaseBackend):
             Matching components using orthogonal projections gives:
             b_{mu,nu,...} = sum_{i,j,...} a_{i,j,...} <e_mu,sigma_i> x <e_nu,sigma_j> x ...
             Only 2**n terms on the r.h.s. contribute with nonzero overlaps.
+            The sum on the r.h.s. is evaluated in n steps, converting one basis index at a time,
+            i.e. first i is converted to mu, then j is converted to nu, etc.
 
             Arg:
             dmpauli (float) : 4**n real components in the Pauli basis for n qubits
@@ -818,6 +821,7 @@ class DmSimulatorPy(BaseBackend):
 
         densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
 
+        dmcomplex = dmpauli.astype(complex)
         dot_prod = np.array([[1, 0, 0, 1],
                              [0, 1, complex(0, -1), 0],
                              [0, 1, complex(0, 1), 0],
@@ -828,24 +832,28 @@ class DmSimulatorPy(BaseBackend):
         binary_index_value = [2**(self._number_of_qubits-i-1) for i in range(self._number_of_qubits)]
         ind_mat = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
 
+        for qubit in range(self._number_of_qubits):
+            densitymatrix_b = np.zeros((4**(qubit), 4, 4**(self._number_of_qubits-qubit-1)), dtype=complex)
+            dmcomplex = np.reshape(dmcomplex, (4**(qubit), 4, 4**(self._number_of_qubits-qubit-1)))
+
+            for idxb in range(4):
+
+                ind_i = nonzero_overlaps[idxb]
+
+                for idxa in ind_i:
+                    total_overlap = dot_prod[tuple((idxb,idxa))]
+                    densitymatrix_b[:,idxb,:] += total_overlap*dmcomplex[:,idxa,:]
+
+            dmcomplex = densitymatrix_b
+
+        densitymatrix_b = np.reshape(densitymatrix_b, [4]*self._number_of_qubits)
         ind_mu = [x for x in itertools.product([0, 1, 2, 3], repeat=self._number_of_qubits)]
 
         for idxb in ind_mu:
-
-            b = 0
-            arr = [nonzero_overlaps[i] for i in idxb]
-            ind_i = itertools.product(*arr)
-
-            for idxa in ind_i:
-                total_overlap = 1
-                for index in zip(idxb, idxa):
-                    total_overlap *= dot_prod[index]
-
-                b += total_overlap*dmpauli[idxa]
-
             index_list = [ind_mat[i] for i in idxb]
             final_index = tuple(sum([binary_index_value[i]*index_list[i] for i in range(self._number_of_qubits)]))
-            densitymatrix[final_index] = b
+            densitymatrix[final_index] = densitymatrix_b[idxb]
+
 
         # if not self._error_included:
         #     np.savetxt("a.txt", np.asarray(
