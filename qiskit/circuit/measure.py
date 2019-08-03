@@ -27,7 +27,7 @@ class Measure(Instruction):
 
     def __init__(self, basis, add_param):
         """Create new measurement instruction."""
-        avail_basis = ['I', 'X', 'Y', 'Z', 'Bell', 'N', 'Ensemble', 'Expect']
+        avail_basis = ['I', 'X', 'Y', 'Z', 'N', 'Bell', 'Ensemble', 'Expect']
         
         if basis == 'N':
             if add_param is not None:
@@ -43,7 +43,7 @@ class Measure(Instruction):
             if add_param is not None:
                 super().__init__("measure", 1, 1, [basis, add_param])
             else:
-                super().__init__("measure", 1, 1, ['Z',add_param])
+                super().__init__("measure", 1, 1, [basis, 'Z'])
         elif basis=='Expect':
             if add_param is not None:
                 super().__init__("measure", 1, 1, [basis, add_param])

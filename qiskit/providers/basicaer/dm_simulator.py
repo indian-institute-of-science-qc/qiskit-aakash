@@ -246,6 +246,7 @@ class DmSimulatorPy(BaseBackend):
             0, 2], 'Z': [0, 3], 'N': [0, 1, 2, 3]}
 
         # We get indices used for Probability Measurement via this.
+        
         measure_ind = [x for x in itertools.product(
             supplement_data[basis], repeat=self._number_of_qubits)]
         # We get coefficient values stored at those indices via this.
@@ -1074,7 +1075,7 @@ class DmSimulatorPy(BaseBackend):
         if self.PLOTTING:
             print("\nINITIAL PARTITION")
             self.describe_partition(partitioned_instructions)
-        partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
+        #partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
         if self.PLOTTING:
             print("\nPARTITIONED CIRCUIT")
             self.describe_partition(partitioned_instructions)
@@ -1131,13 +1132,12 @@ class DmSimulatorPy(BaseBackend):
 
                     len_pi = len(partitioned_instructions[clock])
 
-                    if len_pi == 1:
-                        sngl_measure = True
-                    elif params[0] == 'Ensemble':
+                    
+                    if str(params[0]) == 'Ensemble':
                         ensm_measure = True
-                    elif params[0] == 'Expect':
+                    elif str(params[0]) == 'Expect':
                         exp_measure = True
-                    elif params[0] == 'Bell':
+                    elif len_pi == 1:
                         sngl_measure = True
                     else:
                         part_measure = True
@@ -1148,20 +1148,20 @@ class DmSimulatorPy(BaseBackend):
                     cregbit = operation.register[0] if hasattr(operation, 'register') else None 
                     
                     if sngl_measure:
-                        if params[0] == 'X':
+                        if str(params[0]) == 'X':
                             self._add_qasm_measure_X(
                                 qubit, cmembit, cregbit, self._error_params['measurement'])
-                        elif params[0] == 'Y':
+                        elif str(params[0]) == 'Y':
                             self._add_qasm_measure_Y(
                                 qubit, cmembit, cregbit, self._error_params['measurement'])
-                        elif params[0] == 'N':
+                        elif str(params[0]) == 'N':
                             params[1] = self._unit_vector_normalisation(params[1])
                             self._add_qasm_measure_N(
                                 qubit, cmembit, cregbit, params[1], self._error_params['measurement'])
-                        elif params[0] == 'Bell':
-                            bell_probabilities, reduced_bell_densitymatrix = self._add_bell_basis_measure(int(params[1][0]), int(params[1][1]), err_param = self._error_params['measurement_bell'])
-                            data[f'bell_probabilities{params[1][0]}{params[1][1]}'] = bell_probabilities
-                            data[f'reduced_bell_densitymatrix{params[1][0]}{params[1][1]}'] = reduced_bell_densitymatrix
+                        elif str(params[0]) == 'Bell':
+                            bell_probabilities, reduced_bell_densitymatrix = self._add_bell_basis_measure(int(str(params[1])[0]), int(str(params[1])[1]), err_param = self._error_params['measurement_bell'])
+                            data[f'bell_probabilities{str(params[1])[0]}{str(params[1])[1]}'] = bell_probabilities
+                            data[f'reduced_bell_densitymatrix{str(params[1])[0]}{str(params[1])[1]}'] = reduced_bell_densitymatrix
                         else:
                             self._add_qasm_measure_Z(
                                 qubit,cmembit,cregbit,self._error_params['measurement'])       
@@ -1176,10 +1176,16 @@ class DmSimulatorPy(BaseBackend):
                             cregbit = x.register[0] if hasattr(
                                 x, 'register') else None
                             creg_mes_list.append(cregbit)
+                        if str(params[1]) == 'N':
+                            add_param = params[1][1]
+                            basis = str(params[1][0])
+                        else:
+                            add_param = None
+                            basis = str(params[1])
 
                         data['partial_probability'], max_str, max_prob = self._add_partial_measure(
                             qubit_mes_list, cmem_mes_list, creg_mes_list,
-                            self._error_params['measurement'], params[0], add_param=params[1])
+                            self._error_params['measurement'], basis, add_param)
                         break
 
                     elif exp_measure:

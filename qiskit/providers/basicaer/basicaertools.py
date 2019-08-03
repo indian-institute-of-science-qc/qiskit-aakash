@@ -503,26 +503,13 @@ def is_cx(gate):
     # Checks if gate is CX
     return True if gate.name in ['CX', 'cx'] else False
 
-def is_measure(gate):  # TODO Seperate Them
+def is_measure(gate):
     # Checks if gate is measure
     return True if gate.name == 'measure' else False
-
-def is_expect(gate, n):
-    # Checks if gate is expectation measure
-    if hasattr(gate, 'params'):
-        avail_basis = ['I', 'X', 'Y', 'Z']
-        chk = [x in avail_basis for x in str(gate.params[0])]
-        return True if gate.name == 'measure' and len(chk) == n and all(chk) else False
-    else:
-        return False
 
 def is_reset(gate):
     # Checks if gate is reset
     return True if gate.name == 'reset' else False
-
-def is_expect_dummy(gate):
-    # Checks if gate is dummy expectation measure
-    return True if gate.name == 'dummy_expect' else False
 
 def is_measure_dummy(gate):
     # Checks if gate is dummy measure
@@ -545,30 +532,12 @@ def qubit_stack(i_set, num_qubits):
     incl_expec = [] 
     for idx, instruction in enumerate(i_set):
         if not is_measure(instruction) and not is_reset(instruction):
+            # instuctions are appended unless measure and reset
             for qubit in instruction.qubits:
                 instruction_set[qubit].append(instruction)
 
-        elif is_expect(instruction, num_qubits):
-            
-            if instruction.params[0] in incl_expec:
-                continue
-            else:
-                for qubit in range(num_qubits):
-                    dummy = deepcopy(instruction)
-                    dummy.qubits[0] = qubit
-                    dummy.memory[0] = qubit
-                    instruction_set[qubit].append(dummy)
-                incl_expec.append(instruction.params[0])
-
         elif is_measure(instruction):
             if instruction_set[instruction.qubits[0]]:
-                
-                if instruction != i_set[-1]:
-                    if is_expect(i_set[idx+1], num_qubits) and i_set[idx+1].qubits[0] == instruction.qubits[0]:
-                        if is_measure_dummy(instruction_set[instruction.qubits[0]][-2]):
-                            instruction_set[instruction.qubits[0]][-2] = instruction
-                            continue
-
                 if not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
                     instruction_set[instruction.qubits[0]].append(instruction)
                     dummy = deepcopy(instruction)
@@ -630,7 +599,7 @@ def partition_helper(i_set, num_qubits):
                 continue
 
             # Check for dummy gate
-            if is_measure_dummy(gate) or is_reset_dummy(gate) or is_expect_dummy(gate):
+            if is_measure_dummy(gate) or is_reset_dummy(gate):
                 continue
             # Check for single gate
             elif is_single(gate):
@@ -640,7 +609,7 @@ def partition_helper(i_set, num_qubits):
                 qubit_included.append(qubit)
                 i_set.remove(gate)      # Remove from Set
                 i_stack[qubit].pop(0)   # Remove from Stack
-            # Check for CX gate
+            # Check for C-NOT gate
             elif is_cx(gate):
                 second_qubit = list(
                     set(gate.qubits).difference(set([qubit])))[0]
@@ -650,7 +619,7 @@ def partition_helper(i_set, num_qubits):
                 if qubit in qubit_included or second_qubit in qubit_included:
                     continue
 
-                # Check if CX is top in stacks of both of its indexes.
+                # Check if C-NOT is top in stacks of both of its indexes.
                 if gate == buffer_gate:
                     qubit_included.append(qubit)
                     qubit_included.append(second_qubit)
@@ -730,12 +699,14 @@ def partition_helper(i_set, num_qubits):
     return sequence, level
 
 def partition(i_set, num_qubits):
-    """ Create partitions
+    """ Partition the instruction set in to a number of levels.
+        Levels have to be executed sequentially,
+        while instructions within each level can be executed in parallel.
     Args:
         i_set (list): instruction set
         num_qubits (int): number of qubits
     Returns:
-        part (list): list of parttions
+        partition_list (list): list of partitions
         levels (int): number of partitions
     """
     modified_i_set = []
@@ -748,13 +719,17 @@ def partition(i_set, num_qubits):
             a = []
     if a:
         modified_i_set.append(a)
-    print('modified_i_set',modified_i_set)
-    part = []
+    partition_list = []
     levels = 0
     for mod_ins in modified_i_set:
-        seq,level = partition_helper(mod_ins,num_qubits)
-        part.append(seq)
-        levels += level
-    part = list(itertools.chain(*part))
+        # Bell, Expect and Ensemble measure form a partitiom on their own.
+        if mod_ins[0].name=='measure' and getattr(mod_ins[0],'params',None) != None and mod_ins[0].params[0] in ['Bell', 'Expect', 'Ensemble']:
+            partition_list.append(mod_ins)
+            levels += 1
+        else:
+            seq,level = partition_helper(mod_ins,num_qubits)
+            partition_list.append(seq)
+            levels += level
+    partition_list = list(itertools.chain(*partition_list))
 
-    return part, levels    
+    return partition_list, levels    
