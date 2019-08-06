@@ -20,6 +20,7 @@ from string import ascii_uppercase, ascii_lowercase
 import numpy as np
 from copy import deepcopy
 from qiskit.exceptions import QiskitError
+import itertools
 
 
 def single_gate_params(gate, params=None):
@@ -91,10 +92,15 @@ def single_gate_dm_matrix(gate, params=None):
 
 def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
     """   
-    The error model adds a fluctuation to the angle param, with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The error model adds a fluctuation to the angle param,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    
     Args:
+        gate (string): Rotation axis
+        param (float): Rotation angle
         err_param[1] is the mean error in the angle param.
         err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param.
+        state is the reshaped density matrix according to the gate location.
     """
 
     c = err_param[0] * np.cos(param + err_param[1])
@@ -121,7 +127,8 @@ def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
 
 def U3_merge(xi, theta1, theta2):
-    """Performs merge operation when both the gates are U3 by transforming the Y-Z-Y decomposition of the gates to the Z-Y-Z decomposition.
+    """ Performs merge operation when both the gates are U3,
+        by transforming the Y-Z-Y decomposition of the gates to the Z-Y-Z decomposition.
         Args:
             [xi, theta1, theta2] (list, type:float ):  {Ry(theta1) , Rz(xi) , Ry(theta2)}
             0 <= theta1, theta2 <= Pi , 0 <= xi <= 2*Pi
@@ -173,14 +180,14 @@ def U3_merge(xi, theta1, theta2):
 
 def mergeU(gate1, gate2):
     """
-    Merges Unitary Gates acting consecutively on the same qubit within a partion
+    Merges Unitary Gates acting consecutively on the same qubit within a partition.
     Args:
         Gate1   ([Inst, index])
         Gate2   ([Inst, index])
     Return:
         Gate    ([Inst, index])
     """
-
+    print("Merged ",gate1[0].name, "qubit", gate1[0].qubits, " with ", gate2[0].name, "qubit", gate2[0].qubits)
     temp = None
     # To preserve the sequencing we choose the smaller index while merging.
     if gate1[1] < gate2[1]:
@@ -223,7 +230,8 @@ def mergeU(gate1, gate2):
 
 def merge_gates(inst):
     """
-    Unitary rotation gate calls on a single qubit are merged iteratively, by combining consecutive gate pairs.
+    Unitary rotation gates on a single qubit are merged iteratively,
+    by combining consecutive gate pairs.
     Args:
         Inst [[inst, index]]:   Instruction list to be merged
     Return
@@ -242,7 +250,7 @@ def merge_gates(inst):
 
 def single_gate_merge(inst, num_qubits):
     """
-        Merges single gates applied consecutively to each qubit in the circuit
+        Merges single gates applied consecutively to each qubit in the circuit.
         Args:
             inst [QASM Inst]:   List of instructions (original)
         Return
@@ -289,7 +297,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """Apply C-NOT gate in density matrix formalism.
 
         Args:
-        state - density matrix
+        state : density matrix
         q_1 (int): Control qubit 
         q_2 (int): Target qubit
         Note : Ordering of qubits (MSB right, LSB left)
@@ -491,30 +499,17 @@ def is_single(gate):
     # Checks if gate is single
     return True if gate.name in ['u3', 'u1'] else False
 
-
 def is_cx(gate):
     # Checks if gate is CX
     return True if gate.name in ['CX', 'cx'] else False
 
-
-def is_measure(gate):  # TODO Seperate Them
+def is_measure(gate):
     # Checks if gate is measure
     return True if gate.name == 'measure' else False
-
-def is_expect(gate, n):
-    if hasattr(gate, 'params'):
-        avail_basis = ['I', 'X', 'Y', 'Z']
-        chk = [x in avail_basis for x in str(gate.params[0])]
-        return True if gate.name == 'measure' and len(chk) == n and all(chk) else False
-    else:
-        return False
 
 def is_reset(gate):
     # Checks if gate is reset
     return True if gate.name == 'reset' else False
-
-def is_expect_dummy(gate):
-    return True if gate.name == 'dummy_expect' else False
 
 def is_measure_dummy(gate):
     # Checks if gate is dummy measure
@@ -525,35 +520,24 @@ def is_reset_dummy(gate):
     return True if gate.name == 'dummy_reset' else False
 
 def qubit_stack(i_set, num_qubits):
+    """ Divides the sequential instructions for the whole register
+        in to a stack of sequential instructions for each qubit.
+        Multi-qubit instructions appear in the list for each involved qubit.
+    Args:
+        i_set (list): instruction set for the register
+        num_qubits (int): number of qubits
+    """
 
     instruction_set = [[] for _ in range(num_qubits)]
     incl_expec = [] 
     for idx, instruction in enumerate(i_set):
         if not is_measure(instruction) and not is_reset(instruction):
+            # instuctions are appended unless measure and reset
             for qubit in instruction.qubits:
                 instruction_set[qubit].append(instruction)
 
-        elif is_expect(instruction, num_qubits):
-            
-            if instruction.params[0] in incl_expec:
-                continue
-            else:
-                for qubit in range(num_qubits):
-                    dummy = deepcopy(instruction)
-                    dummy.qubits[0] = qubit
-                    dummy.memory[0] = qubit
-                    instruction_set[qubit].append(dummy)
-                incl_expec.append(instruction.params[0])
-
         elif is_measure(instruction):
             if instruction_set[instruction.qubits[0]]:
-                
-                if instruction != i_set[-1]:
-                    if is_expect(i_set[idx+1], num_qubits) and i_set[idx+1].qubits[0] == instruction.qubits[0]:
-                        if is_measure_dummy(instruction_set[instruction.qubits[0]][-2]):
-                            instruction_set[instruction.qubits[0]][-2] = instruction
-                            continue
-
                 if not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
                     instruction_set[instruction.qubits[0]].append(instruction)
                     dummy = deepcopy(instruction)
@@ -594,7 +578,11 @@ def qubit_stack(i_set, num_qubits):
     return instruction_set, stack_depth
 
 
-def partition(i_set, num_qubits):
+def partition_helper(i_set, num_qubits):
+    """ Partitions the stack of qubit instructions in to a set of sequential levels.
+        Instructions in a single level do not overlap and can be executed in parallel.
+    """
+
     i_stack, depth = qubit_stack(i_set, num_qubits)
     level, sequence = 0, [[] for _ in range(depth)]
     while i_set:
@@ -611,7 +599,7 @@ def partition(i_set, num_qubits):
                 continue
 
             # Check for dummy gate
-            if is_measure_dummy(gate) or is_reset_dummy(gate) or is_expect_dummy(gate):
+            if is_measure_dummy(gate) or is_reset_dummy(gate):
                 continue
             # Check for single gate
             elif is_single(gate):
@@ -621,7 +609,7 @@ def partition(i_set, num_qubits):
                 qubit_included.append(qubit)
                 i_set.remove(gate)      # Remove from Set
                 i_stack[qubit].pop(0)   # Remove from Stack
-            # Check for CX gate
+            # Check for C-NOT gate
             elif is_cx(gate):
                 second_qubit = list(
                     set(gate.qubits).difference(set([qubit])))[0]
@@ -631,7 +619,7 @@ def partition(i_set, num_qubits):
                 if qubit in qubit_included or second_qubit in qubit_included:
                     continue
 
-                # Check if CX is top in stacks of both of its indexes.
+                # Check if C-NOT is top in stacks of both of its indexes.
                 if gate == buffer_gate:
                     qubit_included.append(qubit)
                     qubit_included.append(second_qubit)
@@ -709,3 +697,39 @@ def partition(i_set, num_qubits):
 
         level += 1
     return sequence, level
+
+def partition(i_set, num_qubits):
+    """ Partition the instruction set in to a number of levels.
+        Levels have to be executed sequentially,
+        while instructions within each level can be executed in parallel.
+    Args:
+        i_set (list): instruction set
+        num_qubits (int): number of qubits
+    Returns:
+        partition_list (list): list of partitions
+        levels (int): number of partitions
+    """
+    modified_i_set = []
+    a = []
+    for instruction in i_set:
+        if instruction.name !='barrier':
+            a.append(instruction)
+        else:
+            modified_i_set.append(a)
+            a = []
+    if a:
+        modified_i_set.append(a)
+    partition_list = []
+    levels = 0
+    for mod_ins in modified_i_set:
+        # Bell, Expect and Ensemble measure form a partitiom on their own.
+        if mod_ins[0].name=='measure' and getattr(mod_ins[0],'params',None) != None and mod_ins[0].params[0] in ['Bell', 'Expect', 'Ensemble']:
+            partition_list.append(mod_ins)
+            levels += 1
+        else:
+            seq,level = partition_helper(mod_ins,num_qubits)
+            partition_list.append(seq)
+            levels += level
+    partition_list = list(itertools.chain(*partition_list))
+
+    return partition_list, levels    

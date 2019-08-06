@@ -49,6 +49,16 @@ def find_change(without_error, with_error):
     return str(np.trace(np.dot(without_error, with_error)))
 
 
+def state_overlap(density_matrix_1, density_matrix_2):
+    ''' Calculate the overlap between density_matrix_1 and density_matrix_2
+    Args 
+        density_matrix_1 and density_matrix_2 in Pauli basis
+    Return
+        Value of overlap between density_matrix_1 and density_matrix_2 '''
+
+    return np.dot(density_matrix_1, density_matrix_2)
+
+
 # def find_change(without_error, with_error):
 
 #     return str(np.trace(linalg.sqrtm(np.dot(np.conjugate(without_error - with_error), (without_error - with_error)))))
@@ -80,7 +90,8 @@ p2 = subprocess.Popen(
     f"mprof clean && mprof run --include-children python circuit.py 0", shell=True)
 p2.communicate()
 
-without_error = np.loadtxt('without_error.csv', dtype=np.complex128)
+# without_error = np.loadtxt('without_error.csv', dtype=np.complex128)
+without_error = np.load('without_error.npy')
 
 
 options = {
@@ -135,9 +146,7 @@ for i in range(n):
             f"{total_memory_usage2},{total_runtime2},{num_gates},{qubits}\n")
 
     with open('./change.csv', 'a') as f:
-        f.write(find_change(without_error, np.loadtxt(
-            'with_error.csv', dtype=np.complex128)))
-        f.write(f",{options[error_vary][bbb][asd] + change_per_iteration*i}\n")
-        # f.write(f",{options[error_vary] + change_per_iteration*i}\n")
+        f.write(find_change(without_error, np.load('with_error.npy')))
+        f.write(f",{options[error_vary] + change_per_iteration*i}\n")
 
 subprocess.run(f"python ./plot.py {title}".split())
