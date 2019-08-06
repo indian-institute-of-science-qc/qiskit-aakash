@@ -5,6 +5,7 @@ import os
 import time
 import matplotlib.pyplot as plt
 import glob
+from scipy import linalg
 plt.style.use('seaborn')
 
 
@@ -48,6 +49,11 @@ def find_change(without_error, with_error):
     return str(np.trace(np.dot(without_error, with_error)))
 
 
+# def find_change(without_error, with_error):
+
+#     return str(np.trace(linalg.sqrtm(np.dot(np.conjugate(without_error - with_error), (without_error - with_error)))))
+
+
 def record_memory_usage():
     memory_data = glob.glob("*.dat")[0]
 
@@ -66,7 +72,7 @@ total_memory_usage1 = 0.0
 change_options('thermal_factor', 0, 1)
 
 qubits = 5
-num_gates = 25
+num_gates = 10
 make_circuit(qubits, num_gates)
 
 print("Running without errors")
@@ -88,15 +94,36 @@ options = {
     "rotation_error": {'rx': [1., 0.], 'ry': [1., 0.], 'rz': [1., 0.]},
     "tsp_model_error": [1., 0.]
 }
-error_vary = 'decoherence_factor'
-change_per_iteration = -0.001/5
-n = 25
+error_vary = 'rotation_error'
+change_per_iteration = +0.01
+asd = 1
+bbb = 'rz'
+n = 16
 
 for i in range(n):
     print("Running with error")
-    title = f'{error_vary}= {options[error_vary]} -> {options[error_vary] + change_per_iteration*n}'
+    # title = f'{error_vary}= {options[error_vary]} -> {options[error_vary] + change_per_iteration*(n-1)}'
+    # title = f'{error_vary}(variation)= {options[error_vary][asd]} -> {options[error_vary][asd] + change_per_iteration*(n-1)}'
+    title = f'{bbb}_{error_vary}(angle)= {options[error_vary][bbb][asd]} -> {options[error_vary][bbb][asd] + change_per_iteration*(n-1)}'
+    # title = f'Mean_of_ {error_vary}= {options[error_vary][asd]} -> {options[error_vary][asd] + change_per_iteration*(n-1)}'
 
-    change_options(error_vary, change_per_iteration, i)
+    optionsd = {
+
+        "chop_threshold": 1e-15,
+        "thermal_factor": 0.,
+        "decoherence_factor": 1.,
+        "depolarization_factor": 1.,
+        "bell_depolarization_factor": 1.,
+        "decay_factor": 1.,
+        "rotation_error": {'rx': [1., 0.], 'ry': [1., 0.], 'rz': [1., 0. + change_per_iteration*i]},
+        "tsp_model_error": [1., 0.]
+    }
+
+    # optionsd[error] += change_per_iter*i
+
+    # print(f"Running for {options[error]}")
+    with open("./options.pkl", 'wb') as f:
+        pickle.dump(optionsd, f)
 
     p2 = subprocess.Popen(
         f"mprof clean && mprof run --include-children python circuit.py 1", shell=True)
@@ -110,6 +137,7 @@ for i in range(n):
     with open('./change.csv', 'a') as f:
         f.write(find_change(without_error, np.loadtxt(
             'with_error.csv', dtype=np.complex128)))
-        f.write(f",{options[error_vary] + change_per_iteration*i}\n")
+        f.write(f",{options[error_vary][bbb][asd] + change_per_iteration*i}\n")
+        # f.write(f",{options[error_vary] + change_per_iteration*i}\n")
 
 subprocess.run(f"python ./plot.py {title}".split())

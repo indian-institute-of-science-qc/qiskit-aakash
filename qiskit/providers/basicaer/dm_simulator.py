@@ -159,7 +159,7 @@ class DmSimulatorPy(BaseBackend):
         self._get_den_mat = False
         # self._get_den_mat = True
         self._error_included = False
-
+# 
     def _add_unitary_single(self, gate, qubit):
         """Apply an arbitrary 1-qubit unitary matrix.
 
@@ -855,12 +855,10 @@ class DmSimulatorPy(BaseBackend):
             densitymatrix[final_index] = densitymatrix_b[idxb]
 
 
-        # if not self._error_included:
-        #     np.savetxt("a.txt", np.asarray(
-        #         np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
-        # else:
-        #     np.savetxt("a1.txt", np.asarray(
-        #         np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+
+        np.savetxt("a.txt", np.asarray(
+            np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+
 
         return densitymatrix
 

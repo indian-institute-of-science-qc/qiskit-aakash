@@ -73,14 +73,14 @@ without_error = np.loadtxt('without_error.csv', dtype=np.complex128)
 
 changes = {
 
-    'thermal_factor': -.01/2,
-    'decoherence_factor': -.001/2,
-    'depolarization_factor': -.01/2,
+    # 'thermal_factor': -.01/2,
+    # 'decoherence_factor': -.001/2,
+    # 'depolarization_factor': -.01/2,
     'decay_factor': -.001/2
 
 }
 
-n = 10
+n = 5
 for error_vary in changes.keys():
     with open('./change.csv', 'w') as f:
         pass
@@ -105,7 +105,7 @@ for error_vary in changes.keys():
         # error_vary = 'decoherence_factor'
         change_per_iteration = changes[error_vary]
         print(options[error_vary])
-        title = f'{error_vary}= {options[error_vary]} -> {options[error_vary] + change_per_iteration*n}'
+        title = f'{error_vary}= {str(options[error_vary])} -> {str(options[error_vary] + change_per_iteration*n)}'
 
         change_options(error_vary, change_per_iteration, i)
 
