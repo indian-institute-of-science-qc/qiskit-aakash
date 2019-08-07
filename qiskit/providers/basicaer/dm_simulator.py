@@ -14,10 +14,13 @@
 
 # pylint: disable=arguments-differ
 
-"""Contains a (slow) python simulator.
+"""Contains a (slow) python simulator using the density matrix backend.
+It simulates a qasm quantum circuit (an experiment) that has been processed
+by the transpiler. Its complexity is exponential in the number of qubits.
 
-It simulates a qasm quantum circuit (an experiment) that has been compiled
-to run on the simulator. Its complexity is exponential in the number of qubits.
+The density matrix formalism allows inclusion of environmental noise in the simulation.
+The noise is specified in terms of several parameters, which the user has to provide.
+The density matrix is evolved according to the Kraus superoperator representation.
 
 The simulator is run using
 
@@ -27,6 +30,9 @@ The simulator is run using
 
 Here the input is a Qobj object and the output is a BasicAerJob object,
 which can later be queried for the Result object.
+
+This is a derivative work of the Qiskit project. If you use it, please acknowledge
+H. Chaudhary, B. Mahato, L. Priyadarshi, N. Roshan, Utkarsh and A. Patel, arXiv:1908.?????
 """
 
 import uuid
@@ -127,6 +133,7 @@ class DmSimulatorPy(BaseBackend):
     # This should be set to True for the densitymatrix simulator
     SHOW_FINAL_STATE = True
     PLOTTING = False
+    SHOW_PARTITION = False
     DEBUG = True
     STORE_LOCAL = False
     COMPARE = False
@@ -714,6 +721,9 @@ class DmSimulatorPy(BaseBackend):
         if 'plot' in backend_options:
             self.PLOTTING = backend_options['plot'] 
         
+        if 'show_partition' in backend_options:
+            self.SHOW_PARTITION = backend_options['show_partition']
+        
         if 'store_densitymatrix' in backend_options:
             self.STORE_LOCAL = backend_options['store_densitymatrix']
 
@@ -903,12 +913,12 @@ class DmSimulatorPy(BaseBackend):
             n (list): measurement direction
         """
         norm = np.linalg.norm(n)
-        flag = False
         if norm == 1:
             pass
         else:
             n = n/norm
             logger.warning('Given direction for the measurement was not normalised. It has been normalised to be unit vector!!')
+        return n
 
     def _validate_measure(self, insts):
         """ Determines whether ensemble measurement is needed to be done for the experiment.
@@ -1067,16 +1077,16 @@ class DmSimulatorPy(BaseBackend):
         # Initialize classical memory to all 0
         self._classical_memory = 0
         self._classical_register = 0
-        print("MERGING U1 and U3 GATES\n")
+        #print("MERGING U1 and U3 GATES\n")
         experiment.instructions = single_gate_merge(experiment.instructions,
                                                     self._number_of_qubits)
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
-        if self.PLOTTING:
-            print("\nINITIAL PARTITION")
-            self.describe_partition(partitioned_instructions)
+        # if self.SHOW_PARTITION:
+        #     print("\nINITIAL PARTITION")
+        #     self.describe_partition(partitioned_instructions)
         #partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
-        if self.PLOTTING:
+        if self.SHOW_PARTITION:
             print("\nPARTITIONED CIRCUIT")
             self.describe_partition(partitioned_instructions)
         end_processing = time.time()
@@ -1193,12 +1203,12 @@ class DmSimulatorPy(BaseBackend):
                         break
 
                     elif ensm_measure:
-                        if str(params[1]) == 'N':
-                            add_param = params[1][1]
-                            basis = str(params[1][0])
-                        else:
+                        if len(str(params[1])) == 1:
                             add_param = None
                             basis = str(params[1])
+                        elif params[1][0]== 'N':
+                            add_param = params[1][1]
+                            basis = str(params[1][0])
                         prob, max_str, max_prob = self._add_ensemble_measure(basis, add_param, self._error_params['measurement'])
                         self._plot_ensemble_measure(prob,params[0]) 
                         data['ensemble_probability'] = prob       
@@ -1283,10 +1293,7 @@ class DmSimulatorPy(BaseBackend):
                                 'for "{}".'.format(self.name()))
         for experiment in qobj.experiments:
             name = experiment.header.name
-            if experiment.config.memory_slots == 0:
-                logger.warning('No classical registers in circuit "%s", '
-                               'counts will be empty.', name)
-            elif 'measure' not in [op.name for op in experiment.instructions]:
+            if 'measure' not in [op.name for op in experiment.instructions]:
                 logger.warning('No measurements in circuit "%s", '
                                'classical register will remain all zeros.', name)
 

@@ -187,7 +187,7 @@ def mergeU(gate1, gate2):
     Return:
         Gate    ([Inst, index])
     """
-    print("Merged ",gate1[0].name, "qubit", gate1[0].qubits, " with ", gate2[0].name, "qubit", gate2[0].qubits)
+    #print("Merged ",gate1[0].name, "qubit", gate1[0].qubits, " with ", gate2[0].name, "qubit", gate2[0].qubits)
     temp = None
     # To preserve the sequencing we choose the smaller index while merging.
     if gate1[1] < gate2[1]:
@@ -722,14 +722,15 @@ def partition(i_set, num_qubits):
     partition_list = []
     levels = 0
     for mod_ins in modified_i_set:
-        # Bell, Expect and Ensemble measure form a partitiom on their own.
-        if mod_ins[0].name=='measure' and getattr(mod_ins[0],'params',None) != None and mod_ins[0].params[0] in ['Bell', 'Expect', 'Ensemble']:
-            partition_list.append(mod_ins)
-            levels += 1
-        else:
-            seq,level = partition_helper(mod_ins,num_qubits)
-            partition_list.append(seq)
-            levels += level
+        if mod_ins != []:
+            # Bell, Expect and Ensemble measure form a partitiom on their own.
+            if mod_ins[0].name=='measure' and getattr(mod_ins[0],'params',None) != None and mod_ins[0].params[0] in ['Bell', 'Expect', 'Ensemble']:
+                partition_list.append(mod_ins)
+                levels += 1
+            else:
+                seq,level = partition_helper(mod_ins,num_qubits)
+                partition_list.append(seq)
+                levels += level
     partition_list = list(itertools.chain(*partition_list))
 
     return partition_list, levels    
