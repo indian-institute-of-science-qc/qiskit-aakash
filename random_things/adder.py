@@ -20,29 +20,19 @@ def rev(asd):
     return bb
 
 
-options = {
-
-    "chop_threshold": 1e-15,
-    "thermal_factor": 0.,
-    "decoherence_factor": 1.,
-    "depolarization_factor": 1.,
-    "bell_depolarization_factor": 1.,
-    "decay_factor": 0.9999,
-    "rotation_error": {'rx': [1., 0.], 'ry': [1., 0.], 'rz': [1., 0.]},
-    "tsp_model_error": [1., 0.]
-}
-
-
-def plot1(prob):
+def plot1(prob, name='adder_prob'):
 
     plt.bar(prob.keys(), prob.values())
     plt.title(
         f"Probability Distribution of states")
+    plt.xlabel("States")
+    plt.ylabel("Probabilities")
     plt.xticks(rotation=90)
+    plt.savefig('./adder_results/' + name + '.png')
     plt.show()
 
 
-def add(a, b):
+def add(a, b, name='adder'):
 
     a = [int(x) for x in a]
     b = [int(x) for x in b]
@@ -95,9 +85,22 @@ def add(a, b):
     result_sim = job_sim.result()
     # result_sim["results"][0]["data"]['densitymatrix']
     # plot1(result_sim["results"][0]["data"]['partial_probability'])
-    plot1(rev(result_sim["results"][0]["data"]['partial_probability']))
+    # plot1(rev(result_sim["results"][0]["data"]['partial_probability']), name)
 
     # print(result_sim.get_counts())
 
 
-add("01", "1")
+options = {
+
+    "chop_threshold": 1e-15,
+    "thermal_factor": 0.,
+    "decoherence_factor": 1.0,
+    "depolarization_factor": 1.,
+    "bell_depolarization_factor": 1.,
+    "decay_factor": 1.,
+    "rotation_error": {'rx': [1., 0.], 'ry': [1., 0.0], 'rz': [1., 0.]},
+    "tsp_model_error": [1.0, 0.0]
+}
+
+
+add("11", "111")

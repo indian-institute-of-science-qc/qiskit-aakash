@@ -48,6 +48,15 @@ for i in range(num_gates):
         print('qc.{}(q[{}],q[{}],q[{}])'.format(l[x], a, b, c))
 
 
+# print("qc.measure(q[0],c[0],'Z')")
+# print("qc.measure(q[1],c[2],'X')")
+# print("qc.measure(q[2],c[0],'Z')")
+# print("qc.measure(q[1],c[2],'X')")
+# # print("qc.measure(q[3],c[0],'Z')")
+# print("qc.measure(q[1],c[2],'X')")
+# print("qc.measure(q[0],c[0],'Z')")
+# print("qc.measure(q[3],c[2],'X')")
+
 print(
     """
 with open('./options.pkl', 'rb') as f:
