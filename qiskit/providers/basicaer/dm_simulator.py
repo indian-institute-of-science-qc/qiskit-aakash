@@ -120,7 +120,7 @@ class DmSimulatorPy(BaseBackend):
     DEFAULT_OPTIONS = {
         "initial_densitymatrix": None,
         "chop_threshold": 1e-15,
-        "thermal_factor": 0.,
+        "thermal_factor": 1.,
         "decoherence_factor": 1.,
         "depolarization_factor": 1.,
         "bell_depolarization_factor": 1.,
@@ -213,13 +213,12 @@ class DmSimulatorPy(BaseBackend):
             with rate 'g' towards the thermal state specified by 'p'.
         Args:
             level (int):    Clock cycle number (not used)
-            f     (float):  Contraction of diagonal elements due to T_2 (decoherence time) 
+            f     (float):  Contraction of off-diagonal elements due to T_2 (decoherence time) 
             p     (float):  Thermal factor corresponding to the asymptotic state
             g     (float):  Decay of the excited state component due to T_1 (relaxation time)
         """ 
-        sg = np.sqrt(g)
         off_diag_contract = np.sqrt(g) * f
-        diag_decay = (1-g)*(1-2*p)
+        diag_decay = (1-g)*(2*p-1)
  
         for qb in range(self._number_of_qubits):
 
@@ -772,7 +771,7 @@ class DmSimulatorPy(BaseBackend):
                 for i in range(self._number_of_qubits-1):
                     self._densitymatrix = np.kron([1,1,0,0], self._densitymatrix)
             elif self._custom_densitymatrix == 'thermal_state':
-                tf = 1-2*self._thermal_factor
+                tf = 2*self._thermal_factor-1
                 self._densitymatrix = np.array([1,0,0,tf], dtype=float)
                 for i in range(self._number_of_qubits-1):
                     self._densitymatrix = np.kron([1,0,0,tf], self._densitymatrix)

@@ -529,7 +529,6 @@ def qubit_stack(i_set, num_qubits):
     """
 
     instruction_set = [[] for _ in range(num_qubits)]
-    incl_expec = [] 
     for idx, instruction in enumerate(i_set):
         if not is_measure(instruction) and not is_reset(instruction):
             # instuctions are appended unless measure and reset
