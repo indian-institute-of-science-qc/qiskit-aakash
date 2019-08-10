@@ -174,7 +174,197 @@ class DmSimulatorPy(BaseBackend):
         self._error_included = False
         # self.result_dict = None
         self.fidelity = None 
-        self.density_matrix_0 = None 
+        self.density_matrix_0 = None
+    
+    def _set_options(self, qobj_config=None, backend_options=None):
+        """Set the backend options for all experiments in a qobj"""
+        # Reset default options
+        self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
+        self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
+        self._rotation_error = self.DEFAULT_OPTIONS["rotation_error"]
+        self._tsp_model_error = self.DEFAULT_OPTIONS["tsp_model_error"]
+        self._thermal_factor = self.DEFAULT_OPTIONS["thermal_factor"]
+        self._decoherence_factor = self.DEFAULT_OPTIONS["decoherence_factor"]
+        self._decay_factor = self.DEFAULT_OPTIONS["decay_factor"]
+        self._depolarization_factor = self.DEFAULT_OPTIONS["depolarization_factor"]
+        self._bell_depolarization_factor = self.DEFAULT_OPTIONS["bell_depolarization_factor"]
+
+        if backend_options is None:
+            backend_options = {}
+        
+        # Check for custom initial density matrix in backend_options first,
+        # otherwise take it from config.
+        if 'initial_densitymatrix' in backend_options:
+            self._initial_densitymatrix = np.array(backend_options['initial_densitymatrix'], dtype=float)
+        elif hasattr(qobj_config, 'initial_densitymatrix'):
+            self._initial_densitymatrix = np.array(qobj_config.initial_densitymatrix, dtype=float)
+
+        if 'custom_densitymatrix' in backend_options:
+            self._custom_densitymatrix = backend_options['custom_densitymatrix']
+            if self._custom_densitymatrix == 'binary_string':
+                self._initial_densitymatrix = backend_options['initial_densitymatrix']
+            elif self._custom_densitymatrix == 'stored_density_matrix':
+                self._initial_densitymatrix = backend_options['initial_densitymatrix']
+
+        # Error for Single Qubit Rotation Gates
+        if 'rotation_error' in backend_options:
+            if type(backend_options['rotation_error']) != dict or not all(x in ['rx', 'ry', 'rz'] for x in backend_options['rotation_error']) :
+                raise BasicAerError('Error! Incorrect Rotation Error parameters, Expected argument : A dict with rotation gate as key and a list of 2 reals ranging between 0 and 1 both inclusive as their values.')
+            else:
+                for gt, vl in backend_options['rotation_error'].items():
+                    self._rotation_error.update({gt:vl})
+
+        # Error for C-NOT based on Transition Selective Pulse model
+        if 'tsp_model_error' in backend_options:
+            if type(backend_options['tsp_model_error']) != list or len(backend_options['tsp_model_error']) !=2 or backend_options['tsp_model_error'][0] > 1 or backend_options['tsp_model_error'][1] > 1:
+                raise BasicAerError('Error! Incorrect transition model error parameter, Expected argument : A list of 2 reals ranging between 0 and 1 both inclusive.')
+            else:
+                self._tsp_model_error = backend_options['tsp_model_error']
+       
+        # Error due to Thermalization
+        if 'thermal_factor' in backend_options:
+            self._thermal_factor = backend_options['thermal_factor']
+
+        # Error due to Decoherence: decoherence factor = exp(-del_T/T_2)
+        if 'decoherence_factor' in backend_options:
+            self._decoherence_factor = backend_options['decoherence_factor']
+
+        # Error due to State Decay (1 -> 0): decay_factor = exp(-del_T/T_1)
+        if 'decay_factor' in backend_options:
+            self._decay_factor = backend_options['decay_factor']
+
+         # Error due to Depolarization (or bit-flip) during measurement
+        if 'depolarization_factor' in backend_options:
+            self._depolarization_factor = backend_options['depolarization_factor']
+        
+        # Error due to Depolarization during measurement
+        if 'bell_depolarization_factor' in backend_options:
+            self.bell_depolarization_factor = backend_options['bell_depolarization_factor']
+
+        if 'chop_threshold' in backend_options:
+            self._chop_threshold = backend_options['chop_threshold']
+        elif hasattr(qobj_config, 'chop_threshold'):
+            self._chop_threshold = qobj_config.chop_threshold
+
+        if 'compute_densitymatrix' in backend_options:
+            self._get_den_mat = backend_options['compute_densitymatrix']
+        
+        if 'debug' in backend_options:
+            DEBUG = backend_options['debug']
+        
+        if 'plot' in backend_options:
+            self.PLOTTING = backend_options['plot'] 
+        
+        if 'show_partition' in backend_options:
+            self.SHOW_PARTITION = backend_options['show_partition']
+        
+        if 'store_densitymatrix' in backend_options:
+            self.STORE_LOCAL = backend_options['store_densitymatrix']
+
+        if 'compare' in backend_options:
+            self.COMPARE = backend_options['compare']
+            try:
+                self.density_matrix_0 = np.load('stored_coefficients.npy')
+                self.FILE_EXIST = True
+            except FileNotFoundError:
+                print('Stored Coefficient File does not exist')
+
+    def _initialize_errors(self):
+    
+        self._error_params.update({'one_qubit_gates':self._rotation_error})
+        self._error_params.update({'two_qubit_gates':self._tsp_model_error})
+        self._error_params.update({'memory':{'thermalization':self._thermal_factor,
+                                             'decoherence':self._decoherence_factor, 
+                                             'amplitude_decay':self._decay_factor}
+                                            })
+        self._error_params.update({'measurement': self._depolarization_factor,
+                                       'measurement_bell': self._bell_depolarization_factor})
+    
+    def _initialize_densitymatrix(self):
+        """
+            Initialize the density matrix for simulation.
+            Default: All Zero State [((I+sigma(3))/2)**num_qubits]
+            Custom:  max_mixed - Maximally Mixed State [(I/2)**num_qubits]
+                     uniform_superpos - Uniform Superposition State [((I+sigma(1))/2)**num_qubits]
+                     thermal_state - Thermalized State [([[1-p, 0],[0, p]])**num_qubits]
+                     binary string - Specified sequence of Zero and One qubit states
+                     stored density matrix - Initialize to a specified density matrix
+            ** -> Tensor product.
+       """
+
+        if self._initial_densitymatrix is None:
+            if self._custom_densitymatrix is None:
+                self._densitymatrix = np.array([1,0,0,1], dtype=float)
+                for i in range(self._number_of_qubits-1):
+                    self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
+            elif self._custom_densitymatrix == 'max_mixed':
+                self._densitymatrix = np.array([1,0,0,0], dtype=float)
+                for i in range(self._number_of_qubits-1):
+                    self._densitymatrix = np.kron([1,0,0,0], self._densitymatrix)
+            elif self._custom_densitymatrix == 'uniform_superpos':
+                self._densitymatrix = np.array([1,1,0,0], dtype=float)
+                for i in range(self._number_of_qubits-1):
+                    self._densitymatrix = np.kron([1,1,0,0], self._densitymatrix)
+            elif self._custom_densitymatrix == 'thermal_state':
+                tf = 2*self._thermal_factor-1
+                self._densitymatrix = np.array([1,0,0,tf], dtype=float)
+                for i in range(self._number_of_qubits-1):
+                    self._densitymatrix = np.kron([1,0,0,tf], self._densitymatrix)
+            else:
+                raise BasicAerError('_custom_densitymatrix value is invalid')
+            # Normalize the density matrix
+            self._densitymatrix *= 0.5**(self._number_of_qubits)
+
+        else:
+            # Binary string is encoded in the self._initial_densitymatrix
+            if self._custom_densitymatrix == 'binary_string':
+                if len(self._initial_densitymatrix) != self._number_of_qubits:
+                    raise BasicAerError('Wrong input binary string length')
+                if self._initial_densitymatrix[0] == '0':
+                    self._densitymatrix = np.array([1,0,0,1], dtype=float)
+                else:
+                    self._densitymatrix = np.array([1,0,0,-1], dtype=float) 
+                for idx in self._initial_densitymatrix[1:]:
+                    if idx == '0':
+                        self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
+                    else:
+                        self._densitymatrix = np.kron([1,0,0,-1],self._densitymatrix)
+                # Normalize the density matrix
+                self._densitymatrix *= 0.5**(self._number_of_qubits)
+
+            # Stored density matrix is encoded in file 'stored_density_matrix.npy' 
+            elif self._custom_densitymatrix == 'stored_density_matrix':
+                try:
+                    self._densitymatrix = np.load('stored_density_matrix.npy')
+                    if len(self._densitymatrix) != 4**self._number_of_qubits:
+                        raise BasicAerError('Wrong input stored density matrix')
+                except FileNotFoundError:
+                    print('Stored Coefficient File does not exist')
+            else:
+                raise BasicAerError('_custom_densitymatrix value is invalid')
+        
+       # Reshape to rank-N tensor
+        self._densitymatrix = np.reshape(self._densitymatrix,
+                                       self._number_of_qubits * [4])
+    
+    def _validate_initial_densitymatrix(self):
+        """Validate an initial densitymatrix"""
+        # If initial densitymatrix isn't set we don't need to validate
+        if self._initial_densitymatrix is None:
+            return
+        if self._custom_densitymatrix == 'binary_string':
+            return 
+        if self._custom_densitymatrix == 'stored_density_matrix':
+            return
+        # Check densitymatrix is correct length for number of qubits
+        length = np.size(self._initial_densitymatrix)
+        ##print(length, self._number_of_qubits)
+        required_dim = 4 ** self._number_of_qubits
+        
+        if length != required_dim:
+            raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.formarequired_dim)
+        if self._densitymatrix[0] != 1:
+            raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._den[0], 1))
 
     def _add_unitary_single(self, gate, qubit):
         """Apply an arbitrary 1-qubit unitary transformation.
@@ -286,10 +476,10 @@ class DmSimulatorPy(BaseBackend):
         
         # Store the density matrix in a local file
         if self.STORE_LOCAL:
-            self.store_density_matrix()
+            self._store_density_matrix()
         # Compare the current density matrix with stored density matrix
         if self.COMPARE and self.FILE_EXIST:
-            self.fidelity = self.state_overlap(self.density_matrix_0, np.reshape(self._densitymatrix,4**self._number_of_qubits))
+            self.fidelity = self._state_overlap(self.density_matrix_0, np.reshape(self._densitymatrix,4**self._number_of_qubits))
         return prob, max_str, max_prob
     
     def _plot_ensemble_measure(self,prob,basis):
@@ -382,95 +572,6 @@ class DmSimulatorPy(BaseBackend):
         
         return expectation
 
-    def _add_bell_basis_measure(self, qubit_1, qubit_2, err_param):
-        """
-        Apply a Bell basis measure instruction for two qubits.
-        Post measurement density matrix is updated in the same array.
-        Four Bell probabilities are calculated in the (|00>+|11>,|00>-|11>,|01>+|10>,|01>-|10>) basis. 
-        Two qubit reduced density matrix is plotted if 'plot' flag is on.
-
-        Args:
-            qubit_1 (int): first qubit of the Bell pair.
-            qubit_2 (int): second qubit of the Bell pair.
-            err_param (float): Reduction in polarization during measurement.
-        Returns (as global variables):
-            reduced_bell_densitymatrix for the two qubits (prior to measurement)
-            bell_probabilities for the four orthogonal Bell states (after measurement)
-        """
-        q_1 = min(qubit_1, qubit_2)
-        q_2 = max(qubit_1, qubit_2)
-
-        #update density matrix
-        
-        self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
-        
-        # Reduced density matrix 
-        reduced_bell_densitymatrix = np.zeros((4,4))
-        for i in range(4):
-            for j in range(4):
-                reduced_bell_densitymatrix[i,j] = self._densitymatrix[0,i,0,j,0] * 2**(self._number_of_qubits - 2)
-
-        for i in range(4):
-            for j in range(4):
-                if i != j:
-                    self._densitymatrix[:,i,:,j,:] = 0
-
-        self._densitymatrix[:,1,:,1,:] *= err_param
-        self._densitymatrix[:,2,:,2,:] *= err_param
-        self._densitymatrix[:,3,:,3,:] *= err_param
-
-        k = [0.0,0.0,0.0,0.0]
-        for i in range(4):
-            k[i] = self._densitymatrix[0,i,0,i,0] * 2**self._number_of_qubits
-
-        bell_probabilities = [0., 0., 0., 0.]
-        bell_probabilities[0] = 0.25*(k[0] + k[1] - k[2] + k[3])
-        bell_probabilities[1] = 0.25*(k[0] - k[1] + k[2] + k[3])
-        bell_probabilities[2] = 0.25*(k[0] + k[1] + k[2] - k[3])
-        bell_probabilities[3] = 0.25*(k[0] - k[1] - k[2] - k[3])
-
-        # bell_states = [r'$\frac{|00\rangle + |11\rangle}{\sqrt(2)}$', r'$\frac{|00\rangle - |11\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle + |10\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle - |10\rangle}{\sqrt(2)}$']
-        bell_states = ['Bell_1','Bell_2','Bell_3','Bell_4']
-        bell_probabilities = dict(zip(bell_states,bell_probabilities))
-
-        self._densitymatrix = np.reshape(self._densitymatrix,self._number_of_qubits*[4])
-
-        # plot the resultant reduced density matrix
-        if self.PLOTTING:
-            self._plot_reduced_bell_basis(reduced_bell_densitymatrix)
-        return bell_probabilities, reduced_bell_densitymatrix
-    
-    def _plot_reduced_bell_basis(self,reduced_bell_densitymatrix):
-        '''
-        Plots the two qubit reduced density matrix.
-        '''
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        _x = range(4)
-        _y = range(4)
-        _xx, _yy = np.meshgrid(_x, _y)
-        x, y = _xx.ravel(), _yy.ravel()
-        top = reduced_bell_densitymatrix[x,y]
-        bottom = np.zeros_like(top)
-        width = 0.5
-        depth = 0.5
-        values = np.linspace(0.2, 1., x.ravel().shape[0])
-        colors = cm.rainbow(values)
-        z_up_lim = np.amax(reduced_bell_densitymatrix)
-        z_low_lim = np.amin(reduced_bell_densitymatrix)
-
-        ax.set_zlim3d(z_low_lim,z_up_lim)
-        ax.w_xaxis.set_ticks(x)
-        ax.w_yaxis.set_ticks(y)
-        ax.set_title("Reduced Density Matrix in Pauli Basis")
-        ax.set_xlabel("First Qubit")
-        ax.set_ylabel("Second qubit")
-        ax.set_zlabel("Coefficient value")
-
-        ax.bar3d(x-0.25, y-0.25, bottom, width, depth, top, color=colors, alpha=0.8, shade=True)
-
-        plt.show()
-    
     def _add_qasm_measure_X(self, qubit, cmembit,cregbit=None, err_param=1.0):
         """Apply a X basis measure instruction to a single qubit. 
         Post measurement density matrix is updated in the same array.
@@ -602,319 +703,6 @@ class DmSimulatorPy(BaseBackend):
         probability_of_one = 1 - probability_of_zero
 
         return probability_of_zero
-        
-    def _add_qasm_reset(self, qubit):
-        """ Reset the qubit to the zero state.
-            It is equivalent to performing P0*rho*P0+X*P1*rho*P1*X.
-
-        Args:
-            qubit (int): the qubit being reset
-
-        """
-
-        # update density matrix
-        self._densitymatrix =  np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
-
-        self._densitymatrix[:,1,:] = 0
-        self._densitymatrix[:,2,:] = 0
-        self._densitymatrix[:,3,:] = self._densitymatrix[:,0,:].copy()
-
-
-    def _validate_initial_densitymatrix(self):
-        """Validate an initial densitymatrix"""
-        # If initial densitymatrix isn't set we don't need to validate
-        if self._initial_densitymatrix is None:
-            return
-        if self._custom_densitymatrix == 'binary_string':
-            return 
-        if self._custom_densitymatrix == 'stored_density_matrix':
-            return
-        # Check densitymatrix is correct length for number of qubits
-        length = np.size(self._initial_densitymatrix)
-        ##print(length, self._number_of_qubits)
-        required_dim = 4 ** self._number_of_qubits
-        
-        if length != required_dim:
-            raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.format(length, required_dim))
-
-        if self._densitymatrix[0] != 1:
-            raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._densitymatrix[0], 1))
-
-    def _set_options(self, qobj_config=None, backend_options=None):
-        """Set the backend options for all experiments in a qobj"""
-        # Reset default options
-        self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
-        self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
-        self._rotation_error = self.DEFAULT_OPTIONS["rotation_error"]
-        self._tsp_model_error = self.DEFAULT_OPTIONS["tsp_model_error"]
-        self._thermal_factor = self.DEFAULT_OPTIONS["thermal_factor"]
-        self._decoherence_factor = self.DEFAULT_OPTIONS["decoherence_factor"]
-        self._decay_factor = self.DEFAULT_OPTIONS["decay_factor"]
-        self._depolarization_factor = self.DEFAULT_OPTIONS["depolarization_factor"]
-        self._bell_depolarization_factor = self.DEFAULT_OPTIONS["bell_depolarization_factor"]
-
-        if backend_options is None:
-            backend_options = {}
-        
-        # Check for custom initial density matrix in backend_options first,
-        # otherwise take it from config.
-        if 'initial_densitymatrix' in backend_options:
-            self._initial_densitymatrix = np.array(backend_options['initial_densitymatrix'], dtype=float)
-        elif hasattr(qobj_config, 'initial_densitymatrix'):
-            self._initial_densitymatrix = np.array(qobj_config.initial_densitymatrix, dtype=float)
-
-        if 'custom_densitymatrix' in backend_options:
-            self._custom_densitymatrix = backend_options['custom_densitymatrix']
-            if self._custom_densitymatrix == 'binary_string':
-                self._initial_densitymatrix = backend_options['initial_densitymatrix']
-            elif self._custom_densitymatrix == 'stored_density_matrix':
-                self._initial_densitymatrix = backend_options['initial_densitymatrix']
-
-        # Error for Single Qubit Rotation Gates
-        if 'rotation_error' in backend_options:
-            if type(backend_options['rotation_error']) != dict or not all(x in ['rx', 'ry', 'rz'] for x in backend_options['rotation_error']) :
-                raise BasicAerError('Error! Incorrect Rotation Error parameters, Expected argument : A dict with rotation gate as key and a list of 2 reals ranging between 0 and 1 both inclusive as their values.')
-            else:
-                for gt, vl in backend_options['rotation_error'].items():
-                    self._rotation_error.update({gt:vl})
-
-        # Error for C-NOT based on Transition Selective Pulse model
-        if 'tsp_model_error' in backend_options:
-            if type(backend_options['tsp_model_error']) != list or len(backend_options['tsp_model_error']) !=2 or backend_options['tsp_model_error'][0] > 1 or backend_options['tsp_model_error'][1] > 1:
-                raise BasicAerError('Error! Incorrect transition model error parameter, Expected argument : A list of 2 reals ranging between 0 and 1 both inclusive.')
-            else:
-                self._tsp_model_error = backend_options['tsp_model_error']
-
-                
-        # Error due to Thermalization
-        if 'thermal_factor' in backend_options:
-            self._thermal_factor = backend_options['thermal_factor']
-
-        # Error due to Decoherence: decoherence factor = exp(-del_T/T_2)
-        if 'decoherence_factor' in backend_options:
-            self._decoherence_factor = backend_options['decoherence_factor']
-
-        # Error due to State Decay (1 -> 0): decay_factor = exp(-del_T/T_1)
-        if 'decay_factor' in backend_options:
-            self._decay_factor = backend_options['decay_factor']
-
-         # Error due to Depolarization (or bit-flip) during measurement
-        if 'depolarization_factor' in backend_options:
-            self._depolarization_factor = backend_options['depolarization_factor']
-        
-        # Error due to Depolarization during measurement
-        if 'bell_depolarization_factor' in backend_options:
-            self.bell_depolarization_factor = backend_options['bell_depolarization_factor']
-
-        if 'chop_threshold' in backend_options:
-            self._chop_threshold = backend_options['chop_threshold']
-        elif hasattr(qobj_config, 'chop_threshold'):
-            self._chop_threshold = qobj_config.chop_threshold
-
-        if 'compute_densitymatrix' in backend_options:
-            self._get_den_mat = backend_options['compute_densitymatrix']
-        
-        if 'debug' in backend_options:
-            DEBUG = backend_options['debug']
-        
-        if 'plot' in backend_options:
-            self.PLOTTING = backend_options['plot'] 
-        
-        if 'show_partition' in backend_options:
-            self.SHOW_PARTITION = backend_options['show_partition']
-        
-        if 'store_densitymatrix' in backend_options:
-            self.STORE_LOCAL = backend_options['store_densitymatrix']
-
-        if 'compare' in backend_options:
-            self.COMPARE = backend_options['compare']
-            try:
-                self.density_matrix_0 = np.load('stored_coefficients.npy')
-                self.FILE_EXIST = True
-            except FileNotFoundError:
-                print('Stored Coefficient File does not exist')
-
-    def _initialize_errors(self):
-
-        self._error_params.update({'one_qubit_gates':self._rotation_error})
-        self._error_params.update({'two_qubit_gates':self._tsp_model_error})
-        self._error_params.update({'memory':{'thermalization':self._thermal_factor,
-                                             'decoherence':self._decoherence_factor, 
-                                             'amplitude_decay':self._decay_factor}
-                                            })
-        self._error_params.update({'measurement': self._depolarization_factor,
-                                   'measurement_bell': self._bell_depolarization_factor})
-
-    def _initialize_densitymatrix(self):
-        """
-            Initialize the density matrix for simulation.
-            Default: All Zero State [((I+sigma(3))/2)**num_qubits]
-            Custom:  max_mixed - Maximally Mixed State [(I/2)**num_qubits]
-                     uniform_superpos - Uniform Superposition State [((I+sigma(1))/2)**num_qubits]
-                     thermal_state - Thermalized State [([[1-p, 0],[0, p]])**num_qubits]
-                     binary string - Specified sequence of Zero and One qubit states
-                     stored density matrix - Initialize to a specified density matrix
-            ** -> Tensor product.
-       """
-
-        if self._initial_densitymatrix is None:
-            if self._custom_densitymatrix is None:
-                self._densitymatrix = np.array([1,0,0,1], dtype=float)
-                for i in range(self._number_of_qubits-1):
-                    self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
-            elif self._custom_densitymatrix == 'max_mixed':
-                self._densitymatrix = np.array([1,0,0,0], dtype=float)
-                for i in range(self._number_of_qubits-1):
-                    self._densitymatrix = np.kron([1,0,0,0], self._densitymatrix)
-            elif self._custom_densitymatrix == 'uniform_superpos':
-                self._densitymatrix = np.array([1,1,0,0], dtype=float)
-                for i in range(self._number_of_qubits-1):
-                    self._densitymatrix = np.kron([1,1,0,0], self._densitymatrix)
-            elif self._custom_densitymatrix == 'thermal_state':
-                tf = 2*self._thermal_factor-1
-                self._densitymatrix = np.array([1,0,0,tf], dtype=float)
-                for i in range(self._number_of_qubits-1):
-                    self._densitymatrix = np.kron([1,0,0,tf], self._densitymatrix)
-            else:
-                raise BasicAerError('_custom_densitymatrix value is invalid')
-            # Normalize the density matrix
-            self._densitymatrix *= 0.5**(self._number_of_qubits)
-
-
-        else:
-            # Binary string is encoded in the self._initial_densitymatrix
-            if self._custom_densitymatrix == 'binary_string':
-                if len(self._initial_densitymatrix) != self._number_of_qubits:
-                    raise BasicAerError('Wrong input binary string length')
-                if self._initial_densitymatrix[0] == '0':
-                    self._densitymatrix = np.array([1,0,0,1], dtype=float)
-                else:
-                    self._densitymatrix = np.array([1,0,0,-1], dtype=float) 
-                for idx in self._initial_densitymatrix[1:]:
-                    if idx == '0':
-                        self._densitymatrix = np.kron([1,0,0,1],self._densitymatrix)
-                    else:
-                        self._densitymatrix = np.kron([1,0,0,-1],self._densitymatrix)
-                # Normalize the density matrix
-                self._densitymatrix *= 0.5**(self._number_of_qubits)
-
-            # Stored density matrix is encoded in file 'stored_density_matrix.npy' 
-            elif self._custom_densitymatrix == 'stored_density_matrix':
-                try:
-                    self._densitymatrix = np.load('stored_density_matrix.npy')
-                    if len(self._densitymatrix) != 4**self._number_of_qubits:
-                        raise BasicAerError('Wrong input stored density matrix')
-                except FileNotFoundError:
-                    print('Stored Coefficient File does not exist')
-            else:
-                raise BasicAerError('_custom_densitymatrix value is invalid')
-        
-       # Reshape to rank-N tensor
-        self._densitymatrix = np.reshape(self._densitymatrix,
-                                       self._number_of_qubits * [4])
-
-    # def _compute_densitymatrix1(self, vec):
-    #     '''
-    #         Generates density matrix from a given coefficient matrix
-    #     '''
-
-    #     p_0 = np.array([[1, 0], [0, 1]], dtype=complex)
-    #     p_1 = np.array([[0, 1], [1, 0]], dtype=complex)
-    #     p_2 = np.array([[0, -1j], [1j, 0]], dtype=complex)
-    #     p_3 = np.array([[1, 0], [0, -1]], dtype=complex)
-    #     pauli_basis = [p_0, p_1, p_2, p_3]
-    #     den_creat = [x for x in itertools.product(
-    #         [0, 1, 2, 3], repeat=self._number_of_qubits)]
-    #     densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
-     
-    #     for i in range(len(den_creat)):
-    #         creat = den_creat[i]
-    #         op = pauli_basis[creat[0]]
-    #         for idx in range(1, len(creat)):
-    #             op = np.kron(op, pauli_basis[creat[idx]])
-    #         densitymatrix += op*vec[i]
-    #         op = None
-
-    #     return densitymatrix
-
-    def _compute_densitymatrix(self, dmpauli):
-        '''
-            Converts the density matrix from the Pauli basis to the standard matrix basis.
-            rho = sum_{i,j,...=0,1,2,3} a_{i,j...} sigma_i x sigma_j x ...    [Pauli basis]
-                = sum_{mu,nu,...=00,01,10,11} b_{mu,nu,...} e_mu x e_nu x ... [matrix basis]
-            a_{i,j,...}   : 4**n real components
-            b_{mu,nu,...} : 4**n complex components   
-            Both the bases are orthogonal, and nonzero overlaps of the basis vectors are:
-                i={0,3} <-> mu={00,11} and i={1,2} <-> mu={01,10}
-            Matching components using orthogonal projections gives:
-            b_{mu,nu,...} = sum_{i,j,...} a_{i,j,...} <e_mu,sigma_i> x <e_nu,sigma_j> x ...
-            Only 2**n terms on the r.h.s. contribute with nonzero overlaps.
-            The sum on the r.h.s. is evaluated in n steps, converting one basis index at a time,
-            i.e. first i is converted to mu, then j is converted to nu, etc.
-
-            Arg:
-            dmpauli (float) : 4**n real components in the Pauli basis for n qubits
-
-            Return:
-            densitymatrix (complex) : 2**n x 2**n components in the matrix basis
-        '''
-
-        densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
-
-        dmcomplex = dmpauli.astype(complex)
-        dot_prod = np.array([[1, 0, 0, 1],
-                             [0, 1, complex(0, -1), 0],
-                             [0, 1, complex(0, 1), 0],
-                             [1, 0, 0, -1]]
-                            )
-
-        nonzero_overlaps = [(0, 3), (1, 2), (1, 2), (0, 3)]
-        binary_index_value = [2**(self._number_of_qubits-i-1) for i in range(self._number_of_qubits)]
-        ind_mat = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
-
-        for qubit in range(self._number_of_qubits):
-            densitymatrix_b = np.zeros((4**(qubit), 4, 4**(self._number_of_qubits-qubit-1)), dtype=complex)
-            dmcomplex = np.reshape(dmcomplex, (4**(qubit), 4, 4**(self._number_of_qubits-qubit-1)))
-
-            for idxb in range(4):
-
-                ind_i = nonzero_overlaps[idxb]
-
-                for idxa in ind_i:
-                    total_overlap = dot_prod[tuple((idxb,idxa))]
-                    densitymatrix_b[:,idxb,:] += total_overlap*dmcomplex[:,idxa,:]
-
-            dmcomplex = densitymatrix_b
-
-        densitymatrix_b = np.reshape(densitymatrix_b, [4]*self._number_of_qubits)
-        ind_mu = [x for x in itertools.product([0, 1, 2, 3], repeat=self._number_of_qubits)]
-
-        for idxb in ind_mu:
-            index_list = [ind_mat[i] for i in idxb]
-            final_index = tuple(sum([binary_index_value[i]*index_list[i] for i in range(self._number_of_qubits)]))
-            densitymatrix[final_index] = densitymatrix_b[idxb]
-
-
-
-        np.savetxt("a.txt", np.asarray(
-            np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
-
-
-        return densitymatrix
-
-    def _get_densitymatrix(self):
-        """Return the current densitymatrix in JSON Result spec format"""
-
-        if self._get_den_mat:
-            densitymatrix = self._compute_densitymatrix(self._densitymatrix)
-            vec = np.reshape(self._densitymatrix, 4 ** self._number_of_qubits)
-            vec[abs(vec) < self._chop_threshold] = 0.0
-            return vec, densitymatrix
-        else:
-            densitymatrix = None
-            vec = np.reshape(self._densitymatrix, 4 ** self._number_of_qubits)
-            vec[abs(vec) < self._chop_threshold] = 0.0
-            return vec
 
     def _unit_vector_normalisation(self, n):
         """ Checks if the given direction vector for measurement in N basis is valid or not.
@@ -930,6 +718,110 @@ class DmSimulatorPy(BaseBackend):
             n = n/norm
             logger.warning('Given direction for the measurement was not normalised. It has been normalised to be unit vector!!')
         return n
+
+    def _add_bell_basis_measure(self, qubit_1, qubit_2, err_param):
+        """
+        Apply a Bell basis measure instruction for two qubits.
+        Post measurement density matrix is updated in the same array.
+        Four Bell probabilities are calculated in the (|00>+|11>,|00>-|11>,|01>+|10>,|01>-|10>) basis. 
+        Two qubit reduced density matrix is plotted if 'plot' flag is on.
+
+        Args:
+            qubit_1 (int): first qubit of the Bell pair.
+            qubit_2 (int): second qubit of the Bell pair.
+            err_param (float): Reduction in polarization during measurement.
+        Returns (as global variables):
+            reduced_bell_densitymatrix for the two qubits (prior to measurement)
+            bell_probabilities for the four orthogonal Bell states (after measurement)
+        """
+        q_1 = min(qubit_1, qubit_2)
+        q_2 = max(qubit_1, qubit_2)
+
+        #update density matrix
+        
+        self._densitymatrix = np.reshape(self._densitymatrix,(4**(self._number_of_qubits-q_2-1), 4, 4**(q_2-q_1-1), 4, 4**q_1))
+        
+        # Reduced density matrix 
+        reduced_bell_densitymatrix = np.zeros((4,4))
+        for i in range(4):
+            for j in range(4):
+                reduced_bell_densitymatrix[i,j] = self._densitymatrix[0,i,0,j,0] * 2**(self._number_of_qubits - 2)
+
+        for i in range(4):
+            for j in range(4):
+                if i != j:
+                    self._densitymatrix[:,i,:,j,:] = 0
+
+        self._densitymatrix[:,1,:,1,:] *= err_param
+        self._densitymatrix[:,2,:,2,:] *= err_param
+        self._densitymatrix[:,3,:,3,:] *= err_param
+
+        k = [0.0,0.0,0.0,0.0]
+        for i in range(4):
+            k[i] = self._densitymatrix[0,i,0,i,0] * 2**self._number_of_qubits
+
+        bell_probabilities = [0., 0., 0., 0.]
+        bell_probabilities[0] = 0.25*(k[0] + k[1] - k[2] + k[3])
+        bell_probabilities[1] = 0.25*(k[0] - k[1] + k[2] + k[3])
+        bell_probabilities[2] = 0.25*(k[0] + k[1] + k[2] - k[3])
+        bell_probabilities[3] = 0.25*(k[0] - k[1] - k[2] - k[3])
+
+        # bell_states = [r'$\frac{|00\rangle + |11\rangle}{\sqrt(2)}$', r'$\frac{|00\rangle - |11\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle + |10\rangle}{\sqrt(2)}$', r'$\frac{|01\rangle - |10\rangle}{\sqrt(2)}$']
+        bell_states = ['Bell_1','Bell_2','Bell_3','Bell_4']
+        bell_probabilities = dict(zip(bell_states,bell_probabilities))
+
+        self._densitymatrix = np.reshape(self._densitymatrix,self._number_of_qubits*[4])
+
+        # plot the resultant reduced density matrix
+        if self.PLOTTING:
+            self._plot_reduced_bell_basis(reduced_bell_densitymatrix)
+        return bell_probabilities, reduced_bell_densitymatrix
+    
+    def _plot_reduced_bell_basis(self,reduced_bell_densitymatrix):
+        '''
+        Plots the two qubit reduced density matrix.
+        '''
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        _x = range(4)
+        _y = range(4)
+        _xx, _yy = np.meshgrid(_x, _y)
+        x, y = _xx.ravel(), _yy.ravel()
+        top = reduced_bell_densitymatrix[x,y]
+        bottom = np.zeros_like(top)
+        width = 0.5
+        depth = 0.5
+        values = np.linspace(0.2, 1., x.ravel().shape[0])
+        colors = cm.rainbow(values)
+        z_up_lim = np.amax(reduced_bell_densitymatrix)
+        z_low_lim = np.amin(reduced_bell_densitymatrix)
+
+        ax.set_zlim3d(z_low_lim,z_up_lim)
+        ax.w_xaxis.set_ticks(x)
+        ax.w_yaxis.set_ticks(y)
+        ax.set_title("Reduced Density Matrix in Pauli Basis")
+        ax.set_xlabel("First Qubit")
+        ax.set_ylabel("Second qubit")
+        ax.set_zlabel("Coefficient value")
+
+        ax.bar3d(x-0.25, y-0.25, bottom, width, depth, top, color=colors, alpha=0.8, shade=True)
+
+        plt.show()
+   
+    def _add_qasm_reset(self, qubit):
+        """ Reset the qubit to the zero state.
+            It is equivalent to performing P0*rho*P0+X*P1*rho*P1*X.
+
+        Args:
+            qubit (int): the qubit being reset
+        """
+
+        # update density matrix
+        self._densitymatrix =  np.reshape(self._densitymatrix,(4**(qubit),4,4**(self._number_of_qubits-qubit-1)))
+
+        self._densitymatrix[:,1,:] = 0
+        self._densitymatrix[:,2,:] = 0
+        self._densitymatrix[:,3,:] = self._densitymatrix[:,0,:].copy()
 
     def _validate_measure(self, insts):
         """ Determines whether ensemble measurement is needed to be done for the experiment.
@@ -981,6 +873,19 @@ class DmSimulatorPy(BaseBackend):
         
         return validated_inst, len(validated_inst)
 
+    def _validate(self, qobj):
+        """Semantic validations of the qobj which cannot be done via schemas."""
+        n_qubits = qobj.config.n_qubits
+        max_qubits = self.configuration().n_qubits
+        if n_qubits > max_qubits:
+            raise BasicAerError('Number of qubits {} '.format(n_qubits) +
+                                'is greater than maximum ({}) '.format(max_qubits) +
+                                'for "{}".'.format(self.name()))
+        for experiment in qobj.experiments:
+            name = experiment.header.name
+            if 'measure' not in [op.name for op in experiment.instructions]:
+                logger.warning('No measurements in circuit "%s", '
+                               'classical register will remain all zeros.', name)
 
     def run(self, qobj, backend_options=None):
         """Run qobj asynchronously.
@@ -1095,11 +1000,11 @@ class DmSimulatorPy(BaseBackend):
                                                 self._number_of_qubits)
         # if self.SHOW_PARTITION:
         #     print("\nINITIAL PARTITION")
-        #     self.describe_partition(partitioned_instructions)
+        #     self._describe_partition(partitioned_instructions)
         #partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
         if self.SHOW_PARTITION:
             print("\nPARTITIONED CIRCUIT")
-            self.describe_partition(partitioned_instructions)
+            self._describe_partition(partitioned_instructions)
         end_processing = time.time()
         start_runtime = time.time()
 
@@ -1140,7 +1045,8 @@ class DmSimulatorPy(BaseBackend):
                     pass
                 # Check if measure
                 elif operation.name == 'measure':
-                    params = operation.params
+
+                    params = getattr(operation,'params',['Z'])
                     qubit = operation.qubits[0]
                     cmembit = operation.memory[0]
                     cregbit = operation.register[0] if hasattr(
@@ -1294,27 +1200,96 @@ class DmSimulatorPy(BaseBackend):
                 'running_time_taken': -start_runtime+end_runtime,
                 'header': experiment.header.as_dict()}
 
-    def _validate(self, qobj):
-        """Semantic validations of the qobj which cannot be done via schemas."""
-        n_qubits = qobj.config.n_qubits
-        max_qubits = self.configuration().n_qubits
-        if n_qubits > max_qubits:
-            raise BasicAerError('Number of qubits {} '.format(n_qubits) +
-                                'is greater than maximum ({}) '.format(max_qubits) +
-                                'for "{}".'.format(self.name()))
-        for experiment in qobj.experiments:
-            name = experiment.header.name
-            if 'measure' not in [op.name for op in experiment.instructions]:
-                logger.warning('No measurements in circuit "%s", '
-                               'classical register will remain all zeros.', name)
+    def _compute_densitymatrix(self, dmpauli):
+        '''
+            Converts the density matrix from the Pauli basis to the standard matrix basis.
+            rho = sum_{i,j,...=0,1,2,3} a_{i,j...} sigma_i x sigma_j x ...    [Pauli basis]
+                = sum_{mu,nu,...=00,01,10,11} b_{mu,nu,...} e_mu x e_nu x ... [matrix basis]
+            a_{i,j,...}   : 4**n real components
+            b_{mu,nu,...} : 4**n complex components   
+            Both the bases are orthogonal, and nonzero overlaps of the basis vectors are:
+                i={0,3} <-> mu={00,11} and i={1,2} <-> mu={01,10}
+            Matching components using orthogonal projections gives:
+            b_{mu,nu,...} = sum_{i,j,...} a_{i,j,...} <e_mu,sigma_i> x <e_nu,sigma_j> x ...
+            Only 2**n terms on the r.h.s. contribute with nonzero overlaps.
+            The sum on the r.h.s. is evaluated in n steps, converting one basis index at a time,
+            i.e. first i is converted to mu, then j is converted to nu, etc.
 
-    def store_density_matrix(self):
+            Arg:
+            dmpauli (float) : 4**n real components in the Pauli basis for n qubits
+
+            Return:
+            densitymatrix (complex) : 2**n x 2**n components in the matrix basis
+        '''
+
+        densitymatrix = np.zeros((2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex)
+
+        dmcomplex = dmpauli.astype(complex)
+        dot_prod = np.array([[1, 0, 0, 1],
+                             [0, 1, complex(0, -1), 0],
+                             [0, 1, complex(0, 1), 0],
+                             [1, 0, 0, -1]]
+                            )
+
+        nonzero_overlaps = [(0, 3), (1, 2), (1, 2), (0, 3)]
+        binary_index_value = [2**(self._number_of_qubits-i-1) for i in range(self._number_of_qubits)]
+        ind_mat = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+
+        for qubit in range(self._number_of_qubits):
+            densitymatrix_b = np.zeros((4**(qubit), 4, 4**(self._number_of_qubits-qubit-1)), dtype=complex)
+            dmcomplex = np.reshape(dmcomplex, (4**(qubit), 4, 4**(self._number_of_qubits-qubit-1)))
+
+            for idxb in range(4):
+
+                ind_i = nonzero_overlaps[idxb]
+
+                for idxa in ind_i:
+                    total_overlap = dot_prod[tuple((idxb,idxa))]
+                    densitymatrix_b[:,idxb,:] += total_overlap*dmcomplex[:,idxa,:]
+
+            dmcomplex = densitymatrix_b
+
+        densitymatrix_b = np.reshape(densitymatrix_b, [4]*self._number_of_qubits)
+        ind_mu = [x for x in itertools.product([0, 1, 2, 3], repeat=self._number_of_qubits)]
+
+        for idxb in ind_mu:
+            index_list = [ind_mat[i] for i in idxb]
+            final_index = tuple(sum([binary_index_value[i]*index_list[i] for i in range(self._number_of_qubits)]))
+            densitymatrix[final_index] = densitymatrix_b[idxb]
+
+        np.savetxt("a.txt", np.asarray(
+            np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
+
+        return densitymatrix
+
+    def _get_densitymatrix(self):
+        """Return the current densitymatrix in JSON Result spec format"""
+
+        if self._get_den_mat:
+            densitymatrix = self._compute_densitymatrix(self._densitymatrix)
+            vec = np.reshape(self._densitymatrix, 4 ** self._number_of_qubits)
+            vec[abs(vec) < self._chop_threshold] = 0.0
+            return vec, densitymatrix
+        else:
+            densitymatrix = None
+            vec = np.reshape(self._densitymatrix, 4 ** self._number_of_qubits)
+            vec[abs(vec) < self._chop_threshold] = 0.0
+            return vec
+
+    def _store_density_matrix(self):
         """ Store the density matrix in the specified file.
         """
         densitymatrix = np.reshape(self._densitymatrix, 4**self._number_of_qubits)
         np.save("stored_coefficients", densitymatrix)
+        
+    def _state_overlap(self, density_matrix_1, density_matrix_2):
+        """ Calculate the state overlap:  Tr(density_matrix_1,density_matrix_2)
+        Args   : density_matrix_1 (4**n) and density_matrix_2 (4**n) in Pauli basis
+        Return : Value of overlap between density_matrix_1 and density_matrix_2
+        """
+        return np.dot(density_matrix_1, density_matrix_2) * 2**self._number_of_qubits
 
-    def describe_partition(self, partition):
+    def _describe_partition(self, partition):
         """ Partitioned instructions are printed as a table (with all parameters) for visualization.
         """
         
@@ -1344,12 +1319,3 @@ class DmSimulatorPy(BaseBackend):
                         print(name, "   qubit", qubit)
                     else:
                         print(name, "   qubit", qubit, "    ", param)
-
-
-    def state_overlap(self, density_matrix_1, density_matrix_2):
-        """ Calculate the state overlap:  Tr(density_matrix_1,density_matrix_2)
-        Args   : density_matrix_1 (4**n) and density_matrix_2 (4**n) in Pauli basis
-        Return : Value of overlap between density_matrix_1 and density_matrix_2
-        """
-
-        return np.dot(density_matrix_1, density_matrix_2) * 2**self._number_of_qubits
