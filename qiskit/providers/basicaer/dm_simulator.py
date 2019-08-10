@@ -138,6 +138,7 @@ class DmSimulatorPy(BaseBackend):
     STORE_LOCAL = False
     COMPARE = False
     FILE_EXIST = False
+    MERGE = True
 
     def __init__(self, configuration=None, provider=None):
 
@@ -252,6 +253,9 @@ class DmSimulatorPy(BaseBackend):
         if 'debug' in backend_options:
             DEBUG = backend_options['debug']
         
+        if 'merge' in backend_options:
+            self.MERGE = backend_options['merge']
+         
         if 'plot' in backend_options:
             self.PLOTTING = backend_options['plot'] 
         
@@ -352,18 +356,14 @@ class DmSimulatorPy(BaseBackend):
         # If initial densitymatrix isn't set we don't need to validate
         if self._initial_densitymatrix is None:
             return
-        if self._custom_densitymatrix == 'binary_string':
-            return 
-        if self._custom_densitymatrix == 'stored_density_matrix':
-            return
+
         # Check densitymatrix is correct length for number of qubits
         length = np.size(self._initial_densitymatrix)
-        ##print(length, self._number_of_qubits)
         required_dim = 4 ** self._number_of_qubits
-        
         if length != required_dim:
             raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.formarequired_dim)
-        if self._densitymatrix[0] != 1:
+        
+        if self._densitymatrix[0] != 2**(-self._number_of_qubits):
             raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._den[0], 1))
 
     def _add_unitary_single(self, gate, qubit):
@@ -982,20 +982,20 @@ class DmSimulatorPy(BaseBackend):
         self._classical_memory = 0
         self._classical_register = 0
 
-        # Validate the dimension of initial densitymatrix if set
-        # self._validate_initial_densitymatrix()
-
         # Add data
         data = {}
-
+        
         self._initialize_densitymatrix()
+        # Validate the dimension of initial densitymatrix if set
+        self._validate_initial_densitymatrix()
+
         self._initialize_errors()
         # Initialize classical memory to all 0
         self._classical_memory = 0
         self._classical_register = 0
         #print("MERGING U1 and U3 GATES\n")
         experiment.instructions = single_gate_merge(experiment.instructions,
-                                                    self._number_of_qubits)
+                                                    self._number_of_qubits,self.MERGE)
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
         # if self.SHOW_PARTITION:
