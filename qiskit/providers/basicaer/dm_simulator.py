@@ -147,15 +147,12 @@ class DmSimulatorPy(BaseBackend):
                          provider=provider)
 
         # Define attributes in __init__.
-        self._local_random = np.random.RandomState()
         self._classical_memory = 0
         self._classical_register = 0
         self._densitymatrix = 0
         self._probability_of_zero = 0.0
         self._number_of_cmembits = 0
         self._number_of_qubits = 0
-        self._shots = 0
-        self._memory = False
         self._custom_densitymatrix = None
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
@@ -174,8 +171,8 @@ class DmSimulatorPy(BaseBackend):
         self._get_den_mat = True
         self._error_included = False
         # self.result_dict = None
-        self.fidelity = None 
-        self.density_matrix_0 = None
+        self._fidelity = None 
+        self._density_matrix_stored = None
     
     def _set_options(self, qobj_config=None, backend_options=None):
         """Set the backend options for all experiments in a qobj"""
@@ -268,7 +265,7 @@ class DmSimulatorPy(BaseBackend):
         if 'compare' in backend_options:
             self.COMPARE = backend_options['compare']
             try:
-                self.density_matrix_0 = np.load('stored_coefficients.npy')
+                self._density_matrix_stored = np.load('stored_coefficients.npy')
                 self.FILE_EXIST = True
             except FileNotFoundError:
                 print('Stored Coefficient File does not exist')
@@ -362,7 +359,7 @@ class DmSimulatorPy(BaseBackend):
         required_dim = 4 ** self._number_of_qubits
         if length != required_dim:
             raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.formarequired_dim)
-        
+
         if self._densitymatrix[0] != 2**(-self._number_of_qubits):
             raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._den[0], 1))
 
@@ -479,7 +476,7 @@ class DmSimulatorPy(BaseBackend):
             self._store_density_matrix()
         # Compare the current density matrix with stored density matrix
         if self.COMPARE and self.FILE_EXIST:
-            self.fidelity = self._state_overlap(self.density_matrix_0, np.reshape(self._densitymatrix,4**self._number_of_qubits))
+            self._fidelity = self._state_overlap(self._density_matrix_stored, np.reshape(self._densitymatrix,4**self._number_of_qubits))
         return prob, max_str, max_prob
     
     def _plot_ensemble_measure(self,prob,basis):
@@ -826,7 +823,7 @@ class DmSimulatorPy(BaseBackend):
     def _validate_measure(self, insts):
         """ Determines whether ensemble measurement is needed to be done for the experiment.
             The instruction sequence is repartitioned in case of Bell basis measurement. 
-
+        NOTE:: This function is not currently been used in the program.
         Args:
             experiment (QobjExperiment): a qobj experiment.
         """
@@ -931,8 +928,6 @@ class DmSimulatorPy(BaseBackend):
         """
         self._validate(qobj)
         result_list = []
-        self._shots = qobj.config.shots
-        self._memory = getattr(qobj.config, 'memory', False)
         self._qobj_config = qobj.config
         start = time.time()
         for experiment in qobj.experiments:
@@ -998,13 +993,10 @@ class DmSimulatorPy(BaseBackend):
                                                     self._number_of_qubits,self.MERGE)
         partitioned_instructions, levels = partition(experiment.instructions, 
                                                 self._number_of_qubits)
-        # if self.SHOW_PARTITION:
-        #     print("\nINITIAL PARTITION")
-        #     self._describe_partition(partitioned_instructions)
-        #partitioned_instructions, levels =  self._validate_measure(partitioned_instructions)
+
         if self.SHOW_PARTITION:
-            print("\nPARTITIONED CIRCUIT")
             self._describe_partition(partitioned_instructions)
+        
         end_processing = time.time()
         start_runtime = time.time()
 
@@ -1059,7 +1051,6 @@ class DmSimulatorPy(BaseBackend):
 
                     len_pi = len(partitioned_instructions[clock])
 
-                    
                     if str(params[0]) == 'Ensemble':
                         ensm_measure = True
                     elif str(params[0]) == 'Expect':
@@ -1178,18 +1169,10 @@ class DmSimulatorPy(BaseBackend):
                 data['coeffmatrix'], data['densitymatrix'] = self._get_densitymatrix()
             else:
                 data['coeffmatrix'] = self._get_densitymatrix()
-            if self.fidelity != None:
-                data['fidelity'] = self.fidelity
+            if self._fidelity != None:
+                data['fidelity'] = self._fidelity
 
         end_runtime = time.time()
-        # self.result_dict = {'name': experiment.header.name,
-        #         'number_of_clock_cycles': levels,
-        #         'data': data,
-        #         'status': 'DONE',
-        #         'success': True,
-        #         'processing_time_taken': -start_processing+end_processing,
-        #         'running_time_taken': -start_runtime+end_runtime,
-        #         'header': experiment.header.as_dict()}
 
         return {'name': experiment.header.name,
                 'number_of_clock_cycles': levels,
@@ -1257,9 +1240,6 @@ class DmSimulatorPy(BaseBackend):
             final_index = tuple(sum([binary_index_value[i]*index_list[i] for i in range(self._number_of_qubits)]))
             densitymatrix[final_index] = densitymatrix_b[idxb]
 
-        np.savetxt("a.txt", np.asarray(
-            np.round(densitymatrix, 4)), fmt='%1.3f', newline="\n")
-
         return densitymatrix
 
     def _get_densitymatrix(self):
@@ -1292,7 +1272,7 @@ class DmSimulatorPy(BaseBackend):
     def _describe_partition(self, partition):
         """ Partitioned instructions are printed as a table (with all parameters) for visualization.
         """
-        
+        print("\nPARTITIONED CIRCUIT")
         for current in range(len(partition)):
             print("\nPartition ", current)
             current_partition = partition[current]
