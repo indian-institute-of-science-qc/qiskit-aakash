@@ -1001,6 +1001,19 @@ class DmSimulatorPy(BaseBackend):
         start_runtime = time.time()
 
         for clock in range(levels):
+            for operation in partitioned_instructions[clock]:
+                if operation.name == 'measure':
+                    basis = str(getattr(partitioned_instructions[clock][0],'params',['Z'])[0])
+                    params = getattr(operation,'params',['Z'])
+                    if str(params[0]) in ['X','Y','Z','N']:
+                        if str(params[0]) == basis:
+                            part_measure = True
+                        else:
+                            part_measure = False
+                            break
+                    else:
+                        part_measure = False
+                        continue
 
             for operation in partitioned_instructions[clock]:
                 conditional = getattr(operation, 'conditional', None)
@@ -1045,7 +1058,6 @@ class DmSimulatorPy(BaseBackend):
                         operation, 'register') else None
 
                     sngl_measure = False
-                    part_measure = False
                     exp_measure = False
                     ensm_measure = False
 
@@ -1057,8 +1069,8 @@ class DmSimulatorPy(BaseBackend):
                         exp_measure = True
                     elif len_pi == 1:
                         sngl_measure = True
-                    else:
-                        part_measure = True
+                    elif part_measure:
+                        sngl_measure = True
 
                     if len(params) == 1:
                         params.append(None)
@@ -1089,18 +1101,17 @@ class DmSimulatorPy(BaseBackend):
                         qubit_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
                         cmem_mes_list = [x.memory[0] for x in partitioned_instructions[clock]]
                         creg_mes_list = []
-
+                        print(params)
                         for x in partitioned_instructions[clock]:
                             cregbit = x.register[0] if hasattr(
                                 x, 'register') else None
                             creg_mes_list.append(cregbit)
-                        if str(params[1]) == 'N':
-                            add_param = params[1][1]
-                            basis = str(params[1][0])
+                        if str(params[0]) == 'N':
+                            add_param = params[1]
+                            basis = str(params[0])
                         else:
                             add_param = None
-                            basis = str(params[1])
-
+                            basis = str(params[0])
                         data['partial_probability'], max_str, max_prob = self._add_partial_measure(
                             qubit_mes_list, cmem_mes_list, creg_mes_list,
                             self._error_params['measurement'], basis, add_param)
