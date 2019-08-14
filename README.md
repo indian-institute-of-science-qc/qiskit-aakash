@@ -16,10 +16,12 @@ To install the folder type in the terminal
 ```bash
 pip install .
 ```
-## Examples and Tutorials
+In this version the code for the new backend dm_simulator can be found in [dm_simulator.py](qiskit/providers/basicaer/dm_simulator.py). This backend also uses some functionalities from [basicaertools.py](qiskit/providers/basicaer/basicaertools.py).
+
+## Example
 Once installed, files can be changed and run in python. As an example,
 ```bash
-python
+python3
 ```
 ```python
 >>> from qiskit import QuantumCircuit,BasicAer,execute
