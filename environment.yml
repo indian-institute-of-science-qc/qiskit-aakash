@@ -1,4 +1,4 @@
 name: dmenv
 dependencies:
   - matplotlib
-  - Image
+  - pillow
