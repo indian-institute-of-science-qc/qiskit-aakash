@@ -42,4 +42,5 @@ It would output the resultant densitymatrix as,
 [0 0 0 0]
 [0 0 0 0]]
 ```
-The [jupyter notebook](dm_simulator_user_guide/user_guide.ipynb) provide detail examples about how to use this simulator.
+ There are some jupyter notebook added which provide detail examples about how to use this simulator.
+ Those can be viewed in [Github](dm_simulator_user_guide/user_guide.ipynb). But the easiest way to interact with them is by using [Binder Image](https://mybinder.org/v2/gh/indian-institute-of-science-qc/qiskit-aakash/master?filepath=.%2Fdm_simulator_user_guide%2Fuser_guide.ipynb)
