@@ -355,13 +355,14 @@ class DmSimulatorPy(BaseBackend):
             return
 
         # Check densitymatrix is correct length for number of qubits
-        length = np.size(self._initial_densitymatrix)
+        length = np.size(self._densitymatrix)
         required_dim = 4 ** self._number_of_qubits
         if length != required_dim:
             raise BasicAerError('initial densitymatrix is incorrect length: ' + '{} != {}'.formarequired_dim)
-
+        self._densitymatrix = np.reshape(self._densitymatrix,4**self._number_of_qubits)
         if self._densitymatrix[0] != 2**(-self._number_of_qubits):
             raise BasicAerError('Trace of initial densitymatrix is not one: ' + '{} != {}'.format(self._den[0], 1))
+        self._densitymatrix = np.reshape(self._densitymatrix,self._number_of_qubits*[4])
 
     def _add_unitary_single(self, gate, qubit):
         """Apply an arbitrary 1-qubit unitary transformation.
@@ -1069,7 +1070,7 @@ class DmSimulatorPy(BaseBackend):
                         exp_measure = True
                     elif len_pi == 1:
                         sngl_measure = True
-                    elif part_measure:
+                    elif part_measure != True:
                         sngl_measure = True
 
                     if len(params) == 1:
