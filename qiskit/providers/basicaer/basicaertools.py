@@ -187,7 +187,7 @@ def mergeU(gate1, gate2):
     Return:
         Gate    ([Inst, index])
     """
-    print("Merged ",gate1[0].name, "qubit", gate1[0].qubits, " with ", gate2[0].name, "qubit", gate2[0].qubits)
+    #print("Merged ",gate1[0].name, "qubit", gate1[0].qubits, " with ", gate2[0].name, "qubit", gate2[0].qubits)
     temp = None
     # To preserve the sequencing we choose the smaller index while merging.
     if gate1[1] < gate2[1]:
@@ -248,7 +248,7 @@ def merge_gates(inst):
         return temp[0]
 
 
-def single_gate_merge(inst, num_qubits):
+def single_gate_merge(inst, num_qubits, merge_flag=True):
     """
         Merges single gates applied consecutively to each qubit in the circuit.
         Args:
@@ -260,35 +260,49 @@ def single_gate_merge(inst, num_qubits):
     single_gt = [[] for x in range(num_qubits)]
     inst_merged = []
 
-    for ind, op in enumerate(inst):
-        # To preserve the sequencing of the instructions
-        opx = [op, ind]
-        # Gates that are not single qubit rotations separate merging segments
-        if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset', 'barrier'):
-            for idx, sg in enumerate(single_gt):
-                if sg:
-                    inst_merged.append(merge_gates(sg))
-                    single_gt[idx] = []
-            if opx[0].name == 'CX':
-                opx[0].name = 'cx'
-            inst_merged.append(opx[0])
-        # Single qubit rotations are appended to their respective qubit instructions
-        elif opx[0].name in ('U', 'u1', 'u2', 'u3'):
-            if opx[0].name == 'U':
-                opx[0].name = 'u3'
-            elif opx[0].name == 'u2':
-                opx[0].name = 'u3'
-                opx[0].params.insert(0, np.pi/2)
-            single_gt[op.qubits[0]].append(opx)
-        elif opx[0].name in ['id', 'u0']:
-            continue
-        else:
-            raise QiskitError('Encountered unrecognized instruction: %s' % op)
+    if merge_flag:
+        for ind, op in enumerate(inst):
+            # To preserve the sequencing of the instructions
+            opx = [op, ind]
+            # Gates that are not single qubit rotations separate merging segments
+            if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset', 'barrier'):
+                for idx, sg in enumerate(single_gt):
+                    if sg:
+                        inst_merged.append(merge_gates(sg))
+                        single_gt[idx] = []
+                if opx[0].name == 'CX':
+                    opx[0].name = 'cx'
+                inst_merged.append(opx[0])
+            # Single qubit rotations are appended to their respective qubit instructions
+            elif opx[0].name in ('U', 'u1', 'u2', 'u3'):
+                if opx[0].name == 'U':
+                    opx[0].name = 'u3'
+                elif opx[0].name == 'u2':
+                    opx[0].name = 'u3'
+                    opx[0].params.insert(0, np.pi/2)
+                single_gt[op.qubits[0]].append(opx)
+            elif opx[0].name in ['id', 'u0']:
+                continue
+            else:
+                raise QiskitError('Encountered unrecognized instruction: %s' % op)
 
-    # To merge the final remaining gates
-    for gts in single_gt:
-        if gts:
-            inst_merged.append(merge_gates(gts))
+        # To merge the final remaining gates
+        for gts in single_gt:
+            if gts:
+                inst_merged.append(merge_gates(gts))
+    else:
+        for op in inst:
+            # Only names are changed without merging
+            if op.name == 'CX':
+                op.name = 'cx'
+            elif op.name == 'U':
+                    op.name = 'u3'
+            elif op.name == 'u2':
+                op.name = 'u3'
+                op.params.insert(0, np.pi/2)
+            
+            if op.name not in ['id', 'u0']:
+                inst_merged.append(op)
 
     return inst_merged
 
@@ -529,7 +543,6 @@ def qubit_stack(i_set, num_qubits):
     """
 
     instruction_set = [[] for _ in range(num_qubits)]
-    incl_expec = [] 
     for idx, instruction in enumerate(i_set):
         if not is_measure(instruction) and not is_reset(instruction):
             # instuctions are appended unless measure and reset
@@ -722,14 +735,15 @@ def partition(i_set, num_qubits):
     partition_list = []
     levels = 0
     for mod_ins in modified_i_set:
-        # Bell, Expect and Ensemble measure form a partitiom on their own.
-        if mod_ins[0].name=='measure' and getattr(mod_ins[0],'params',None) != None and mod_ins[0].params[0] in ['Bell', 'Expect', 'Ensemble']:
-            partition_list.append(mod_ins)
-            levels += 1
-        else:
-            seq,level = partition_helper(mod_ins,num_qubits)
-            partition_list.append(seq)
-            levels += level
+        if mod_ins != []:
+            # Bell, Expect and Ensemble measure form a partitiom on their own.
+            if mod_ins[0].name=='measure' and getattr(mod_ins[0],'params',None) != None and mod_ins[0].params[0] in ['Bell', 'Expect', 'Ensemble']:
+                partition_list.append(mod_ins)
+                levels += 1
+            else:
+                seq,level = partition_helper(mod_ins,num_qubits)
+                partition_list.append(seq)
+                levels += level
     partition_list = list(itertools.chain(*partition_list))
 
     return partition_list, levels    

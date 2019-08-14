@@ -58,5 +58,4 @@ def transpile_circuit(circuit, transpile_config):
         pass_manager = default_pass_manager(transpile_config)
     else:
         pass_manager = default_pass_manager_simulator(transpile_config)
-    print("TRANSPILED CIRCUIT\n", pass_manager.run(circuit))
     return pass_manager.run(circuit)
