@@ -1,5 +1,6 @@
 # Qiskit dm_simulator User Guide
 ***
+[This](https://arxiv.org/abs/1908.05154) is the link to arxiv document 'A Software Simulator for Noisy Quantum Circuits'
 ## Installation
 It is advised to use virtual environment to install the files. Virtual environment can be created using anaconda. See [this](https://docs.conda.io/projects/conda/en/latest/user-guide/install/linux.html) to install conda into your system.  
 Once you have conda in your system you can use it to create virtual environment.
