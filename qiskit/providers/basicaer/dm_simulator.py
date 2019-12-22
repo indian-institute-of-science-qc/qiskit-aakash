@@ -1103,7 +1103,7 @@ class DmSimulatorPy(BaseBackend):
                         qubit_mes_list = [x.qubits[0] for x in partitioned_instructions[clock]]
                         cmem_mes_list = [x.memory[0] for x in partitioned_instructions[clock]]
                         creg_mes_list = []
-                        print(params)
+                        # print(params)
                         for x in partitioned_instructions[clock]:
                             cregbit = x.register[0] if hasattr(
                                 x, 'register') else None
