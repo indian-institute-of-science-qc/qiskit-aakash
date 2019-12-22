@@ -112,7 +112,7 @@ class QasmSimulatorPy(BaseBackend):
 
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the statevector simulator
-    # SHOW_FINAL_STATE = True
+    SHOW_FINAL_STATE = False
 
     def __init__(self, configuration=None, provider=None):
         super().__init__(configuration=(
