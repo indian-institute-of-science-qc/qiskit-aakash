@@ -1128,7 +1128,7 @@ class DmSimulatorPy(BaseBackend):
                             add_param = None
                             basis = str(params[1])
                         elif params[1][0]== 'N':
-                            add_param = params[1][1]
+                            add_param = self._unit_vector_normalisation(params[1][1])
                             basis = str(params[1][0])
                         prob, max_str, max_prob = self._add_ensemble_measure(basis, add_param, self._error_params['measurement'])
                         self._plot_ensemble_measure(prob,params[0])
