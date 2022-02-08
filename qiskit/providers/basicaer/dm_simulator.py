@@ -1170,12 +1170,11 @@ class DmSimulatorPy(BaseBackend):
                     raise BasicAerError(err_msg.format(backend, operation.name))
 
                 # Add Memory errors at the end of each clock cycle
-                for qb in range(self._number_of_qubits):
-                    self._add_decoherence_and_amp_decay(clock,
-                                f = self._error_params['memory']['decoherence'],
-                                p = self._error_params['memory']['thermalization'],
-                                g = self._error_params['memory']['amplitude_decay']
-                            )
+            self._add_decoherence_and_amp_decay(clock,
+                        f = self._error_params['memory']['decoherence'],
+                        p = self._error_params['memory']['thermalization'],
+                        g = self._error_params['memory']['amplitude_decay']
+                    )
 
         if self.SHOW_FINAL_STATE:
             if self._get_den_mat:

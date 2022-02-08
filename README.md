@@ -26,13 +26,11 @@ cd qiskit-aakash
 ```
 To install the folder type in the terminal
 ```bash
-pip install -e .
+python3 -m pip install .
 ```
 > If you want to use it in [`Google Colab`](https://colab.research.google.com/) (easier and convenient but only works online)then the same commands will work
 > ```
-> !git clone https://github.com/indian-institute-of-science-qc/qiskit-aakash.git
-> %cd qiskit-aakash
-> !pip install -e .
+> !git clone https://github.com/indian-institute-of-science-qc/qiskit-aakash.git && python3 -m pip install qiskit-aakash/
 > ```
 
 The code for the new back-end `dm_simulator` can be found in [`dm_simulator.py`](qiskit/providers/basicaer/dm_simulator.py).
@@ -44,16 +42,16 @@ Once installed, files can be changed and run in python. For example,
 python3
 ```
 ```python
->>> from qiskit import QuantumCircuit,BasicAer,execute
->>> qc = QuantumCircuit(2)
->>> # Gates
->>> qc.x(1)
->>> qc.cx(0,1)
->>> # execution
->>> backend = BasicAer.get_backend('dm_simulator')
->>> run = execute(qc,backend)
->>> result = run.result()
->>> print(result['results'][0]['data']['densitymatrix'])
+from qiskit import QuantumCircuit,BasicAer,execute
+qc = QuantumCircuit(2)
+# Gates
+qc.x(1)
+qc.cx(0,1)
+# execution
+backend = BasicAer.get_backend('dm_simulator')
+run = execute(qc,backend)
+result = run.result()
+print(result['results'][0]['data']['densitymatrix'])
 ```
 It would output the resultant `densitymatrix` as,
 ```python
