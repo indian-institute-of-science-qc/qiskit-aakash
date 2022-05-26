@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -14,7 +12,9 @@
 
 """Node for an OPENQASM external function."""
 
-import sympy
+import numpy as np
+
+from qiskit.exceptions import MissingOptionalLibraryError
 from .node import Node
 from .nodeexception import NodeException
 
@@ -28,32 +28,36 @@ class External(Node):
 
     def __init__(self, children):
         """Create the external node."""
-        super().__init__('external', children, None)
+        super().__init__("external", children, None)
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
-        return self.children[0].qasm(prec) + "(" + \
-            self.children[1].qasm(prec) + ")"
+        return self.children[0].qasm() + "(" + self.children[1].qasm() + ")"
 
-    def latex(self, prec=15, nested_scope=None):
+    def latex(self):
         """Return the corresponding math mode latex string."""
-        del prec  # TODO prec ignored
-        return sympy.latex(self.sym(nested_scope))
+        try:
+            from pylatexenc.latexencode import utf8tolatex
+        except ImportError as ex:
+            raise MissingOptionalLibraryError(
+                "pylatexenc", "latex-from-qasm exporter", "pip install pylatexenc"
+            ) from ex
+        return utf8tolatex(self.sym())
 
     def real(self, nested_scope=None):
         """Return the correspond floating point number."""
         op = self.children[0].name
         expr = self.children[1]
         dispatch = {
-            'sin': sympy.sin,
-            'cos': sympy.cos,
-            'tan': sympy.tan,
-            'asin': sympy.asin,
-            'acos': sympy.acos,
-            'atan': sympy.atan,
-            'exp': sympy.exp,
-            'ln': sympy.log,
-            'sqrt': sympy.sqrt
+            "sin": np.sin,
+            "cos": np.cos,
+            "tan": np.tan,
+            "asin": np.arcsin,
+            "acos": np.arccos,
+            "atan": np.arctan,
+            "exp": np.exp,
+            "ln": np.log,
+            "sqrt": np.sqrt,
         }
         if op in dispatch:
             arg = expr.real(nested_scope)
@@ -66,15 +70,15 @@ class External(Node):
         op = self.children[0].name
         expr = self.children[1]
         dispatch = {
-            'sin': sympy.sin,
-            'cos': sympy.cos,
-            'tan': sympy.tan,
-            'asin': sympy.asin,
-            'acos': sympy.acos,
-            'atan': sympy.atan,
-            'exp': sympy.exp,
-            'ln': sympy.log,
-            'sqrt': sympy.sqrt
+            "sin": np.sin,
+            "cos": np.cos,
+            "tan": np.tan,
+            "asin": np.arcsin,
+            "acos": np.arccos,
+            "atan": np.arctan,
+            "exp": np.exp,
+            "ln": np.log,
+            "sqrt": np.sqrt,
         }
         if op in dispatch:
             arg = expr.sym(nested_scope)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -30,16 +28,16 @@ def filter_backends(backends, filters=None, **kwargs):
     Args:
         backends (list[BaseBackend]): list of backends.
         filters (callable): filtering conditions as a callable.
-        **kwargs (dict): dict of criteria.
+        **kwargs: dict of criteria.
 
     Returns:
         list[BaseBackend]: a list of backend instances matching the
             conditions.
     """
+
     def _match_all(obj, criteria):
         """Return True if all items in criteria matches items in obj."""
-        return all(getattr(obj, key_, None) == value_ for
-                   key_, value_ in criteria.items())
+        return all(getattr(obj, key_, None) == value_ for key_, value_ in criteria.items())
 
     # Inspect the backends to decide which filters belong to
     # backend.configuration and which ones to backend.status, as it does
@@ -54,14 +52,12 @@ def filter_backends(backends, filters=None, **kwargs):
 
     # 1. Apply backend.configuration filtering.
     if configuration_filters:
-        backends = [b for b in backends if
-                    _match_all(b.configuration(), configuration_filters)]
+        backends = [b for b in backends if _match_all(b.configuration(), configuration_filters)]
 
     # 2. Apply backend.status filtering (it involves one API call for
     # each backend).
     if status_filters:
-        backends = [b for b in backends if
-                    _match_all(b.status(), status_filters)]
+        backends = [b for b in backends if _match_all(b.status(), status_filters)]
 
     # 3. Apply acceptor filter.
     backends = list(filter(filters, backends))
@@ -95,9 +91,9 @@ def resolve_backend_name(name, backends, deprecated, aliased):
         resolved_name = next((b for b in resolved_name if b in available), "")
 
     if resolved_name not in available:
-        raise LookupError("backend '{}' not found.".format(name))
+        raise LookupError(f"backend '{name}' not found.")
 
     if name in deprecated:
-        logger.warning("WARNING: '%s' is deprecated. Use '%s'.", name, resolved_name)
+        logger.warning("Backend '%s' is deprecated. Use '%s'.", name, resolved_name)
 
     return resolved_name

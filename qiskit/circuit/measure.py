@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -15,9 +13,11 @@
 """
 Quantum measurement in the computational basis.
 """
+
+import warnings
+
 from qiskit.circuit.instruction import Instruction
-from qiskit.circuit.quantumcircuit import QuantumCircuit
-from qiskit.exceptions import QiskitError
+from qiskit.circuit.exceptions import CircuitError
 
 
 class Measure(Instruction):
@@ -70,31 +70,4 @@ class Measure(Instruction):
             for each_carg in carg:
                 yield qarg, [each_carg]
         else:
-            raise QiskitError('register size error')
-
-
-def measure(self, qubit, cbit, basis=None, add_param=None):
-    """Measure quantum bit into classical bit (tuples).
-        Applies barrier before and after the measurement if 
-        the measurement is ['Ensemble','Expect','Bell'].
-
-    Args:
-        qubit (QuantumRegister|list|tuple): quantum register
-        cbit (ClassicalRegister|list|tuple): classical register
-
-    Returns:
-        qiskit.Instruction: the attached measure instruction.
-
-    Raises:
-        QiskitError: if qubit is not in this circuit or bad format;
-            if cbit is not in this circuit or not creg.
-    """
-    if basis in ['Ensemble','Expect','Bell']:
-        self.barrier()
-        self.append(Measure(basis, add_param), [qubit], [cbit])
-        self.barrier()
-    else:
-        return self.append(Measure(basis, add_param), [qubit], [cbit])
-
-
-QuantumCircuit.measure = measure
+            raise CircuitError("register size error")

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -21,11 +19,11 @@ from .nodeexception import NodeException
 
 
 VALID_OPERATORS = {
-    '+': operator.add,
-    '-': operator.sub,
-    '*': operator.mul,
-    '/': operator.truediv,
-    '^': operator.pow
+    "+": operator.add,
+    "-": operator.sub,
+    "*": operator.mul,
+    "/": operator.truediv,
+    "^": operator.pow,
 }
 
 
@@ -34,9 +32,10 @@ class BinaryOperator(Node):
 
     This node has no children. The data is in the value field.
     """
+
     def __init__(self, operation):
         """Create the operator node."""
-        super().__init__('operator', None, None)
+        super().__init__("operator", None, None)
         self.value = operation
 
     def operation(self):
@@ -45,11 +44,9 @@ class BinaryOperator(Node):
         """
         try:
             return VALID_OPERATORS[self.value]
-        except KeyError:
-            raise NodeException("internal error: undefined operator '%s'" %
-                                self.value)
+        except KeyError as ex:
+            raise NodeException(f"internal error: undefined operator '{self.value}'") from ex
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the QASM representation."""
-        del prec  # prec ignored
         return self.value

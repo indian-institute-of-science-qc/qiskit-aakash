@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -25,16 +23,15 @@ class Format(Node):
     def __init__(self, value):
         """Create the version node."""
         super().__init__("format", None, None)
-        parts = re.match(r'(\w+)\s+(\d+)\.(\d+)', value)
+        parts = re.match(r"(\w+)\s+(\d+)(\.(\d+))?", value)
         self.language = parts.group(1)
         self.majorversion = parts.group(2)
-        self.minorversion = parts.group(3)
+        self.minorversion = parts.group(4) if parts.group(4) is not None else "0"
 
     def version(self):
         """Return the version."""
-        return "%s.%s" % (self.majorversion, self.minorversion)
+        return f"{self.majorversion}.{self.minorversion}"
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding format string."""
-        del prec  # prec ignored
-        return "%s %s;" % (self.language, self.version())
+        return f"{self.language} {self.version()};"

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -11,8 +9,6 @@
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
-
-# pylint: disable=invalid-name
 
 """Node for an OPENQASM opaque gate declaration."""
 
@@ -30,8 +26,8 @@ class Opaque(Node):
 
     def __init__(self, children):
         """Create the opaque gate node."""
-        super().__init__('opaque', children, None)
-        self.id = children[0]
+        super().__init__("opaque", children, None)
+        self.id = children[0]  # pylint: disable=invalid-name
         # The next three fields are required by the symbtab
         self.name = self.id.name
         self.line = self.id.line
@@ -53,10 +49,10 @@ class Opaque(Node):
         """Return the number of qubit arguments."""
         return self.bitlist.size()
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
         string = "opaque %s" % self.name
         if self.arguments is not None:
-            string += "(" + self.arguments.qasm(prec) + ")"
-        string += " " + self.bitlist.qasm(prec) + ";"
+            string += "(" + self.arguments.qasm() + ")"
+        string += " " + self.bitlist.qasm() + ";"
         return string

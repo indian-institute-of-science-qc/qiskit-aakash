@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -12,21 +10,22 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Tests for qiskit.quantum_info.analyzation"""
+"""Tests for qiskit.quantum_info.analysis"""
 
 import unittest
 
 import qiskit
 from qiskit import BasicAer
-from qiskit.quantum_info.analyzation.average import average_data
-from qiskit.quantum_info.analyzation.make_observable import make_dict_observable
+from qiskit.quantum_info.analysis.average import average_data
+from qiskit.quantum_info.analysis.make_observable import make_dict_observable
+from qiskit.quantum_info.analysis import hellinger_fidelity
 from qiskit.test import QiskitTestCase
 
 
 class TestAnalyzation(QiskitTestCase):
     """Test qiskit.Result API"""
 
-    def test_average_data_dict_obverable(self):
+    def test_average_data_dict_observable(self):
         """Test average_data for dictionary observable input"""
         qr = qiskit.QuantumRegister(2)
         cr = qiskit.ClassicalRegister(2)
@@ -36,7 +35,7 @@ class TestAnalyzation(QiskitTestCase):
         qc.measure(qr[0], cr[0])
         qc.measure(qr[1], cr[1])
         shots = 10000
-        backend = BasicAer.get_backend('qasm_simulator')
+        backend = BasicAer.get_backend("qasm_simulator")
         result = qiskit.execute(qc, backend, shots=shots).result()
         counts = result.get_counts(qc)
         observable = {"00": 1, "11": 1, "01": -1, "10": -1}
@@ -49,7 +48,7 @@ class TestAnalyzation(QiskitTestCase):
         self.assertAlmostEqual(mean_zi, 0, places=1)
         self.assertAlmostEqual(mean_iz, 0, places=1)
 
-    def test_average_data_list_obverable(self):
+    def test_average_data_list_observable(self):
         """Test average_data for list observable input."""
         qr = qiskit.QuantumRegister(3)
         cr = qiskit.ClassicalRegister(3)
@@ -61,7 +60,7 @@ class TestAnalyzation(QiskitTestCase):
         qc.measure(qr[1], cr[1])
         qc.measure(qr[2], cr[2])
         shots = 10000
-        backend = BasicAer.get_backend('qasm_simulator')
+        backend = BasicAer.get_backend("qasm_simulator")
         result = qiskit.execute(qc, backend, shots=shots).result()
         counts = result.get_counts(qc)
         observable = [1, -1, -1, 1, -1, 1, 1, -1]
@@ -77,7 +76,7 @@ class TestAnalyzation(QiskitTestCase):
         self.assertAlmostEqual(mean_izi, 0, places=1)
         self.assertAlmostEqual(mean_zzi, 1, places=1)
 
-    def test_average_data_matrix_obverable(self):
+    def test_average_data_matrix_observable(self):
         """Test average_data for matrix observable input."""
         qr = qiskit.QuantumRegister(2)
         cr = qiskit.ClassicalRegister(2)
@@ -87,23 +86,14 @@ class TestAnalyzation(QiskitTestCase):
         qc.measure(qr[0], cr[0])
         qc.measure(qr[1], cr[1])
         shots = 10000
-        backend = BasicAer.get_backend('qasm_simulator')
+        backend = BasicAer.get_backend("qasm_simulator")
         result = qiskit.execute(qc, backend, shots=shots).result()
         counts = result.get_counts(qc)
-        observable = [[1, 0, 0, 0],
-                      [0, -1, 0, 0],
-                      [0, 0, -1, 0],
-                      [0, 0, 0, 1]]
+        observable = [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
         mean_zz = average_data(counts=counts, observable=observable)
-        observable = [[1, 0, 0, 0],
-                      [0, 1, 0, 0],
-                      [0, 0, -1, 0],
-                      [0, 0, 0, -1]]
+        observable = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, -1, 0], [0, 0, 0, -1]]
         mean_zi = average_data(counts, observable)
-        observable = [[1, 0, 0, 0],
-                      [0, -1, 0, 0],
-                      [0, 0, 1, 0],
-                      [0, 0, 0, -1]]
+        observable = [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 1, 0], [0, 0, 0, -1]]
         mean_iz = average_data(counts, observable)
         self.assertAlmostEqual(mean_zz, 1, places=1)
         self.assertAlmostEqual(mean_zi, 0, places=1)
@@ -114,26 +104,97 @@ class TestAnalyzation(QiskitTestCase):
         list_in = [1, 1, -1, -1]
         list_out = make_dict_observable(list_in)
         list_expected = {"00": 1, "01": 1, "10": -1, "11": -1}
-        matrix_in = [[4, 0, 0, 0],
-                     [0, -3, 0, 0],
-                     [0, 0, 2, 0],
-                     [0, 0, 0, -1]]
+        matrix_in = [[4, 0, 0, 0], [0, -3, 0, 0], [0, 0, 2, 0], [0, 0, 0, -1]]
         matrix_out = make_dict_observable(matrix_in)
         matrix_expected = {"00": 4, "01": -3, "10": 2, "11": -1}
         long_list_in = [1, 1, -1, -1, -1, -1, 1, 1]
         long_list_out = make_dict_observable(long_list_in)
-        long_list_expected = {"000": 1,
-                              "001": 1,
-                              "010": -1,
-                              "011": -1,
-                              "100": -1,
-                              "101": -1,
-                              "110": 1,
-                              "111": 1}
+        long_list_expected = {
+            "000": 1,
+            "001": 1,
+            "010": -1,
+            "011": -1,
+            "100": -1,
+            "101": -1,
+            "110": 1,
+            "111": 1,
+        }
         self.assertEqual(list_out, list_expected)
         self.assertEqual(matrix_out, matrix_expected)
         self.assertEqual(long_list_out, long_list_expected)
 
+    def test_hellinger_fidelity_same(self):
+        """Test hellinger fidelity is one for same dist."""
+        qc = qiskit.QuantumCircuit(5, 5)
+        qc.h(2)
+        qc.cx(2, 1)
+        qc.cx(2, 3)
+        qc.cx(3, 4)
+        qc.cx(1, 0)
+        qc.measure(range(5), range(5))
 
-if __name__ == '__main__':
+        sim = BasicAer.get_backend("qasm_simulator")
+
+        res = qiskit.execute(qc, sim).result()
+
+        ans = hellinger_fidelity(res.get_counts(), res.get_counts())
+
+        self.assertEqual(ans, 1.0)
+
+    def test_hellinger_fidelity_no_overlap(self):
+        """Test hellinger fidelity is zero for no overlap."""
+
+        #                ┌───┐     ┌─┐
+        # q_0: ──────────┤ X ├─────┤M├────────────
+        #           ┌───┐└─┬─┘     └╥┘┌─┐
+        # q_1: ─────┤ X ├──■────────╫─┤M├─────────
+        #      ┌───┐└─┬─┘           ║ └╥┘┌─┐
+        # q_2: ┤ H ├──■────■────────╫──╫─┤M├──────
+        #      └───┘     ┌─┴─┐      ║  ║ └╥┘┌─┐
+        # q_3: ──────────┤ X ├──■───╫──╫──╫─┤M├───
+        #                └───┘┌─┴─┐ ║  ║  ║ └╥┘┌─┐
+        # q_4: ───────────────┤ X ├─╫──╫──╫──╫─┤M├
+        #                     └───┘ ║  ║  ║  ║ └╥┘
+        # c: 5/═════════════════════╩══╩══╩══╩══╩═
+        #                           0  1  2  3  4
+        qc = qiskit.QuantumCircuit(5, 5)
+        qc.h(2)
+        qc.cx(2, 1)
+        qc.cx(2, 3)
+        qc.cx(3, 4)
+        qc.cx(1, 0)
+        qc.measure(range(5), range(5))
+
+        #                ┌───┐     ┌─┐
+        # q_0: ──────────┤ X ├─────┤M├─────────
+        #           ┌───┐└─┬─┘     └╥┘┌─┐
+        # q_1: ─────┤ X ├──■────────╫─┤M├──────
+        #      ┌───┐└─┬─┘┌───┐      ║ └╥┘┌─┐
+        # q_2: ┤ H ├──■──┤ Y ├──■───╫──╫─┤M├───
+        #      └───┘     └───┘┌─┴─┐ ║  ║ └╥┘┌─┐
+        # q_3: ───────────────┤ X ├─╫──╫──╫─┤M├
+        #       ┌─┐           └───┘ ║  ║  ║ └╥┘
+        # q_4: ─┤M├─────────────────╫──╫──╫──╫─
+        #       └╥┘                 ║  ║  ║  ║
+        # c: 5/══╩══════════════════╩══╩══╩══╩═
+        #        4                  0  1  2  3
+        qc2 = qiskit.QuantumCircuit(5, 5)
+        qc2.h(2)
+        qc2.cx(2, 1)
+        qc2.y(2)
+        qc2.cx(2, 3)
+        qc2.cx(1, 0)
+        qc2.measure(range(5), range(5))
+
+        sim = BasicAer.get_backend("qasm_simulator")
+
+        res1 = qiskit.execute(qc, sim).result()
+        res2 = qiskit.execute(qc2, sim).result()
+
+        ans = hellinger_fidelity(res1.get_counts(), res2.get_counts())
+
+        self.assertEqual(ans, 0.0)
+
+
+if __name__ == "__main__":
     unittest.main(verbosity=2)

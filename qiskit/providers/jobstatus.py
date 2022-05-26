@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -19,17 +17,14 @@ import enum
 
 class JobStatus(enum.Enum):
     """Class for job status enumerated type."""
-    INITIALIZING = 'job is being initialized'
-    QUEUED = 'job is queued'
-    VALIDATING = 'job is being validated'
-    RUNNING = 'job is actively running'
-    CANCELLED = 'job has been cancelled'
-    DONE = 'job has successfully run'
-    ERROR = 'job incurred error'
+
+    INITIALIZING = "job is being initialized"
+    QUEUED = "job is queued"
+    VALIDATING = "job is being validated"
+    RUNNING = "job is actively running"
+    CANCELLED = "job has been cancelled"
+    DONE = "job has successfully run"
+    ERROR = "job incurred error"
 
 
-JOB_FINAL_STATES = (
-    JobStatus.DONE,
-    JobStatus.CANCELLED,
-    JobStatus.ERROR
-)
+JOB_FINAL_STATES = (JobStatus.DONE, JobStatus.CANCELLED, JobStatus.ERROR)

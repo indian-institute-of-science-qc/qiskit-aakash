@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -17,7 +15,7 @@ about the current state of the circuit """
 
 
 class PropertySet(dict):
-    """ A default dictionary-like object """
+    """A default dictionary-like object"""
 
     def __missing__(self, key):
         return None

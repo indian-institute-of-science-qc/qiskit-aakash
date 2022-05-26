@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -40,13 +38,13 @@ class Node:
 
     def to_string(self, indent):
         """Print with indent."""
-        ind = indent * ' '
+        ind = indent * " "
         if self.root:
-            print(ind, self.type, '---', self.root)
+            print(ind, self.type, "---", self.root)
         else:
             print(ind, self.type)
         indent = indent + 3
-        ind = indent * ' '
+        ind = indent * " "
         for children in self.children:
             if children is None:
                 print("OOPS! type of parent is", type(self))

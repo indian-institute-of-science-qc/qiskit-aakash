@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -17,7 +15,7 @@ Quantum register reference object.
 """
 import itertools
 
-from qiskit.exceptions import QiskitError
+from qiskit.circuit.exceptions import CircuitError
 from .register import Register
 from .bit import Bit
 
@@ -25,22 +23,54 @@ from .bit import Bit
 class Qubit(Bit):
     """Implement a quantum bit."""
 
-    def __init__(self, register, index):
-        if isinstance(register, QuantumRegister):
+    __slots__ = ()
+
+    def __init__(self, register=None, index=None):
+        """Creates a qubit.
+
+        Args:
+            register (QuantumRegister): Optional. A quantum register containing the bit.
+            index (int): Optional. The index of the bit in its containing register.
+
+        Raises:
+            CircuitError: if the provided register is not a valid :class:`QuantumRegister`
+        """
+
+        if register is None or isinstance(register, QuantumRegister):
             super().__init__(register, index)
         else:
-            raise QiskitError('Qubit needs a QuantumRegister and %s was provided' %
-                              type(register).__name__)
+            raise CircuitError(
+                "Qubit needs a QuantumRegister and %s was provided" % type(register).__name__
+            )
 
 
 class QuantumRegister(Register):
     """Implement a quantum register."""
+
     # Counter for the number of instances in this class.
     instances_counter = itertools.count()
     # Prefix to use for auto naming.
-    prefix = 'q'
+    prefix = "q"
     bit_type = Qubit
 
     def qasm(self):
         """Return OPENQASM string for this register."""
         return "qreg %s[%d];" % (self.name, self.size)
+
+
+class AncillaQubit(Qubit):
+    """A qubit used as ancillary qubit."""
+
+    __slots__ = ()
+
+    pass
+
+
+class AncillaRegister(QuantumRegister):
+    """Implement an ancilla register."""
+
+    # Counter for the number of instances in this class.
+    instances_counter = itertools.count()
+    # Prefix to use for auto naming.
+    prefix = "a"
+    bit_type = AncillaQubit

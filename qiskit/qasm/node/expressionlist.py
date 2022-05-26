@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -13,7 +11,6 @@
 # that they have been altered from the originals.
 
 """Node for an OPENQASM expression list."""
-
 from .node import Node
 
 
@@ -25,13 +22,12 @@ class ExpressionList(Node):
 
     def __init__(self, children):
         """Create the expression list node."""
-        super().__init__('expression_list', children, None)
+        super().__init__("expression_list", children, None)
 
     def size(self):
         """Return the number of expressions."""
         return len(self.children)
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
-        return ",".join([self.children[j].qasm(prec)
-                         for j in range(self.size())])
+        return ",".join([self.children[j].qasm() for j in range(self.size())])

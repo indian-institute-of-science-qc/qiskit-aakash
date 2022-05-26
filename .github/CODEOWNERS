@@ -1,23 +1,38 @@
-# This file defines the persons that will be assigned as reviewers for PRs that
-# modify a particular file in the repo. Please note it is just a convention
-# for the GitHub interface, and any member of the Qiskit team can (and should!)
-# review as well.
+# This file defines the set of people responsible for different sections of the
+# Qiskit code.
+#
+# Being listed as a code owner on a section here means that user is empowered
+# to approve and merge pull requests for that section of code. It also comes
+# with an expected responsibility to review and maintain those subsections of
+# the repository.
+#
+# The @Qiskit/terra-core team is the group who're responsible for the
+# entire qiskit-terra project and are empowered to approve merge code in any
+# part of the repository. Any member of the terra-core group should not be
+# listed in this file as it's redudant.
+#
+# A PR can be merged when approved by at least one codeowner. For PRs that touch
+# more than one section with non-overlapping codeowners more than one codeowner
+# may be required to approve a PR.
+#
+# However, every contributor to Qiskit can (and should!) review open PRs. This
+# file is just about outlining responsiblity for maintainership and final
+# review/merging of PRs in different subsections of the repository.
 
-# Real code owners.
-#* @jaygambetta @ismaelfaro
+# Global rule, unless specialized by a later one
+* @Qiskit/terra-core
 
-# Generic rule for the repository. This pattern is actually the one that will
-# apply unless specialized by a later rule
-* @ajavadia @ewinston @atilag @delapuente @diego-plan9 @nonhermitian @mtreinish @1ucian0 @taalexander @jaygambetta @kdk @chriseclectic
-
-# Individual folders on root directory
-# /cmake     @ajavadia @atilag @diego-plan9
-# /doc       @jaygambetta @ajavadia @atilag @diego-plan9
-# /examples  @jaygambetta @ajavadia @atilag @diego-plan9
-# /src       @chriseclectic @ajavadia @atilag @diego-plan9
-
-# qiskit folders
-# qiskit/qasm/*        @1ucian0 @ajavadia @ewinston @atilag @delapuente @diego-plan9
-# qiskit/tools/*       @antoniomezzacapo @chriseclectic @ajavadia @ewinston @atilag @delapuente @diego-plan9
-# qiskit/schemas/*     @jaygambetta @ajavadia @ewinston @atilag @delapuente @diego-plan9 @dcmckayibm
-# qiskit/transpiler/*  @1ucian0 @ajavadia @delapuente @atilag @diego-plan9 @nonhermitian @kdk
+# Qiskit folders (also their corresponding tests)
+algorithms/           @Qiskit/terra-core @manoelmarques @woodsp-ibm
+opflow/               @Qiskit/terra-core @manoelmarques @woodsp-ibm @ikkoham
+qiskit/utils/         @Qiskit/terra-core @manoelmarques @woodsp-ibm
+providers/            @Qiskit/terra-core @jyu00
+quantum_info/         @Qiskit/terra-core @ikkoham
+qpy/                  @Qiskit/terra-core @nkanazawa1989
+pulse/                @Qiskit/terra-core @eggerdj @nkanazawa1989 @danpuzzuoli
+scheduler/            @Qiskit/terra-core @eggerdj @nkanazawa1989 @danpuzzuoli
+visualization/        @Qiskit/terra-core @nonhermitian @nkanazawa1989
+primitives/           @Qiskit/terra-core @ikkoham @t-imamichi
+# Override the release notes directories to have _no_ code owners, so any review
+# from somebody with write access is acceptable.
+/releasenotes/notes

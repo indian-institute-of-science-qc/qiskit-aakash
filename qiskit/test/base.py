@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -12,6 +10,10 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
+# pylint: disable=attribute-defined-outside-init,invalid-name,missing-type-doc
+# pylint: disable=unused-argument,broad-except,bad-staticmethod-argument
+# pylint: disable=inconsistent-return-statements
+
 """Base TestCases for the unit tests.
 
 Implementors of unit tests for Terra are encouraged to subclass
@@ -23,40 +25,78 @@ decorators in the ``decorators`` package.
 import inspect
 import logging
 import os
+import sys
+import warnings
 import unittest
 from unittest.util import safe_repr
 
-from .utils import Path, _AssertNoLogsContext, setup_test_logging
+from qiskit.utils import optionals as _optionals
+from .decorators import enforce_subclasses_call
+from .utils import Path, setup_test_logging
 
 
 __unittest = True  # Allows shorter stack trace for .assertDictAlmostEqual
 
 
-class QiskitTestCase(unittest.TestCase):
-    """Helper class that contains common functionality."""
+# If testtools is installed use that as a (mostly) drop in replacement for
+# unittest's TestCase. This will enable the fixtures used for capturing stdout
+# stderr, and pylogging to attach the output to stestr's result stream.
+if _optionals.HAS_TESTTOOLS:
+    import testtools  # pylint: disable=import-error
 
-    @classmethod
-    def setUpClass(cls):
-        # Determines if the TestCase is using IBMQ credentials.
-        cls.using_ibmq_credentials = False
+    class BaseTestCase(testtools.TestCase):
+        """Base test class."""
 
-        # Set logging to file and stdout if the LOG_LEVEL envar is set.
-        cls.log = logging.getLogger(cls.__name__)
-        if os.getenv('LOG_LEVEL'):
-            filename = '%s.log' % os.path.splitext(inspect.getfile(cls))[0]
-            setup_test_logging(cls.log, os.getenv('LOG_LEVEL'), filename)
+        # testtools maintains their own version of assert functions which mostly
+        # behave as value adds to the std unittest assertion methods. However,
+        # for assertEquals and assertRaises modern unittest has diverged from
+        # the forks in testtools and offer more (or different) options that are
+        # incompatible testtools versions. Just use the stdlib versions so that
+        # our tests work as expected.
+        assertRaises = unittest.TestCase.assertRaises
+        assertEqual = unittest.TestCase.assertEqual
+
+else:
+
+    class BaseTestCase(unittest.TestCase):
+        """Base test class."""
+
+        pass
+
+
+@enforce_subclasses_call(["setUp", "setUpClass", "tearDown", "tearDownClass"])
+class BaseQiskitTestCase(BaseTestCase):
+    """Additions for test cases for all Qiskit-family packages.
+
+    The additions here are intended for all packages, not just Terra.  Terra-specific logic should
+    be in the Terra-specific classes."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__setup_called = False
+        self.__teardown_called = False
+
+    def setUp(self):
+        super().setUp()
+        if self.__setup_called:
+            raise ValueError(
+                "In File: %s\n"
+                "TestCase.setUp was already called. Do not explicitly call "
+                "setUp from your tests. In your own setUp, use super to call "
+                "the base setUp." % (sys.modules[self.__class__.__module__].__file__,)
+            )
+        self.__setup_called = True
 
     def tearDown(self):
-        # Reset the default providers, as in practice they acts as a singleton
-        # due to importing the wrapper from qiskit.
-        try:
-            from qiskit.providers.ibmq import IBMQ
-            IBMQ._accounts.clear()
-        except ImportError:
-            pass
-        from qiskit.providers.basicaer import BasicAer
-
-        BasicAer._backends = BasicAer._verify_backends()
+        super().tearDown()
+        if self.__teardown_called:
+            raise ValueError(
+                "In File: %s\n"
+                "TestCase.tearDown was already called. Do not explicitly call "
+                "tearDown from your tests. In your own tearDown, use super to "
+                "call the base tearDown." % (sys.modules[self.__class__.__module__].__file__,)
+            )
+        self.__teardown_called = True
 
     @staticmethod
     def _get_resource_path(filename, path=Path.TEST):
@@ -65,21 +105,15 @@ class QiskitTestCase(unittest.TestCase):
         Args:
             filename (string): filename or relative path to the resource.
             path (Path): path used as relative to the filename.
+
         Returns:
             str: the absolute path to the resource.
         """
         return os.path.normpath(os.path.join(path.value, filename))
 
-    def assertNoLogs(self, logger=None, level=None):
-        """Assert that no message is sent to the specified logger and level.
-
-        Context manager to test that no message is sent to the specified
-        logger and level (the opposite of TestCase.assertLogs()).
-        """
-        return _AssertNoLogsContext(self, logger, level)
-
-    def assertDictAlmostEqual(self, dict1, dict2, delta=None, msg=None,
-                              places=None, default_value=0):
+    def assertDictAlmostEqual(
+        self, dict1, dict2, delta=None, msg=None, places=None, default_value=0
+    ):
         """Assert two dictionaries with numeric values are almost equal.
 
         Fail if the two dictionaries are unequal as determined by
@@ -99,36 +133,169 @@ class QiskitTestCase(unittest.TestCase):
             default_value (number): default value for missing keys.
 
         Raises:
-            TypeError: raises TestCase failureException if the test fails.
+            TypeError: if the arguments are not valid (both `delta` and
+                `places` are specified).
+            AssertionError: if the dictionaries are not almost equal.
         """
-        def valid_comparison(value):
-            """compare value to delta, within places accuracy"""
-            if places is not None:
-                return round(value, places) == 0
-            else:
-                return value < delta
 
-        # Check arguments.
-        if dict1 == dict2:
-            return
-        if places is not None:
-            if delta is not None:
-                raise TypeError("specify delta or places not both")
-            msg_suffix = ' within %s places' % places
-        else:
-            delta = delta or 1e-8
-            msg_suffix = ' within %s delta' % delta
-
-        # Compare all keys in both dicts, populating error_msg.
-        error_msg = ''
-        for key in set(dict1.keys()) | set(dict2.keys()):
-            val1 = dict1.get(key, default_value)
-            val2 = dict2.get(key, default_value)
-            if not valid_comparison(abs(val1 - val2)):
-                error_msg += '(%s: %s != %s), ' % (safe_repr(key),
-                                                   safe_repr(val1),
-                                                   safe_repr(val2))
+        error_msg = dicts_almost_equal(dict1, dict2, delta, places, default_value)
 
         if error_msg:
-            msg = self._formatMessage(msg, error_msg[:-2] + msg_suffix)
+            msg = self._formatMessage(msg, error_msg)
             raise self.failureException(msg)
+
+
+class QiskitTestCase(BaseQiskitTestCase):
+    """Terra-specific extra functionality for test cases."""
+
+    def tearDown(self):
+        super().tearDown()
+        # Reset the default providers, as in practice they acts as a singleton
+        # due to importing the instances from the top-level qiskit namespace.
+        from qiskit.providers.basicaer import BasicAer
+
+        BasicAer._backends = BasicAer._verify_backends()
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # Determines if the TestCase is using IBMQ credentials.
+        cls.using_ibmq_credentials = False
+        # Set logging to file and stdout if the LOG_LEVEL envar is set.
+        cls.log = logging.getLogger(cls.__name__)
+        if os.getenv("LOG_LEVEL"):
+            filename = "%s.log" % os.path.splitext(inspect.getfile(cls))[0]
+            setup_test_logging(cls.log, os.getenv("LOG_LEVEL"), filename)
+
+        warnings.filterwarnings("error", category=DeprecationWarning)
+        allow_DeprecationWarning_modules = [
+            "test.python.pulse.test_parameters",
+            "test.python.pulse.test_transforms",
+            "test.python.circuit.test_gate_power",
+            "test.python.pulse.test_builder",
+            "test.python.pulse.test_block",
+            "test.python.quantum_info.operators.symplectic.test_legacy_pauli",
+            "qiskit.quantum_info.operators.pauli",
+            "pybobyqa",
+            "numba",
+            "qiskit.utils.measurement_error_mitigation",
+            "qiskit.circuit.library.standard_gates.x",
+            "qiskit.pulse.schedule",
+            "qiskit.pulse.instructions.instruction",
+            "qiskit.pulse.instructions.play",
+            "qiskit.pulse.library.parametric_pulses",
+            "qiskit.quantum_info.operators.symplectic.pauli",
+            "test.python.dagcircuit.test_dagcircuit",
+            "importlib_metadata",
+        ]
+        for mod in allow_DeprecationWarning_modules:
+            warnings.filterwarnings("default", category=DeprecationWarning, module=mod)
+        allow_DeprecationWarning_message = [
+            r".*QuantumCircuit\.combine.*",
+            r".*QuantumCircuit\.__add__.*",
+            r".*QuantumCircuit\.__iadd__.*",
+            r".*QuantumCircuit\.extend.*",
+            r".*qiskit\.circuit\.library\.standard_gates\.ms import.*",
+            r"elementwise comparison failed.*",
+            r"The jsonschema validation included in qiskit-terra.*",
+            r"The DerivativeBase.parameter_expression_grad method.*",
+            r"Back-references to from Bit instances.*",
+            r"The QuantumCircuit.u. method.*",
+            r"The QuantumCircuit.cu.",
+            r"The CXDirection pass has been deprecated",
+            r"The pauli_basis function with PauliTable.*",
+            # TODO: remove the following ignore after seaborn 0.12.0 releases
+            r"distutils Version classes are deprecated. Use packaging\.version",
+            # Internal deprecation warning emitted by jupyter client when
+            # calling nbconvert in python 3.10
+            r"There is no current event loop",
+        ]
+        for msg in allow_DeprecationWarning_message:
+            warnings.filterwarnings("default", category=DeprecationWarning, message=msg)
+
+
+class FullQiskitTestCase(QiskitTestCase):
+    """Terra-specific further additions for test cases, if ``testtools`` is available.
+
+    It is not normally safe to derive from this class by name; on import, Terra checks if the
+    necessary packages are available, and binds this class to the name :obj:`~QiskitTestCase` if so.
+    If you derive directly from it, you may try and instantiate the class without satisfying its
+    dependencies."""
+
+    @_optionals.HAS_FIXTURES.require_in_call("output-capturing test cases")
+    def setUp(self):
+        import fixtures
+
+        super().setUp()
+        if os.environ.get("QISKIT_TEST_CAPTURE_STREAMS"):
+            stdout = self.useFixture(fixtures.StringStream("stdout")).stream
+            self.useFixture(fixtures.MonkeyPatch("sys.stdout", stdout))
+            stderr = self.useFixture(fixtures.StringStream("stderr")).stream
+            self.useFixture(fixtures.MonkeyPatch("sys.stderr", stderr))
+            self.useFixture(fixtures.LoggerFixture(nuke_handlers=False, level=None))
+
+
+def dicts_almost_equal(dict1, dict2, delta=None, places=None, default_value=0):
+    """Test if two dictionaries with numeric values are almost equal.
+
+    Fail if the two dictionaries are unequal as determined by
+    comparing that the difference between values with the same key are
+    not greater than delta (default 1e-8), or that difference rounded
+    to the given number of decimal places is not zero. If a key in one
+    dictionary is not in the other the default_value keyword argument
+    will be used for the missing value (default 0). If the two objects
+    compare equal then they will automatically compare almost equal.
+
+    Args:
+        dict1 (dict): a dictionary.
+        dict2 (dict): a dictionary.
+        delta (number): threshold for comparison (defaults to 1e-8).
+        places (int): number of decimal places for comparison.
+        default_value (number): default value for missing keys.
+
+    Raises:
+        TypeError: if the arguments are not valid (both `delta` and
+            `places` are specified).
+
+    Returns:
+        String: Empty string if dictionaries are almost equal. A description
+            of their difference if they are deemed not almost equal.
+    """
+
+    def valid_comparison(value):
+        """compare value to delta, within places accuracy"""
+        if places is not None:
+            return round(value, places) == 0
+        else:
+            return value < delta
+
+    # Check arguments.
+    if dict1 == dict2:
+        return ""
+    if places is not None:
+        if delta is not None:
+            raise TypeError("specify delta or places not both")
+        msg_suffix = " within %s places" % places
+    else:
+        delta = delta or 1e-8
+        msg_suffix = " within %s delta" % delta
+
+    # Compare all keys in both dicts, populating error_msg.
+    error_msg = ""
+    for key in set(dict1.keys()) | set(dict2.keys()):
+        val1 = dict1.get(key, default_value)
+        val2 = dict2.get(key, default_value)
+        if not valid_comparison(abs(val1 - val2)):
+            error_msg += f"({safe_repr(key)}: {safe_repr(val1)} != {safe_repr(val2)}), "
+
+    if error_msg:
+        return error_msg[:-2] + msg_suffix
+    else:
+        return ""
+
+
+# Maintain naming backwards compatibility for downstream packages.
+BasicQiskitTestCase = QiskitTestCase
+
+if _optionals.HAS_TESTTOOLS and _optionals.HAS_FIXTURES:
+    QiskitTestCase = FullQiskitTestCase

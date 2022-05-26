@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -18,12 +16,12 @@ Exception for errors raised by the transpiler.
 from qiskit.exceptions import QiskitError
 
 
-class TranspilerError(QiskitError):
-    """Exceptions raised during transpilation"""
-
-
 class TranspilerAccessError(QiskitError):
-    """Exception of access error in the transpiler passes."""
+    """DEPRECATED: Exception of access error in the transpiler passes."""
+
+
+class TranspilerError(TranspilerAccessError):
+    """Exceptions raised during transpilation."""
 
 
 class CouplingError(QiskitError):
@@ -32,7 +30,7 @@ class CouplingError(QiskitError):
     def __init__(self, *msg):
         """Set the error message."""
         super().__init__(*msg)
-        self.msg = ' '.join(msg)
+        self.msg = " ".join(msg)
 
     def __str__(self):
         """Return the message."""
@@ -45,7 +43,7 @@ class LayoutError(QiskitError):
     def __init__(self, *msg):
         """Set the error message."""
         super().__init__(*msg)
-        self.msg = ' '.join(msg)
+        self.msg = " ".join(msg)
 
     def __str__(self):
         """Return the message."""

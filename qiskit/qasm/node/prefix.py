@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -14,8 +12,7 @@
 
 """Node for an OPENQASM prefix expression."""
 
-import sympy
-
+from qiskit.exceptions import MissingOptionalLibraryError
 from .node import Node
 
 
@@ -28,21 +25,26 @@ class Prefix(Node):
 
     def __init__(self, children):
         """Create the prefix node."""
-        super().__init__('prefix', children, None)
+        super().__init__("prefix", children, None)
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
-        return self.children[0].value + "(" + self.children[1].qasm(prec) + ")"
+        return self.children[0].value + "(" + self.children[1].qasm() + ")"
 
-    def latex(self, prec=15, nested_scope=None):
+    def latex(self):
         """Return the corresponding math mode latex string."""
-        del prec  # TODO prec ignored
-        return sympy.latex(self.sym(nested_scope))
+        try:
+            from pylatexenc.latexencode import utf8tolatex
+        except ImportError as ex:
+            raise MissingOptionalLibraryError(
+                "pylatexenc", "latex-from-qasm exporter", "pip install pylatexenc"
+            ) from ex
+        return utf8tolatex(self.sym())
 
-    def real(self, nested_scope=None):
+    def real(self):
         """Return the correspond floating point number."""
         operation = self.children[0].operation()
-        expr = self.children[1].real(nested_scope)
+        expr = self.children[1].real()
         return operation(expr)
 
     def sym(self, nested_scope=None):

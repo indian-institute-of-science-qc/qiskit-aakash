@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2019.
@@ -18,29 +16,27 @@ import unittest
 
 from qiskit import QuantumRegister, QuantumCircuit
 from qiskit.transpiler import PassManager
-from qiskit.compiler import transpile
 from qiskit.transpiler.passes import ResourceEstimation
 from qiskit.test import QiskitTestCase
-from qiskit.test.mock import FakeRueschlikon
 
 
 class TestResourceEstimationPass(QiskitTestCase):
-    """ Tests for PropertySet methods. """
+    """Tests for PropertySet methods."""
 
     def test_empty_dag(self):
-        """ Empty DAG."""
+        """Empty DAG."""
         circuit = QuantumCircuit()
         passmanager = PassManager()
         passmanager.append(ResourceEstimation())
-        _ = transpile(circuit, FakeRueschlikon(), pass_manager=passmanager)
+        passmanager.run(circuit)
 
-        self.assertEqual(passmanager.property_set['size'], 0)
-        self.assertEqual(passmanager.property_set['depth'], 0)
-        self.assertEqual(passmanager.property_set['width'], 0)
-        self.assertDictEqual(passmanager.property_set['count_ops'], {})
+        self.assertEqual(passmanager.property_set["size"], 0)
+        self.assertEqual(passmanager.property_set["depth"], 0)
+        self.assertEqual(passmanager.property_set["width"], 0)
+        self.assertDictEqual(passmanager.property_set["count_ops"], {})
 
     def test_just_qubits(self):
-        """ A dag with 8 operations and no classic bits"""
+        """A dag with 8 operations and no classic bits"""
         qr = QuantumRegister(2)
         circuit = QuantumCircuit(qr)
         circuit.h(qr[0])
@@ -54,13 +50,13 @@ class TestResourceEstimationPass(QiskitTestCase):
 
         passmanager = PassManager()
         passmanager.append(ResourceEstimation())
-        _ = transpile(circuit, FakeRueschlikon(), pass_manager=passmanager)
+        passmanager.run(circuit)
 
-        self.assertEqual(passmanager.property_set['size'], 8)
-        self.assertEqual(passmanager.property_set['depth'], 7)
-        self.assertEqual(passmanager.property_set['width'], 2)
-        self.assertDictEqual(passmanager.property_set['count_ops'], {'cx': 6, 'h': 2})
+        self.assertEqual(passmanager.property_set["size"], 8)
+        self.assertEqual(passmanager.property_set["depth"], 7)
+        self.assertEqual(passmanager.property_set["width"], 2)
+        self.assertDictEqual(passmanager.property_set["count_ops"], {"cx": 6, "h": 2})
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

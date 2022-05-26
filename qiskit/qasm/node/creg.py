@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -12,10 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-# pylint: disable=invalid-name
-
 """Node for an OPENQASM creg statement."""
-
 from .node import Node
 
 
@@ -27,9 +22,9 @@ class Creg(Node):
 
     def __init__(self, children):
         """Create the creg node."""
-        super().__init__('creg', children, None)
+        super().__init__("creg", children, None)
         # This is the indexed id, the full "id[n]" object
-        self.id = children[0]
+        self.id = children[0]  # pylint: disable=invalid-name
         # Name of the creg
         self.name = self.id.name
         # Source line number
@@ -41,10 +36,10 @@ class Creg(Node):
 
     def to_string(self, indent):
         """Print the node data, with indent."""
-        ind = indent * ' '
-        print(ind, 'creg')
+        ind = indent * " "
+        print(ind, "creg")
         self.children[0].to_string(indent + 3)
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
-        return "creg " + self.id.qasm(prec) + ";"
+        return "creg " + self.id.qasm() + ";"

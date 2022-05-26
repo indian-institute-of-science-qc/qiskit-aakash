@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -12,10 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-# pylint: disable=invalid-name
-
 """Node for an OPENQASM custom gate statement."""
-
 from .node import Node
 
 
@@ -35,8 +30,8 @@ class CustomUnitary(Node):
 
     def __init__(self, children):
         """Create the custom gate node."""
-        super().__init__('custom_unitary', children, None)
-        self.id = children[0]
+        super().__init__("custom_unitary", children, None)
+        self.id = children[0]  # pylint: disable=invalid-name
         self.name = self.id.name
         if len(children) == 3:
             self.arguments = children[1]
@@ -45,10 +40,10 @@ class CustomUnitary(Node):
             self.arguments = None
             self.bitlist = children[1]
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
         string = self.name
         if self.arguments is not None:
-            string += "(" + self.arguments.qasm(prec) + ")"
-        string += " " + self.bitlist.qasm(prec) + ";"
+            string += "(" + self.arguments.qasm() + ")"
+        string += " " + self.bitlist.qasm() + ";"
         return string

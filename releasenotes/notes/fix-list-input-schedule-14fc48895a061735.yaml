@@ -1,0 +1,7 @@
+---
+fixes:
+  - |
+    Fixed an issue with the :class:`~qiskit.compiler.schedule` function where
+    callers specifying a ``list`` of :class:`~qiskit.circuit.QuantumCircuit`
+    objects with a single entry would incorrectly be returned a single
+    :class:`~.Schedule` object instead of a ``list``.

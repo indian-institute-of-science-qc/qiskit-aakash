@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -12,10 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-# pylint: disable=invalid-name
-
 """Node for an OPENQASM gate definition."""
-
 from .node import Node
 
 
@@ -31,8 +26,8 @@ class Gate(Node):
 
     def __init__(self, children):
         """Create the gate node."""
-        super().__init__('gate', children, None)
-        self.id = children[0]
+        super().__init__("gate", children, None)
+        self.id = children[0]  # pylint: disable=invalid-name
         # The next three fields are required by the symbtab
         self.name = self.id.name
         self.line = self.id.line
@@ -57,11 +52,11 @@ class Gate(Node):
         """Return the number of qubit arguments."""
         return self.bitlist.size()
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
         string = "gate " + self.name
         if self.arguments is not None:
-            string += "(" + self.arguments.qasm(prec) + ")"
-        string += " " + self.bitlist.qasm(prec) + "\n"
-        string += "{\n" + self.body.qasm(prec) + "}"
+            string += "(" + self.arguments.qasm() + ")"
+        string += " " + self.bitlist.qasm() + "\n"
+        string += "{\n" + self.body.qasm() + "}"
         return string

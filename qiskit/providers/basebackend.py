@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -12,23 +10,25 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""This module implements the abstract base class for backend modules.
+"""This module implements the legacy abstract base class for backend modules.
 
 To create add-on backend modules subclass the Backend class in this module.
 Doing so requires that the required backend interface is implemented.
 """
-from abc import ABC, abstractmethod
 
-from qiskit.version import __version__
+from abc import ABC, abstractmethod
+import warnings
+
+from qiskit.version import VERSION as __version__
 from .models import BackendStatus
 
 
 class BaseBackend(ABC):
-    """Base class for backends."""
+    """Legacy Base class for backends."""
 
     @abstractmethod
     def __init__(self, configuration, provider=None):
-        """Base class for backends.
+        """DEPRECATED Legacy base class for backends.
 
         This method should initialize the module and its configuration, and
         raise an exception if a component of the module is
@@ -39,15 +39,27 @@ class BaseBackend(ABC):
             provider (BaseProvider): provider responsible for this backend
 
         Raises:
-            FileNotFoundError if backend executable is not available.
-            QiskitError: if there is no name in the configuration
+            QiskitError: if an error occurred when instantiating the backend.
         """
+        warnings.warn(
+            "The BaseBackend abstract interface is deprecated as of "
+            "the 0.18.0 release and will be removed in a future "
+            "release. Instead you should build your backends using "
+            "the BackendV1 abstract class (which is the current "
+            "latest version of the backend interface)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._configuration = configuration
         self._provider = provider
 
     @abstractmethod
     def run(self, qobj):
-        """Run a Qobj on the the backend."""
+        """Run a Qobj on the the backend.
+
+        Args:
+            qobj (Qobj): the Qobj to be executed.
+        """
         pass
 
     def configuration(self):
@@ -59,7 +71,7 @@ class BaseBackend(ABC):
         return self._configuration
 
     def properties(self):
-        """Return backend properties.
+        """Return the backend properties.
 
         Returns:
             BackendProperties: the configuration for the backend. If the backend
@@ -76,24 +88,34 @@ class BaseBackend(ABC):
         return self._provider
 
     def status(self):
-        """Return backend status.
+        """Return the backend status.
 
         Returns:
             BackendStatus: the status of the backend.
         """
-        return BackendStatus(backend_name=self.name(),
-                             backend_version=__version__,
-                             operational=True,
-                             pending_jobs=0,
-                             status_msg='')
+        return BackendStatus(
+            backend_name=self.name(),
+            backend_version=__version__,
+            operational=True,
+            pending_jobs=0,
+            status_msg="",
+        )
 
     def name(self):
-        """Return backend name.
+        """Return the backend name.
 
         Returns:
             str: the name of the backend.
         """
         return self._configuration.backend_name
+
+    def version(self):
+        """Return the backend version.
+
+        Returns:
+            str: the X.X.X version of the backend.
+        """
+        return self._configuration.backend_version
 
     def __str__(self):
         return self.name()
@@ -107,6 +129,4 @@ class BaseBackend(ABC):
 
         [0] https://docs.python.org/3/reference/datamodel.html#object.__repr__
         """
-        return "<{}('{}') from {}()>".format(self.__class__.__name__,
-                                             self.name(),
-                                             self._provider)
+        return f"<{self.__class__.__name__}('{self.name()}') from {self._provider}()>"

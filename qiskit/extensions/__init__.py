@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -12,8 +10,63 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Extensions to quantum circuits."""
+"""
+=====================================================
+Quantum Circuit Extensions (:mod:`qiskit.extensions`)
+=====================================================
 
-from .standard import *
-from .initializer import Initialize
+.. currentmodule:: qiskit.extensions
+
+Unitary Extensions
+==================
+
+.. autosummary::
+   :toctree: ../stubs/
+
+   UnitaryGate
+   HamiltonianGate
+   SingleQubitUnitary
+
+Simulator Extensions
+====================
+
+.. autosummary::
+   :toctree: ../stubs/
+
+   Snapshot
+
+Initialization
+==============
+
+.. autosummary::
+   :toctree: ../stubs/
+
+   Initialize
+
+Uniformly Controlled Rotations
+==============================
+
+.. autosummary::
+   :toctree: ../stubs
+
+   UCPauliRotGate
+   UCRXGate
+   UCRYGate
+   UCRZGate
+"""
+
+# import all standard gates
+from qiskit.circuit.library.standard_gates import *
+from qiskit.circuit.barrier import Barrier
+
+from .quantum_initializer import (
+    Initialize,
+    SingleQubitUnitary,
+    UCPauliRotGate,
+    UCRXGate,
+    UCRYGate,
+    UCRZGate,
+)
 from .unitary import UnitaryGate
+from .hamiltonian_gate import HamiltonianGate
+from .simulator import Snapshot

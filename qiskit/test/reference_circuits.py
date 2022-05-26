@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2019.
@@ -23,9 +21,9 @@ class ReferenceCircuits:
     @staticmethod
     def bell():
         """Return a Bell circuit."""
-        qr = QuantumRegister(2, name='qr')
-        cr = ClassicalRegister(2, name='qc')
-        qc = QuantumCircuit(qr, cr, name='bell')
+        qr = QuantumRegister(2, name="qr")
+        cr = ClassicalRegister(2, name="qc")
+        qc = QuantumCircuit(qr, cr, name="bell")
         qc.h(qr[0])
         qc.cx(qr[0], qr[1])
         qc.measure(qr, cr)
@@ -35,8 +33,8 @@ class ReferenceCircuits:
     @staticmethod
     def bell_no_measure():
         """Return a Bell circuit."""
-        qr = QuantumRegister(2, name='qr')
-        qc = QuantumCircuit(qr, name='bell_no_measure')
+        qr = QuantumRegister(2, name="qr")
+        qc = QuantumCircuit(qr, name="bell_no_measure")
         qc.h(qr[0])
         qc.cx(qr[0], qr[1])
 

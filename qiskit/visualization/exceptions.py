@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -19,4 +17,5 @@ from qiskit.exceptions import QiskitError
 
 class VisualizationError(QiskitError):
     """For visualization specific errors."""
+
     pass

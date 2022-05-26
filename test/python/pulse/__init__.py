@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2019.
@@ -13,3 +11,5 @@
 # that they have been altered from the originals.
 
 """Qiskit pulse tests."""
+
+# TODO pulse unittest reorganization Qiskit-terra/#6106

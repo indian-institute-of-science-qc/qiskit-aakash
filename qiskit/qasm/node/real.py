@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -14,8 +12,9 @@
 
 """Node for an OPENQASM real number."""
 
-from sympy import latex, pi
-from sympy.printing.ccode import ccode
+import numpy as np
+
+from qiskit.exceptions import MissingOptionalLibraryError
 from .node import Node
 
 
@@ -33,25 +32,30 @@ class Real(Node):
 
     def to_string(self, indent):
         """Print with indent."""
-        ind = indent * ' '
-        print(ind, 'real', self.value)
+        ind = indent * " "
+        print(ind, "real", self.value)
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
-        if self.value == pi:
+        if self.value == np.pi:
             return "pi"
 
-        return ccode(self.value, precision=prec)
+        return str(np.round(float(self.value)))
 
-    def latex(self, prec=15, nested_scope=None):
+    def latex(self):
         """Return the corresponding math mode latex string."""
-        del prec, nested_scope  # unused
-        return latex(self.value)
+        try:
+            from pylatexenc.latexencode import utf8tolatex
+        except ImportError as ex:
+            raise MissingOptionalLibraryError(
+                "pylatexenc", "latex-from-qasm exporter", "pip install pylatexenc"
+            ) from ex
+        return utf8tolatex(self.value)
 
     def sym(self, nested_scope=None):
         """Return the correspond symbolic number."""
         del nested_scope  # unused
-        return self.value
+        return float(self.value)
 
     def real(self, nested_scope=None):
         """Return the correspond floating point number."""

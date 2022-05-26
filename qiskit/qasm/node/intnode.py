@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -13,8 +11,6 @@
 # that they have been altered from the originals.
 
 """Node for an OPENQASM integer."""
-
-from sympy import N
 
 from .node import Node
 
@@ -33,23 +29,21 @@ class Int(Node):
 
     def to_string(self, indent):
         """Print with indent."""
-        ind = indent * ' '
-        print(ind, 'int', self.value)
+        ind = indent * " "
+        print(ind, "int", self.value)
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
-        del prec  # prec ignored
         return "%d" % self.value
 
-    def latex(self, prec=15, nested_scope=None):
+    def latex(self):
         """Return the corresponding math mode latex string."""
-        del prec, nested_scope  # ignored
         return "%d" % self.value
 
     def sym(self, nested_scope=None):
         """Return the correspond symbolic number."""
-        del nested_scope  # ignored
-        return N(self.value)
+        del nested_scope
+        return float(self.value)
 
     def real(self, nested_scope=None):
         """Return the correspond floating point number."""

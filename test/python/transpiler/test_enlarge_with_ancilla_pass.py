@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2019.
@@ -27,7 +25,8 @@ class TestEnlargeWithAncilla(QiskitTestCase):
     """Tests the EnlargeWithAncilla pass."""
 
     def setUp(self):
-        self.qr3 = QuantumRegister(3, 'qr')
+        super().setUp()
+        self.qr3 = QuantumRegister(3, "qr")
         circuit = QuantumCircuit(self.qr3)
         circuit.h(self.qr3)
         self.dag = circuit_to_dag(circuit)
@@ -36,7 +35,8 @@ class TestEnlargeWithAncilla(QiskitTestCase):
         """There are no virtual qubits to extend."""
         layout = Layout({self.qr3[0]: 0, self.qr3[1]: 1, self.qr3[2]: 2})
 
-        pass_ = EnlargeWithAncilla(layout)
+        pass_ = EnlargeWithAncilla()
+        pass_.property_set["layout"] = layout
         after = pass_.run(self.dag)
 
         qregs = list(after.qregs.values())
@@ -45,13 +45,15 @@ class TestEnlargeWithAncilla(QiskitTestCase):
 
     def test_with_extension(self):
         """There are 2 virtual qubit to extend."""
-        ancilla = QuantumRegister(2, 'ancilla')
+        ancilla = QuantumRegister(2, "ancilla")
 
-        layout = Layout({0: self.qr3[0], 1: ancilla[0],
-                         2: self.qr3[1], 3: ancilla[1],
-                         4: self.qr3[2]})
+        layout = Layout(
+            {0: self.qr3[0], 1: ancilla[0], 2: self.qr3[1], 3: ancilla[1], 4: self.qr3[2]}
+        )
+        layout.add_register(ancilla)
 
-        pass_ = EnlargeWithAncilla(layout)
+        pass_ = EnlargeWithAncilla()
+        pass_.property_set["layout"] = layout
         after = pass_.run(self.dag)
 
         qregs = list(after.qregs.values())
@@ -60,5 +62,5 @@ class TestEnlargeWithAncilla(QiskitTestCase):
         self.assertEqual(ancilla, qregs[1])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

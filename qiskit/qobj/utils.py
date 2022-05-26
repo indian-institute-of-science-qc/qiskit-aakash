@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -14,30 +12,26 @@
 
 """Qobj utilities and enums."""
 
-from enum import Enum
-
-from qiskit.validation.jsonschema import validate_json_against_schema
+from enum import Enum, IntEnum
 
 
 class QobjType(str, Enum):
     """Qobj.type allowed values."""
-    QASM = 'QASM'
-    PULSE = 'PULSE'
+
+    QASM = "QASM"
+    PULSE = "PULSE"
 
 
 class MeasReturnType(str, Enum):
     """PulseQobjConfig meas_return allowed values."""
-    AVERAGE = 'avg'
-    SINGLE = 'single'
+
+    AVERAGE = "avg"
+    SINGLE = "single"
 
 
-def validate_qobj_against_schema(qobj):
-    """Validates a QObj against the .json schema.
+class MeasLevel(IntEnum):
+    """MeasLevel allowed values."""
 
-    Args:
-        qobj (Qobj): Qobj to be validated.
-    """
-    validate_json_against_schema(
-        qobj.as_dict(), 'qobj',
-        err_msg='Qobj failed validation. Set Qiskit log level to DEBUG '
-                'for further information.')
+    RAW = 0
+    KERNELED = 1
+    CLASSIFIED = 2

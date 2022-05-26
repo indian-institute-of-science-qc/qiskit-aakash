@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -15,15 +13,24 @@
 """Base class for a backend provider."""
 
 from abc import ABC, abstractmethod
+import warnings
 
 from .exceptions import QiskitBackendNotFoundError
 
 
 class BaseProvider(ABC):
-    """
-    Base class for a backend provider.
-    """
-    def __init__(self, *args, **kwargs):
+    """Base class for a Backend Provider."""
+
+    def __init__(self, *args, **kwargs):  # pylint: disable=unused-argument
+        warnings.warn(
+            "The BaseProvider abstract interface is deprecated as of "
+            "the 0.18.0 release and will be removed in a future "
+            "release. Instead you should build your backends using "
+            "the ProviderV1 abstract class (which is the current "
+            "latest version of the provider interface).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         pass
 
     def get_backend(self, name=None, **kwargs):
@@ -31,20 +38,20 @@ class BaseProvider(ABC):
 
         Args:
             name (str): name of the backend.
-            **kwargs (dict): dict used for filtering.
+            **kwargs: dict used for filtering.
 
         Returns:
             BaseBackend: a backend matching the filtering.
 
         Raises:
             QiskitBackendNotFoundError: if no backend could be found or
-                more than one backend matches.
+                more than one backend matches the filtering criteria.
         """
         backends = self.backends(name, **kwargs)
         if len(backends) > 1:
-            raise QiskitBackendNotFoundError('More than one backend matches the criteria')
+            raise QiskitBackendNotFoundError("More than one backend matches the criteria")
         if not backends:
-            raise QiskitBackendNotFoundError('No backend matches the criteria')
+            raise QiskitBackendNotFoundError("No backend matches the criteria")
 
         return backends[0]
 
@@ -54,10 +61,10 @@ class BaseProvider(ABC):
 
         Args:
             name (str): name of the backend.
-            **kwargs (dict): dict used for filtering.
+            **kwargs: dict used for filtering.
 
         Returns:
-            list[BaseBackend]: a list of backends matching the filtering
+            list[BaseBackend]: a list of Backends that match the filtering
                 criteria.
         """
         pass

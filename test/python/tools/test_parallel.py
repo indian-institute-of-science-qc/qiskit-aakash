@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -18,38 +16,47 @@ import time
 
 from qiskit.tools.parallel import parallel_map
 from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit
+from qiskit.pulse import Schedule
 from qiskit.test import QiskitTestCase
 
 
 def _parfunc(x):
-    """Function for testing parallel_map
-    """
+    """Function for testing parallel_map"""
     time.sleep(1)
     return x
 
 
-def _build_simple(_):
+def _build_simple_circuit(_):
     qreg = QuantumRegister(2)
     creg = ClassicalRegister(2)
     qc = QuantumCircuit(qreg, creg)
     return qc
 
 
+def _build_simple_schedule(_):
+    return Schedule()
+
+
 class TestParallel(QiskitTestCase):
-    """A class for testing parallel_map functionality.
-    """
+    """A class for testing parallel_map functionality."""
 
     def test_parallel_env_flag(self):
-        """Verify parallel env flag is set """
-        self.assertEqual(os.getenv('QISKIT_IN_PARALLEL', None), 'FALSE')
+        """Verify parallel env flag is set"""
+        self.assertEqual(os.getenv("QISKIT_IN_PARALLEL", None), "FALSE")
 
     def test_parallel(self):
-        """Test parallel_map """
+        """Test parallel_map"""
         ans = parallel_map(_parfunc, list(range(10)))
         self.assertEqual(ans, list(range(10)))
 
     def test_parallel_circuit_names(self):
         """Verify unique circuit names in parallel"""
-        out_circs = parallel_map(_build_simple, list(range(10)))
+        out_circs = parallel_map(_build_simple_circuit, list(range(10)))
         names = [circ.name for circ in out_circs]
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_parallel_schedule_names(self):
+        """Verify unique schedule names in parallel"""
+        out_schedules = parallel_map(_build_simple_schedule, list(range(10)))
+        names = [schedule.name for schedule in out_schedules]
         self.assertEqual(len(names), len(set(names)))

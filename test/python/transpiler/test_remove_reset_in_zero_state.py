@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2019.
@@ -18,20 +16,19 @@ import unittest
 
 from qiskit import QuantumRegister, QuantumCircuit
 from qiskit.transpiler import PassManager
-from qiskit.compiler import transpile
 from qiskit.transpiler.passes import RemoveResetInZeroState, DAGFixedPoint
 from qiskit.converters import circuit_to_dag
 from qiskit.test import QiskitTestCase
 
 
 class TestRemoveResetInZeroState(QiskitTestCase):
-    """ Test swap-followed-by-measure optimizations. """
+    """Test swap-followed-by-measure optimizations."""
 
     def test_optimize_single_reset(self):
-        """ Remove a single reset
-            qr0:--|0>--   ==>    qr0:----
+        """Remove a single reset
+        qr0:--|0>--   ==>    qr0:----
         """
-        qr = QuantumRegister(1, 'qr')
+        qr = QuantumRegister(1, "qr")
         circuit = QuantumCircuit(qr)
         circuit.reset(qr)
         dag = circuit_to_dag(circuit)
@@ -44,10 +41,10 @@ class TestRemoveResetInZeroState(QiskitTestCase):
         self.assertEqual(circuit_to_dag(expected), after)
 
     def test_dont_optimize_non_zero_state(self):
-        """ Do not remove reset if not in a zero state
-            qr0:--[H]--|0>--   ==>    qr0:--[H]--|0>--
+        """Do not remove reset if not in a zero state
+        qr0:--[H]--|0>--   ==>    qr0:--[H]--|0>--
         """
-        qr = QuantumRegister(1, 'qr')
+        qr = QuantumRegister(1, "qr")
         circuit = QuantumCircuit(qr)
         circuit.h(qr)
         circuit.reset(qr)
@@ -63,12 +60,12 @@ class TestRemoveResetInZeroState(QiskitTestCase):
         self.assertEqual(circuit_to_dag(expected), after)
 
     def test_optimize_single_reset_in_diff_qubits(self):
-        """ Remove a single reset in different qubits
-            qr0:--|0>--          qr0:----
-                          ==>
-            qr1:--|0>--          qr1:----
+        """Remove a single reset in different qubits
+        qr0:--|0>--          qr0:----
+                      ==>
+        qr1:--|0>--          qr1:----
         """
-        qr = QuantumRegister(2, 'qr')
+        qr = QuantumRegister(2, "qr")
         circuit = QuantumCircuit(qr)
         circuit.reset(qr)
         dag = circuit_to_dag(circuit)
@@ -82,13 +79,13 @@ class TestRemoveResetInZeroState(QiskitTestCase):
 
 
 class TestRemoveResetInZeroStateFixedPoint(QiskitTestCase):
-    """ Test RemoveResetInZeroState in a transpiler, using fixed point. """
+    """Test RemoveResetInZeroState in a transpiler, using fixed point."""
 
     def test_two_resets(self):
-        """ Remove two initial resets
-            qr0:--|0>-|0>--   ==>    qr0:----
+        """Remove two initial resets
+        qr0:--|0>-|0>--   ==>    qr0:----
         """
-        qr = QuantumRegister(1, 'qr')
+        qr = QuantumRegister(1, "qr")
         circuit = QuantumCircuit(qr)
         circuit.reset(qr[0])
         circuit.reset(qr[0])
@@ -98,11 +95,12 @@ class TestRemoveResetInZeroStateFixedPoint(QiskitTestCase):
         pass_manager = PassManager()
         pass_manager.append(
             [RemoveResetInZeroState(), DAGFixedPoint()],
-            do_while=lambda property_set: not property_set['dag_fixed_point'])
-        after = transpile(circuit, pass_manager=pass_manager)
+            do_while=lambda property_set: not property_set["dag_fixed_point"],
+        )
+        after = pass_manager.run(circuit)
 
         self.assertEqual(expected, after)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -13,7 +11,6 @@
 # that they have been altered from the originals.
 
 """Node for an OPENQASM if statement."""
-
 from .node import Node
 
 
@@ -28,10 +25,15 @@ class If(Node):
 
     def __init__(self, children):
         """Create the if node."""
-        super().__init__('if', children, None)
+        super().__init__("if", children, None)
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return the corresponding OPENQASM string."""
-        return "if(" + self.children[0].qasm(prec) + "==" \
-               + str(self.children[1].value) + ") " + \
-               self.children[2].qasm(prec)
+        return (
+            "if("
+            + self.children[0].qasm()
+            + "=="
+            + str(self.children[1].value)
+            + ") "
+            + self.children[2].qasm()
+        )

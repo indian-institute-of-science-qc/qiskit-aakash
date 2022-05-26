@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2019.
@@ -15,50 +13,92 @@
 """
 Quantum bit and Classical bit objects.
 """
-from warnings import warn
-from qiskit.exceptions import QiskitError
+import warnings
+
+from qiskit.circuit.exceptions import CircuitError
 
 
 class Bit:
     """Implement a generic bit."""
 
-    def __init__(self, register, index):
-        """Create a new generic bit.
-        """
-        try:
-            index = int(index)
-        except Exception:
-            raise QiskitError("index needs to be castable to an int: type %s was provided" %
-                              type(index))
+    __slots__ = {"_register", "_index", "_hash", "_repr"}
 
-        if index < 0:
-            index += register.size
+    def __init__(self, register=None, index=None):
+        """Create a new generic bit."""
+        if (register, index) == (None, None):
+            self._register = None
+            self._index = None
+            # To sidestep the overridden Bit.__hash__ and use the default hash
+            # algorithm (only new-style Bits), call default object hash method.
+            self._hash = object.__hash__(self)
+        else:
+            try:
+                index = int(index)
+            except Exception as ex:
+                raise CircuitError(
+                    f"index needs to be castable to an int: type {type(index)} was provided"
+                ) from ex
 
-        if index >= register.size:
-            raise QiskitError("index must be under the size of the register: %s was provided" %
-                              index)
+            if index < 0:
+                index += register.size
 
-        self.register = register
-        self.index = index
+            if index >= register.size:
+                raise CircuitError(
+                    f"index must be under the size of the register: {index} was provided"
+                )
+
+            self._register = register
+            self._index = index
+            self._hash = hash((self._register, self._index))
+            self._repr = f"{self.__class__.__name__}({self._register}, {self._index})"
+
+    @property
+    def register(self):
+        """Get bit's register."""
+        if (self._register, self._index) == (None, None):
+            raise CircuitError("Attempt to query register of a new-style Bit.")
+
+        warnings.warn(
+            "Back-references to from Bit instances to their containing "
+            "Registers have been deprecated. Instead, inspect Registers "
+            "to find their contained Bits.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        return self._register
+
+    @property
+    def index(self):
+        """Get bit's index."""
+        if (self._register, self._index) == (None, None):
+            raise CircuitError("Attempt to query index of a new-style Bit.")
+
+        warnings.warn(
+            "Back-references to from Bit instances to their containing "
+            "Registers have been deprecated. Instead, inspect Registers "
+            "to find their contained Bits.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+        return self._index
 
     def __repr__(self):
         """Return the official string representing the bit."""
-        return "%s(%s, %s)" % (self.__class__.__name__, self.register, self.index)
-
-    def __getitem__(self, item):
-        warn('Accessing a bit register by bit[0] or its index by bit[1] is deprecated. '
-             'Go for bit.register and bit.index.', DeprecationWarning)
-        if item == 0:
-            return self.register
-        elif item == 1:
-            return self.index
-        else:
-            raise IndexError
+        if (self._register, self._index) == (None, None):
+            # Similar to __hash__, use default repr method for new-style Bits.
+            return object.__repr__(self)
+        return self._repr
 
     def __hash__(self):
-        return hash((self.register, self.index))
+        return self._hash
 
     def __eq__(self, other):
-        if isinstance(other, tuple):
-            return other[1] == self.index and other[0] == self.register
-        return other.index == self.index and other.register == self.register
+        if (self._register, self._index) == (None, None):
+            return other is self
+
+        try:
+            return self._repr == other._repr
+        except AttributeError:
+            return False

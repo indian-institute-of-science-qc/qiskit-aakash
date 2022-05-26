@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -21,8 +19,8 @@ from .nodeexception import NodeException
 
 
 VALID_OPERATORS = {
-    '+': operator.pos,
-    '-': operator.neg,
+    "+": operator.pos,
+    "-": operator.neg,
 }
 
 
@@ -31,9 +29,10 @@ class UnaryOperator(Node):
 
     This node has no children. The data is in the value field.
     """
+
     def __init__(self, operation):
         """Create the operator node."""
-        super().__init__('unary_operator', None, None)
+        super().__init__("unary_operator", None, None)
         self.value = operation
 
     def operation(self):
@@ -42,11 +41,9 @@ class UnaryOperator(Node):
         """
         try:
             return VALID_OPERATORS[self.value]
-        except KeyError:
-            raise NodeException("internal error: undefined prefix '%s'" %
-                                self.value)
+        except KeyError as ex:
+            raise NodeException(f"internal error: undefined prefix '{self.value}'") from ex
 
-    def qasm(self, prec=15):
+    def qasm(self):
         """Return QASM representation."""
-        del prec  # prec ignored
         return self.value

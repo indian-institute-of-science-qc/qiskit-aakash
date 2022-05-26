@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -12,7 +10,48 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Module for working with results."""
+"""
+=========================================
+Experiment Results (:mod:`qiskit.result`)
+=========================================
+
+.. currentmodule:: qiskit.result
+
+.. autosummary::
+   :toctree: ../stubs/
+
+   Result
+   ResultError
+   Counts
+   marginal_counts
+
+Distributions
+=============
+
+.. autosummary::
+   :toctree: ../stubs/
+
+   ProbDistribution
+   QuasiDistribution
+
+Mitigation
+==========
+.. autosummary::
+   :toctree: ../stubs/
+
+   BaseReadoutMitigator
+   CorrelatedReadoutMitigator
+   LocalReadoutMitigator
+
+"""
 
 from .result import Result
 from .exceptions import ResultError
+from .utils import marginal_counts
+from .counts import Counts
+
+from .distributions.probability import ProbDistribution
+from .distributions.quasi import QuasiDistribution
+from .mitigation.base_readout_mitigator import BaseReadoutMitigator
+from .mitigation.correlated_readout_mitigator import CorrelatedReadoutMitigator
+from .mitigation.local_readout_mitigator import LocalReadoutMitigator

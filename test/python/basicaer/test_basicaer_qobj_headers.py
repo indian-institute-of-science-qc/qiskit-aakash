@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017, 2018.
@@ -14,6 +12,10 @@
 
 """Tests for all BasicAer  simulators."""
 
+import io
+from logging import StreamHandler, getLogger
+import sys
+
 from qiskit import BasicAer
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister
 from qiskit.compiler import transpile
@@ -22,20 +24,33 @@ from qiskit.qobj import QobjHeader
 from qiskit.test import QiskitTestCase
 
 
+class StreamHandlerRaiseException(StreamHandler):
+    """Handler class that will raise an exception on formatting errors."""
+
+    def handleError(self, record):
+        raise sys.exc_info()
+
+
 class TestBasicAerQobj(QiskitTestCase):
     """Tests for all the Terra simulators."""
 
     def setUp(self):
         super().setUp()
+        logger = getLogger()
+        self.addCleanup(logger.setLevel, logger.level)
+        logger.setLevel("DEBUG")
+
+        self.output = io.StringIO()
+        logger.addHandler(StreamHandlerRaiseException(self.output))
 
         qr = QuantumRegister(1)
         cr = ClassicalRegister(1)
-        self.qc1 = QuantumCircuit(qr, cr, name='circuit0')
+        self.qc1 = QuantumCircuit(qr, cr, name="circuit0")
         self.qc1.h(qr[0])
 
     def test_qobj_headers_in_result(self):
         """Test that the qobj headers are passed onto the results."""
-        custom_qobj_header = {'x': 1, 'y': [1, 2, 3], 'z': {'a': 4}}
+        custom_qobj_header = {"x": 1, "y": [1, 2, 3], "z": {"a": 4}}
 
         for backend in BasicAer.backends():
             with self.subTest(backend=backend):
@@ -45,16 +60,8 @@ class TestBasicAerQobj(QiskitTestCase):
                 # Update the Qobj header.
                 qobj.header = QobjHeader.from_dict(custom_qobj_header)
                 # Update the Qobj.experiment header.
-                qobj.experiments[0].header.some_field = 'extra info'
+                qobj.experiments[0].header.some_field = "extra info"
 
                 result = backend.run(qobj).result()
                 self.assertEqual(result.header.to_dict(), custom_qobj_header)
-                self.assertEqual(result.results[0].header.some_field, 'extra info')
-
-    def test_job_qobj(self):
-        """Test job.qobj()."""
-        for backend in BasicAer.backends():
-            with self.subTest(backend=backend):
-                qobj = assemble(self.qc1)
-                job = backend.run(qobj)
-                self.assertEqual(job.qobj(), qobj)
+                self.assertEqual(result.results[0].header.some_field, "extra info")

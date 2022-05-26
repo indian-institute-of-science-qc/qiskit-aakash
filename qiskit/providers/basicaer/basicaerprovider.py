@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # This code is part of Qiskit.
 #
 # (C) Copyright IBM 2017.
@@ -19,7 +17,7 @@ from collections import OrderedDict
 import logging
 
 from qiskit.exceptions import QiskitError
-from qiskit.providers import BaseProvider
+from qiskit.providers.provider import ProviderV1
 from qiskit.providers.exceptions import QiskitBackendNotFoundError
 from qiskit.providers.providerutils import resolve_backend_name, filter_backends
 
@@ -38,12 +36,11 @@ SIMULATORS = [
     UnitarySimulatorPy
 ]
 
-
-class BasicAerProvider(BaseProvider):
+class BasicAerProvider(ProviderV1):
     """Provider for Basic Aer backends."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(args, kwargs)
+    def __init__(self):
+        super().__init__()
 
         # Populate the list of Basic Aer backends.
         self._backends = self._verify_backends()
@@ -56,14 +53,13 @@ class BasicAerProvider(BaseProvider):
         if name:
             try:
                 resolved_name = resolve_backend_name(
-                    name, backends,
-                    self._deprecated_backend_names(),
-                    {}
+                    name, backends, self._deprecated_backend_names(), {}
                 )
                 name = resolved_name
-            except LookupError:
+            except LookupError as ex:
                 raise QiskitBackendNotFoundError(
-                    "The '{}' backend is not installed in your system.".format(name))
+                    f"The '{name}' backend is not installed in your system."
+                ) from ex
 
         return super().get_backend(name=name, **kwargs)
 
@@ -76,12 +72,9 @@ class BasicAerProvider(BaseProvider):
         if name:
             try:
                 resolved_name = resolve_backend_name(
-                    name, backends,
-                    self._deprecated_backend_names(),
-                    {}
+                    name, backends, self._deprecated_backend_names(), {}
                 )
-                backends = [backend for backend in backends if
-                            backend.name() == resolved_name]
+                backends = [backend for backend in backends if backend.name() == resolved_name]
             except LookupError:
                 return []
 
@@ -91,7 +84,7 @@ class BasicAerProvider(BaseProvider):
     def _deprecated_backend_names():
         """Returns deprecated backend names."""
         return {
-            'dm_simulator_py': 'dm_simulator',
+            'dm_simulator': 'dm_simulator',
             'qasm_simulator_py': 'qasm_simulator',
             'dm_simulator_py': 'dm_simulator',
             'statevector_simulator_py': 'statevector_simulator',
@@ -114,14 +107,9 @@ class BasicAerProvider(BaseProvider):
         """
         ret = OrderedDict()
         for backend_cls in SIMULATORS:
-            try:
-                backend_instance = self._get_backend_instance(backend_cls)
-                backend_name = backend_instance.name()
-                ret[backend_name] = backend_instance
-            except QiskitError as err:
-                # Ignore backends that could not be initialized.
-                logger.info('Basic Aer backend %s is not available: %s',
-                            backend_cls, str(err))
+            backend_instance = self._get_backend_instance(backend_cls)
+            backend_name = backend_instance.name()
+            ret[backend_name] = backend_instance
         return ret
 
     def _get_backend_instance(self, backend_cls):
@@ -129,7 +117,7 @@ class BasicAerProvider(BaseProvider):
         Return an instance of a backend from its class.
 
         Args:
-            backend_cls (class): Backend class.
+            backend_cls (class): backend class.
         Returns:
             BaseBackend: a backend instance.
         Raises:
@@ -139,10 +127,9 @@ class BasicAerProvider(BaseProvider):
         try:
             backend_instance = backend_cls(provider=self)
         except Exception as err:
-            raise QiskitError('Backend %s could not be instantiated: %s' %
-                              (backend_cls, err))
+            raise QiskitError(f"Backend {backend_cls} could not be instantiated: {err}") from err
 
         return backend_instance
 
     def __str__(self):
-        return 'BasicAer'
+        return "BasicAer"
