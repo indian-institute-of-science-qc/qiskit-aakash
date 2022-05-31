@@ -10,7 +10,7 @@ python-dateutil>=2.8.0
 stevedore>=3.0.0
 symengine>=0.9 ; platform_machine == 'x86_64' or platform_machine == 'aarch64' or platform_machine == 'ppc64le' or platform_machine == 'amd64' or platform_machine == 'arm64'
 tweedledum>=1.1,<2.0
-jsonschema>=2.6,<2.7
+jsonschema>=2.6
 marshmallow>=2.17.0,<3
 marshmallow_polyfield>=3.2,<4
 matplotlib>=2.1
