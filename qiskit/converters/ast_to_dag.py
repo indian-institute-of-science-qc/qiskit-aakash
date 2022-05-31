@@ -353,7 +353,8 @@ class AstInterpreter:
 
         elif node.type == "custom_unitary":
             self._process_custom_unitary(node)
-#
+#       
+        elif node.type == "universal_unitary":
             self._process_u(node)
 #
 

@@ -25,7 +25,7 @@ class Measure(Instruction):
         Default being computational basis.
     """
 
-    def __init__(self, basis, add_param):
+    def __init__(self, basis=None, add_param=None):
         """Create new measurement instruction."""
         avail_basis = ['I', 'X', 'Y', 'Z', 'N', 'Bell', 'Ensemble', 'Expect']
         
