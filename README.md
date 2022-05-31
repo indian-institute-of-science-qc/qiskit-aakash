@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Qiskit dm_simulator User Guide
 ***
 The details about the implementation of the density matrix simulator is given in the `arxiv` paper [1908.05154](https://arxiv.org/abs/1908.05154).
