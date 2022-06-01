@@ -324,8 +324,7 @@ def execute(
 
     if isinstance(backend, BaseBackend):
         # assembling the circuits into a qobj to be run on the backend
-        if shots is None:
-            shots = 1024
+        
         if memory is None:
             memory = False
         if meas_level is None:
