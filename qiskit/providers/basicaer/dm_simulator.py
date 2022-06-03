@@ -886,7 +886,7 @@ class DmSimulatorPy(BaseBackend):
                 logger.warning('No measurements in circuit "%s", '
                                'classical register will remain all zeros.', name)
 
-    def run(self, qobj, backend_options=None):
+    def run(self, qobj, **kwargs):
         """Run qobj asynchronously.
 
         Args:
@@ -911,6 +911,7 @@ class DmSimulatorPy(BaseBackend):
                     "initial_densitymatrix": np.array([1, 0, 0, 1j]) / np.sqrt(2),
                 }
         """
+        backend_options=kwargs
         self._set_options(qobj_config=qobj.config,
                           backend_options=backend_options)
         job_id = str(uuid.uuid4())

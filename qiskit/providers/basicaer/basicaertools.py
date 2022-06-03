@@ -737,7 +737,7 @@ def partition(i_set, num_qubits):
         if mod_ins != []:
             # Bell, Expect and Ensemble measure form a partitiom on their own.
             if mod_ins[0].name=='measure' and getattr(mod_ins[0],'params',None) != None and mod_ins[0].params[0] in ['Bell', 'Expect', 'Ensemble']:
-                partition_list.append(mod_ins)
+                partition_list.append([mod_ins])
                 levels += 1
             else:
                 seq,level = partition_helper(mod_ins,num_qubits)
