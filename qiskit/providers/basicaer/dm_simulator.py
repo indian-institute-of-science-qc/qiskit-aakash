@@ -955,7 +955,7 @@ class DmSimulatorPy(BackendV1):
                 stacklevel=2,
             )
             qobj_options = qobj.config
-        self._set_options(qobj_config=qobj.config,
+        self._set_options(qobj_config=qobj_options,
                           backend_options=backend_options)
         job_id = str(uuid.uuid4())
         job = BasicAerJob(self, job_id, self._run_job(job_id,qobj))
