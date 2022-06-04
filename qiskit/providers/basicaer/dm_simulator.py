@@ -33,11 +33,13 @@ which can later be queried for the Result object.
 
 This is a derivative work of the Qiskit project. If you use it, please acknowledge
 H. Chaudhary, B. Mahato, L. Priyadarshi, N. Roshan, Utkarsh and A. Patel, arXiv:1908.?????
+Upgraded to Terra Stable v0.20 by Samarth Hawaldar, Nikhil Nair, Purnendu Sen, Shivalee Shah, Debabrata Bhattacharya, Apoorva Patel
 """
 
 import uuid
 import time
 import logging
+import warnings
 
 from math import log2
 from collections import Counter
@@ -47,10 +49,12 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 
+from qiskit.circuit.quantumcircuit import QuantumCircuit
 from qiskit.util import local_hardware_info
 from qiskit.providers.models import QasmBackendConfiguration
 from qiskit.result import Result
-from qiskit.providers import BaseBackend
+from qiskit.providers.backend import BackendV1
+from qiskit.providers.options import Options
 from qiskit.providers.basicaer.basicaerjob import BasicAerJob
 from .exceptions import BasicAerError
 from .basicaertools import *
@@ -58,7 +62,7 @@ from .basicaertools import *
 logger = logging.getLogger(__name__)
 
 
-class DmSimulatorPy(BaseBackend):
+class DmSimulatorPy(BackendV1):
     """Python implementation of a Density Matrix simulator.
     The density matrix is expressed in the orthogonal Pauli basis as
     rho = sum_{ij...} a_{ij...} sigma_i x sigma_j x ...
@@ -126,7 +130,10 @@ class DmSimulatorPy(BaseBackend):
         "bell_depolarization_factor": 1.,
         "decay_factor": 1.,
         "rotation_error": {'rx':[1., 0.], 'ry':[1., 0.], 'rz': [1., 0.]},
-        "tsp_model_error": [1., 0.]
+        "tsp_model_error": [1., 0.],
+        "custom_densitymatrix": None,
+        "show_partition": False,
+        "plot": False,
     }
 
     # Class level variable to return the final state at the end of simulation
@@ -174,21 +181,38 @@ class DmSimulatorPy(BaseBackend):
         self._fidelity = None
         self._density_matrix_stored = None
 
+    @classmethod
+    def _default_options(cls):
+        return Options(
+            initial_densitymatrix= None,
+            chop_threshold= 1e-15,
+            thermal_factor= 1.,
+            decoherence_factor= 1.,
+            depolarization_factor= 1.,
+            bell_depolarization_factor= 1.,
+            decay_factor= 1.,
+            rotation_error= {'rx':[1., 0.], 'ry':[1., 0.], 'rz': [1., 0.]},
+            tsp_model_error= [1., 0.],
+            custom_densitymatrix=None,
+            show_partition=False,
+            plot=False,
+        )
+    
     def _set_options(self, qobj_config=None, backend_options=None):
         """Set the backend options for all experiments in a qobj"""
         # Reset default options
-        self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
-        self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
-        self._rotation_error = self.DEFAULT_OPTIONS["rotation_error"]
-        self._tsp_model_error = self.DEFAULT_OPTIONS["tsp_model_error"]
-        self._thermal_factor = self.DEFAULT_OPTIONS["thermal_factor"]
-        self._decoherence_factor = self.DEFAULT_OPTIONS["decoherence_factor"]
-        self._decay_factor = self.DEFAULT_OPTIONS["decay_factor"]
-        self._depolarization_factor = self.DEFAULT_OPTIONS["depolarization_factor"]
-        self._bell_depolarization_factor = self.DEFAULT_OPTIONS["bell_depolarization_factor"]
-
-        if backend_options is None:
-            backend_options = {}
+        self._initial_densitymatrix = self.options.get("initial_densitymatrix")
+        self._chop_threshold = self.options.get("chop_threshold")
+        self._rotation_error = self.options.get("rotation_error")
+        self._tsp_model_error = self.options.get("tsp_model_error")
+        self._thermal_factor = self.options.get("thermal_factor")
+        self._decoherence_factor = self.options.get("decoherence_factor")
+        self._decay_factor = self.options.get("decay_factor")
+        self._depolarization_factor = self.options.get("depolarization_factor")
+        self._bell_depolarization_factor = self.options.get("bell_depolarization_factor")
+        
+        if "backend_options" in backend_options and backend_options["backend_options"]:
+            backend_options = backend_options["backend_options"]
 
         # Check for custom initial density matrix in backend_options first,
         # otherwise take it from config.
@@ -911,6 +935,26 @@ class DmSimulatorPy(BaseBackend):
                     "initial_densitymatrix": np.array([1, 0, 0, 1j]) / np.sqrt(2),
                 }
         """
+        if isinstance(qobj, (QuantumCircuit, list)):
+            from qiskit.compiler import assemble
+
+            out_options = {}
+            for key in backend_options:
+                if not hasattr(self.options, key):
+                    warnings.warn(
+                        "Option %s is not used by this backend" % key, UserWarning, stacklevel=2
+                    )
+                else:
+                    out_options[key] = backend_options[key]
+            qobj = assemble(qobj, self, **out_options)
+            qobj_options = qobj.config
+        else:
+            warnings.warn(
+                "Using a qobj for run() is deprecated and will be removed in a future release.",
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
+            qobj_options = qobj.config
         self._set_options(qobj_config=qobj.config,
                           backend_options=backend_options)
         job_id = str(uuid.uuid4())
@@ -1295,7 +1339,9 @@ class DmSimulatorPy(BaseBackend):
                     param = [round(x, 6) for x in inst.params]
                     print("U3", "   qubit", qubit, "    ", param)
                 if name == 'u1':
+                    # print(inst.params[0]._symbol_expr)
                     param = [round(x, 6) for x in inst.params]
+                    # param = inst.params
                     print("U1", "   qubit", qubit, "    ", param)
                 elif name == 'cx':
                     print("C-NOT", "   qubit", qubit)

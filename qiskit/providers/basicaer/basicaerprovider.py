@@ -84,7 +84,6 @@ class BasicAerProvider(ProviderV1):
     def _deprecated_backend_names():
         """Returns deprecated backend names."""
         return {
-            'dm_simulator': 'dm_simulator',
             'qasm_simulator_py': 'qasm_simulator',
             'dm_simulator_py': 'dm_simulator',
             'statevector_simulator_py': 'statevector_simulator',

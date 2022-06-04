@@ -16,8 +16,10 @@ from typing import Callable, Dict, Set, Union
 
 import numbers
 import operator
+import decimal
 
 import numpy
+import sympy
 
 from qiskit.circuit.exceptions import CircuitError
 from qiskit.utils import optionals as _optionals
@@ -344,6 +346,16 @@ class ParameterExpression:
 
     def __rtruediv__(self, other):
         return self._apply_operation(operator.truediv, other, reflected=True)
+
+    # def dround(d, ndigits, rounding=decimal.ROUND_HALF_UP):
+    #     result = D(str(d)).quantize(D('0.1')**ndigits, rounding=rounding)
+    #     # result = sym.sympify(result)  # if you want a SymPy Float
+    #     return result
+
+    def __round__(self, ndigits):
+        out_expr = self.__copy__()
+        out_expr._symbol_expr = round(float(self._symbol_expr),ndigits)
+        return out_expr
 
     def _call(self, ufunc):
         return ParameterExpression(self._parameter_symbols, ufunc(self._symbol_expr))
