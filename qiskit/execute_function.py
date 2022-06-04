@@ -28,6 +28,7 @@ from qiskit.providers.backend import Backend
 from qiskit.qobj.utils import MeasLevel, MeasReturnType
 from qiskit.pulse import Schedule, ScheduleBlock
 from qiskit.exceptions import QiskitError
+from qiskit.providers.basicaer.dm_simulator import DmSimulatorPy
 
 logger = logging.getLogger(__name__)
 
@@ -321,11 +322,12 @@ def execute(
             DeprecationWarning,
             stacklevel=2,
         )
-
+    
     if isinstance(backend, BaseBackend):
         # assembling the circuits into a qobj to be run on the backend
-        if shots is None:
-            shots = 1024
+        if not isinstance(backend,DmSimulatorPy):
+           if shots is None:
+              shots=1024
         if memory is None:
             memory = False
         if meas_level is None:

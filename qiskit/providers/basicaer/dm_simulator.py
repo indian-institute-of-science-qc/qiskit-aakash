@@ -886,7 +886,7 @@ class DmSimulatorPy(BaseBackend):
                 logger.warning('No measurements in circuit "%s", '
                                'classical register will remain all zeros.', name)
 
-    def run(self, qobj, backend_options=None):
+    def run(self, qobj, **backend_options):
         """Run qobj asynchronously.
 
         Args:
@@ -914,7 +914,7 @@ class DmSimulatorPy(BaseBackend):
         self._set_options(qobj_config=qobj.config,
                           backend_options=backend_options)
         job_id = str(uuid.uuid4())
-        job = BasicAerJob(self, job_id, self._run_job, qobj)
+        job = BasicAerJob(self, job_id, self._run_job(job_id,qobj))
         job.submit()
         return job
 
@@ -943,7 +943,7 @@ class DmSimulatorPy(BaseBackend):
                   'status': 'COMPLETED',
                   'success': True,
                   'time_taken': end-start,
-                  'header': qobj.header.as_dict()}
+                  'header': qobj.header.to_dict()}
 
         return result
 
@@ -1193,7 +1193,7 @@ class DmSimulatorPy(BaseBackend):
                 'success': True,
                 'processing_time_taken': -start_processing+end_processing,
                 'running_time_taken': -start_runtime+end_runtime,
-                'header': experiment.header.as_dict()}
+                'header': experiment.header.to_dict()}
 
     def _compute_densitymatrix(self, dmpauli):
         '''
