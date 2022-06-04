@@ -959,7 +959,7 @@ class DmSimulatorPy(BackendV1):
                           backend_options=backend_options)
         job_id = str(uuid.uuid4())
         job = BasicAerJob(self, job_id, self._run_job(job_id,qobj))
-        job.submit()
+        # job.submit()
         return job
 
     def _run_job(self, job_id, qobj):
@@ -987,9 +987,11 @@ class DmSimulatorPy(BackendV1):
                   'status': 'COMPLETED',
                   'success': True,
                   'time_taken': end-start,
-                  'header': qobj.header.to_dict()}
+                  'header': qobj.header.to_dict(),
+                  }
 
-        return result
+        # return result
+        return Result.from_dict(result)
 
     def run_experiment(self, experiment):
         """Run an experiment (circuit) and return a single experiment result.
