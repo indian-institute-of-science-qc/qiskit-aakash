@@ -9,5 +9,5 @@ qc4.measure(0,0,basis='Expect',add_param='ZIZ')
 backend = BasicAer.get_backend('dm_simulator')
 run4 = execute(qc4,backend)
 result4 = run4.result()
-result4['results'][0]['data']['Pauli_string_expectation']
+print(result4['results'][0]['data']['Pauli_string_expectation'])
 print('Density Matrix: \n',result4['results'][0]['data']['densitymatrix'])
