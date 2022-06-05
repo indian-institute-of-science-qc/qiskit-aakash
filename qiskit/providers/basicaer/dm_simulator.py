@@ -1046,8 +1046,9 @@ class DmSimulatorPy(BackendV1):
             "header": qobj.header.to_dict(),
         }
 
-        return result
-        # return Result.from_dict(result)
+        # return result
+        # return Result(**result)
+        return Result.from_dict(result)
 
     def run_experiment(self, experiment):
         """Run an experiment (circuit) and return a single experiment result.
@@ -1328,6 +1329,7 @@ class DmSimulatorPy(BackendV1):
             "processing_time_taken": -start_processing + end_processing,
             "running_time_taken": -start_runtime + end_runtime,
             "header": experiment.header.to_dict(),
+            "shots": 0
         }
 
     def _compute_densitymatrix(self, dmpauli):
