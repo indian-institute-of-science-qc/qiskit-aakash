@@ -6,4 +6,4 @@ options2 = {"custom_densitymatrix": "binary_string", "initial_densitymatrix": "0
 backend = BasicAer.get_backend("dm_simulator")
 run2 = execute(qc2, backend, **options2)
 result2 = run2.result()
-print("Density Matrix: \n", result2["results"][0]["data"]["densitymatrix"])
+print("Density Matrix: \n", result2.results[0].data.densitymatrix)

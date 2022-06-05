@@ -33,8 +33,8 @@ result = run.result()
 run_error = execute(qc, backend, **options1)
 result_error = run_error.result()
 # Final state (probabilities)
-prob = result["results"][0]["data"]["ensemble_probability"]
-prob1 = result_error["results"][0]["data"]["ensemble_probability"]
+prob = result.results[0].data.ensemble_probability
+prob1 = result_error.results[0].data.ensemble_probability
 import numpy as np
 
 labels = prob1.keys()

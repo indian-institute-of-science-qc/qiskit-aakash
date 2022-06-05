@@ -11,5 +11,5 @@ backend = BasicAer.get_backend("dm_simulator")
 options3 = {"plot": True}
 run3 = execute(qc3, backend, **options3)
 result3 = run3.result()
-result3["results"][0]["data"]["ensemble_probability"]
-print("Density Matrix: \n", result3["results"][0]["data"]["densitymatrix"])
+result3.results[0].data.ensemble_probability
+print("Density Matrix: \n", result3.results[0].data.densitymatrix)

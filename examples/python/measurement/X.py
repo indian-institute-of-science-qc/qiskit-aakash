@@ -8,5 +8,5 @@ qc.measure(0, 0, basis="X")
 backend = BasicAer.get_backend("dm_simulator")
 run = execute(qc, backend)
 result = run.result()
-result["results"][0]["data"]["densitymatrix"]
-print("Density Matrix: \n", result["results"][0]["data"]["densitymatrix"])
+result.results[0].data.densitymatrix
+print("Density Matrix: \n", result.results[0].data.densitymatrix)
