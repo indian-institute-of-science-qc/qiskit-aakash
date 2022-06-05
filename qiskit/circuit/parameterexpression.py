@@ -354,7 +354,7 @@ class ParameterExpression:
 
     def __round__(self, ndigits):
         out_expr = self.__copy__()
-        out_expr._symbol_expr = round(float(self._symbol_expr),ndigits)
+        out_expr._symbol_expr = round(float(self._symbol_expr), ndigits)
         return out_expr
 
     def _call(self, ufunc):

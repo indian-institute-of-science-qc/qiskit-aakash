@@ -322,12 +322,12 @@ def execute(
             DeprecationWarning,
             stacklevel=2,
         )
-    
+
     if isinstance(backend, BaseBackend):
         # assembling the circuits into a qobj to be run on the backend
-        if not isinstance(backend,DmSimulatorPy):
-           if shots is None:
-              shots=1024
+        if not isinstance(backend, DmSimulatorPy):
+            if shots is None:
+                shots = 1024
         if memory is None:
             memory = False
         if meas_level is None:

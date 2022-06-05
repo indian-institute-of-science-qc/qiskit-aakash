@@ -20,6 +20,7 @@ import numpy as np
 from qiskit.exceptions import QiskitError
 from qiskit.quantum_info.operators.symplectic.pauli import Pauli
 
+
 def pauli_group(number_of_qubits, case="weight"):
     """DEPRECATED: Return the Pauli group with 4^n elements.
 

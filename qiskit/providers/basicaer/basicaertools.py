@@ -26,6 +26,7 @@ import itertools
 # Single qubit gates supported by ``single_gate_params``.
 SINGLE_QUBIT_GATES = ("U", "u1", "u2", "u3", "rz", "sx", "x")
 
+
 def single_gate_matrix(gate: str, params: Optional[List[float]] = None):
     """Get the matrix for a single qubit.
 
@@ -43,7 +44,7 @@ def single_gate_matrix(gate: str, params: Optional[List[float]] = None):
     # This a is a probable a FIXME since it might show bugs in the simulator.
 
     if params is None:
-            params = []
+        params = []
 
     if gate == "U":
         gc = gates.UGate
@@ -66,6 +67,7 @@ def single_gate_matrix(gate: str, params: Optional[List[float]] = None):
 
     return gc(*params).to_matrix()
 
+
 def single_gate_dm_matrix(gate, params=None):
     """Get the rotation matrix for a single qubit in density matrix formalism.
 
@@ -73,28 +75,28 @@ def single_gate_dm_matrix(gate, params=None):
         gate(str): the single qubit gate name
         params(list): the operation parameters op['params']
     Returns:
-        array: Decomposition in terms of 'ry', 'rz' with their angles. 
+        array: Decomposition in terms of 'ry', 'rz' with their angles.
     """
     decomp_gate = []
     param = list(map(float, params))
 
-    if gate in ('U', 'u3'):
-        decomp_gate.append(['rz', param[2]])
-        decomp_gate.append(['ry', param[0]])
-        decomp_gate.append(['rz', param[1]])
-    elif gate == 'u1':
-        decomp_gate.append(['rz', param[0]])
+    if gate in ("U", "u3"):
+        decomp_gate.append(["rz", param[2]])
+        decomp_gate.append(["ry", param[0]])
+        decomp_gate.append(["rz", param[1]])
+    elif gate == "u1":
+        decomp_gate.append(["rz", param[0]])
     else:
-        raise QiskitError('Gate is not among the valid types: %s' % gate)
+        raise QiskitError("Gate is not among the valid types: %s" % gate)
 
     return decomp_gate
 
 
 def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
-    """   
+    """
     The error model adds a fluctuation to the angle param,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
-    
+
     Args:
         gate (string): Rotation axis
         param (float): Rotation angle
@@ -106,19 +108,18 @@ def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
     c = err_param[0] * np.cos(param + err_param[1])
     s = err_param[0] * np.sin(param + err_param[1])
 
-    if gate == 'rz':
+    if gate == "rz":
         k = [1, 2]
-    elif gate == 'ry':
+    elif gate == "ry":
         k = [3, 1]
-    elif gate == 'rx':
+    elif gate == "rx":
         k = [2, 3]
     else:
-        raise QiskitError(
-            'Gate is not among the valid decomposition types: %s' % gate)
+        raise QiskitError("Gate is not among the valid decomposition types: %s" % gate)
 
     state1 = state.copy()
-    temp1 = state1[:,k[0],:]
-    temp2 = state1[:,k[1],:]
+    temp1 = state1[:, k[0], :]
+    temp2 = state1[:, k[1], :]
 
     state[:, k[0], :] = c * temp1 - s * temp2
     state[:, k[1], :] = c * temp2 + s * temp1
@@ -127,27 +128,27 @@ def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
 
 
 def U3_merge(xi, theta1, theta2):
-    """ Performs merge operation when both the gates are U3,
+    """Performs merge operation when both the gates are U3,
         by transforming the Y-Z-Y decomposition of the gates to the Z-Y-Z decomposition.
         Args:
             [xi, theta1, theta2] (list, type:float ):  {Ry(theta1) , Rz(xi) , Ry(theta2)}
             0 <= theta1, theta2 <= Pi , 0 <= xi <= 2*Pi
         Return
             [β, α, γ] (list, type:float ):  {Rz(α) , Ry(β) , Rz(γ)}
-            0 <= β <= Pi , 0 <= α, γ <= 2*Pi     
+            0 <= β <= Pi , 0 <= α, γ <= 2*Pi
 
     Input Matrix Form
     {
-        E^(-((I xi)/2))*cos[theta1/2]*cos[theta2/2] - 
+        E^(-((I xi)/2))*cos[theta1/2]*cos[theta2/2] -
         E^((I xi)/2)*sin[theta1/2]*sin[theta2/2]	(1,1)
 
-       -E^(((I xi)/2))*sin[theta1/2]*cos[theta2/2] - 
+       -E^(((I xi)/2))*sin[theta1/2]*cos[theta2/2] -
         E^(-((I xi)/2))*cos[theta1/2]*sin[theta2/2]  (1,2)
 
-        E^(-((I xi)/2))*sin[theta1/2]*cos[theta2/2] + 
+        E^(-((I xi)/2))*sin[theta1/2]*cos[theta2/2] +
         E^((I xi)/2)*cos[theta1/2]*sin[theta2/2]	(2,1)
 
-        E^((I xi)/2)*cos[theta1/2]*cos[theta2/2] - 
+        E^((I xi)/2)*cos[theta1/2]*cos[theta2/2] -
         E^(-((I xi)/2))*sin[theta1/2]*sin[theta2/2]  (2,2)
     }
     Output Matrix Form
@@ -159,20 +160,20 @@ def U3_merge(xi, theta1, theta2):
 
     """
 
-    sxi = np.sin(xi*0.5)
-    cxi = np.cos(xi*0.5)
-    sth1p2 = np.sin((theta1+theta2)*0.5)
-    cth1p2 = np.cos((theta1+theta2)*0.5)
-    sth1m2 = np.sin((theta1-theta2)*0.5)
-    cth1m2 = np.cos((theta1-theta2)*0.5)
+    sxi = np.sin(xi * 0.5)
+    cxi = np.cos(xi * 0.5)
+    sth1p2 = np.sin((theta1 + theta2) * 0.5)
+    cth1p2 = np.cos((theta1 + theta2) * 0.5)
+    sth1m2 = np.sin((theta1 - theta2) * 0.5)
+    cth1m2 = np.cos((theta1 - theta2) * 0.5)
 
-    apg2 = np.arctan2(sxi*cth1m2, cxi*cth1p2)
-    amg2 = np.arctan2(-sxi*sth1m2, cxi*sth1p2)
+    apg2 = np.arctan2(sxi * cth1m2, cxi * cth1p2)
+    amg2 = np.arctan2(-sxi * sth1m2, cxi * sth1p2)
 
     alpha = apg2 + amg2
     gamma = apg2 - amg2
 
-    cb2 = np.sqrt((cxi*cth1p2)**2 + (sxi*cth1m2)**2)
+    cb2 = np.sqrt((cxi * cth1p2) ** 2 + (sxi * cth1m2) ** 2)
     beta = 2 * np.arccos(cb2)
 
     return beta, alpha, gamma
@@ -187,7 +188,7 @@ def mergeU(gate1, gate2):
     Return:
         Gate    ([Inst, index])
     """
-    #print("Merged ",gate1[0].name, "qubit", gate1[0].qubits, " with ", gate2[0].name, "qubit", gate2[0].qubits)
+    # print("Merged ",gate1[0].name, "qubit", gate1[0].qubits, " with ", gate2[0].name, "qubit", gate2[0].qubits)
     temp = None
     # To preserve the sequencing we choose the smaller index while merging.
     if gate1[1] < gate2[1]:
@@ -195,26 +196,26 @@ def mergeU(gate1, gate2):
     else:
         temp = deepcopy(gate2)
 
-    if gate1[0].name == 'u1' and gate2[0].name == 'u1':
+    if gate1[0].name == "u1" and gate2[0].name == "u1":
         temp[0].params[0] = gate1[0].params[0] + gate2[0].params[0]
-    elif gate1[0].name == 'u1' or gate2[0].name == 'u1':
+    elif gate1[0].name == "u1" or gate2[0].name == "u1":
         # If first gate is U1
-        if temp[0].name == 'u1':
-            temp[0].name = 'u3'
+        if temp[0].name == "u1":
+            temp[0].name = "u3"
             for i in range(2):
                 temp[0].params.append(0)
 
-        if gate1[0].name == 'u1' and gate2[0].name == 'u3':
+        if gate1[0].name == "u1" and gate2[0].name == "u3":
             temp[0].params[0] = gate2[0].params[0]
             temp[0].params[1] = gate2[0].params[1]
             temp[0].params[2] = gate2[0].params[2] + gate1[0].params[0]
-        elif gate1[0].name == 'u3' and gate2[0].name == 'u1':
+        elif gate1[0].name == "u3" and gate2[0].name == "u1":
             temp[0].params[0] = gate1[0].params[0]
             temp[0].params[1] = gate1[0].params[1] + gate2[0].params[0]
             temp[0].params[2] = gate1[0].params[2]
-    elif gate1[0].name == 'u3' and gate2[0].name == 'u3':
-        theta = float(gate2[0].params[2] + gate1[0].params[1]) 
-        phi = float(gate2[0].params[0]) 
+    elif gate1[0].name == "u3" and gate2[0].name == "u3":
+        theta = float(gate2[0].params[2] + gate1[0].params[1])
+        phi = float(gate2[0].params[0])
         lamb = float(gate1[0].params[0])
 
         res = U3_merge(theta, phi, lamb)
@@ -224,7 +225,8 @@ def mergeU(gate1, gate2):
         temp[0].params[2] = gate1[0].params[2] + res[2]
     else:
         raise QiskitError(
-            'Encountered unrecognized instructions: %s, %s' % gate1[0].name, gate2[0].name)
+            "Encountered unrecognized instructions: %s, %s" % gate1[0].name, gate2[0].name
+        )
     return temp
 
 
@@ -250,11 +252,11 @@ def merge_gates(inst):
 
 def single_gate_merge(inst, num_qubits, merge_flag=True):
     """
-        Merges single gates applied consecutively to each qubit in the circuit.
-        Args:
-            inst [QASM Inst]:   List of instructions (original)
-        Return
-            inst [QASM Inst]:   List of instructions after merging
+    Merges single gates applied consecutively to each qubit in the circuit.
+    Args:
+        inst [QASM Inst]:   List of instructions (original)
+    Return
+        inst [QASM Inst]:   List of instructions after merging
     """
 
     single_gt = [[] for x in range(num_qubits)]
@@ -265,26 +267,26 @@ def single_gate_merge(inst, num_qubits, merge_flag=True):
             # To preserve the sequencing of the instructions
             opx = [op, ind]
             # Gates that are not single qubit rotations separate merging segments
-            if opx[0].name in ('CX', 'cx', 'measure', 'bfunc', 'reset', 'barrier'):
+            if opx[0].name in ("CX", "cx", "measure", "bfunc", "reset", "barrier"):
                 for idx, sg in enumerate(single_gt):
                     if sg:
                         inst_merged.append(merge_gates(sg))
                         single_gt[idx] = []
-                if opx[0].name == 'CX':
-                    opx[0].name = 'cx'
+                if opx[0].name == "CX":
+                    opx[0].name = "cx"
                 inst_merged.append(opx[0])
             # Single qubit rotations are appended to their respective qubit instructions
-            elif opx[0].name in ('U', 'u1', 'u2', 'u3'):
-                if opx[0].name == 'U':
-                    opx[0].name = 'u3'
-                elif opx[0].name == 'u2':
-                    opx[0].name = 'u3'
-                    opx[0].params.insert(0, np.pi/2)
+            elif opx[0].name in ("U", "u1", "u2", "u3"):
+                if opx[0].name == "U":
+                    opx[0].name = "u3"
+                elif opx[0].name == "u2":
+                    opx[0].name = "u3"
+                    opx[0].params.insert(0, np.pi / 2)
                 single_gt[op.qubits[0]].append(opx)
-            elif opx[0].name in ['id', 'u0']:
+            elif opx[0].name in ["id", "u0"]:
                 continue
             else:
-                raise QiskitError('Encountered unrecognized instruction: %s' % op)
+                raise QiskitError("Encountered unrecognized instruction: %s" % op)
 
         # To merge the final remaining gates
         for gts in single_gt:
@@ -293,15 +295,15 @@ def single_gate_merge(inst, num_qubits, merge_flag=True):
     else:
         for op in inst:
             # Only names are changed without merging
-            if op.name == 'CX':
-                op.name = 'cx'
-            elif op.name == 'U':
-                    op.name = 'u3'
-            elif op.name == 'u2':
-                op.name = 'u3'
-                op.params.insert(0, np.pi/2)
-            
-            if op.name not in ['id', 'u0']:
+            if op.name == "CX":
+                op.name = "cx"
+            elif op.name == "U":
+                op.name = "u3"
+            elif op.name == "u2":
+                op.name = "u3"
+                op.params.insert(0, np.pi / 2)
+
+            if op.name not in ["id", "u0"]:
                 inst_merged.append(op)
 
     return inst_merged
@@ -312,7 +314,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
 
         Args:
         state : density matrix
-        q_1 (int): Control qubit 
+        q_1 (int): Control qubit
         q_2 (int): Target qubit
         Note : Ordering of qubits (MSB right, LSB left)
 
@@ -327,69 +329,94 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
 
     # Calculating all cos and sin in advance
     cav = err_param[0]
-    c2av = 4*cav - 3 # assuming small fluctuations in angle "a"
+    c2av = 4 * cav - 3  # assuming small fluctuations in angle "a"
     c = cav * np.cos(err_param[1])
     s = cav * np.sin(err_param[1])
-    c2 = 0.5 * (1 + c2av * np.cos(2*err_param[1]))
-    s2 = 0.5 * (1 - c2av * np.cos(2*err_param[1]))
+    c2 = 0.5 * (1 + c2av * np.cos(2 * err_param[1]))
+    s2 = 0.5 * (1 - c2av * np.cos(2 * err_param[1]))
     s = cav * np.sin(err_param[1])
     cs = c2av * np.sin(err_param[1]) * np.cos(err_param[1])
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
-        raise QiskitError('Qubit Labels out of bound in CX Gate')
+        raise QiskitError("Qubit Labels out of bound in CX Gate")
     elif q_2 > q_1:
         # Reshape Density Matrix
-        rt, mt2, ct, mt1, lt = 4**(num_qubits-q_2 - 1), 4, 4**(q_2-q_1-1), 4, 4**(q_1)
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
 
-        state[:, 0, :, 2, :] = s2*temp_dm[:, 0, :, 2, :] + c2*temp_dm[:, 3, :, 2, :] - \
-                          cs*(temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :])
-        state[:, 3, :, 2, :] = c2*temp_dm[:, 0, :, 2, :] + s2*temp_dm[:, 3, :, 2, :] + \
-                          cs*(temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :])
-        state[:, 0, :, 3, :] = s2*temp_dm[:, 0, :, 3, :] + c2*temp_dm[:, 3, :, 3, :] + \
-                          cs*(temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :]) 
-        state[:, 3, :, 3, :] = c2*temp_dm[:, 0, :, 3, :] + s2*temp_dm[:, 3, :, 3, :] - \
-                          cs*(temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :])
+        state[:, 0, :, 2, :] = (
+            s2 * temp_dm[:, 0, :, 2, :]
+            + c2 * temp_dm[:, 3, :, 2, :]
+            - cs * (temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :])
+        )
+        state[:, 3, :, 2, :] = (
+            c2 * temp_dm[:, 0, :, 2, :]
+            + s2 * temp_dm[:, 3, :, 2, :]
+            + cs * (temp_dm[:, 0, :, 3, :] - temp_dm[:, 3, :, 3, :])
+        )
+        state[:, 0, :, 3, :] = (
+            s2 * temp_dm[:, 0, :, 3, :]
+            + c2 * temp_dm[:, 3, :, 3, :]
+            + cs * (temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :])
+        )
+        state[:, 3, :, 3, :] = (
+            c2 * temp_dm[:, 0, :, 3, :]
+            + s2 * temp_dm[:, 3, :, 3, :]
+            - cs * (temp_dm[:, 0, :, 2, :] - temp_dm[:, 3, :, 2, :])
+        )
 
-        state[:, 1, :, 0, :] = c*temp_dm[:, 1, :, 1, :] - s*temp_dm[:, 2, :, 0, :]
-        state[:, 1, :, 1, :] = c*temp_dm[:, 1, :, 0, :] - s*temp_dm[:, 2, :, 1, :]
-        state[:, 1, :, 2, :] = -s*temp_dm[:, 2, :, 2, :] + c*temp_dm[:, 2, :, 3, :]
-        state[:, 1, :, 3, :] = -c*temp_dm[:, 2, :, 2, :] - s*temp_dm[:, 2, :, 3, :]
+        state[:, 1, :, 0, :] = c * temp_dm[:, 1, :, 1, :] - s * temp_dm[:, 2, :, 0, :]
+        state[:, 1, :, 1, :] = c * temp_dm[:, 1, :, 0, :] - s * temp_dm[:, 2, :, 1, :]
+        state[:, 1, :, 2, :] = -s * temp_dm[:, 2, :, 2, :] + c * temp_dm[:, 2, :, 3, :]
+        state[:, 1, :, 3, :] = -c * temp_dm[:, 2, :, 2, :] - s * temp_dm[:, 2, :, 3, :]
 
-        state[:, 2, :, 0, :] = s*temp_dm[:, 1, :, 0, :] + c*temp_dm[:, 2, :, 1, :]
-        state[:, 2, :, 1, :] = s*temp_dm[:, 1, :, 1, :] + c*temp_dm[:, 2, :, 0, :]
-        state[:, 2, :, 2, :] = s*temp_dm[:, 1, :, 2, :] - c*temp_dm[:, 1, :, 3, :]
-        state[:, 2, :, 3, :] = c*temp_dm[:, 1, :, 2, :] + s*temp_dm[:, 1, :, 3, :]
+        state[:, 2, :, 0, :] = s * temp_dm[:, 1, :, 0, :] + c * temp_dm[:, 2, :, 1, :]
+        state[:, 2, :, 1, :] = s * temp_dm[:, 1, :, 1, :] + c * temp_dm[:, 2, :, 0, :]
+        state[:, 2, :, 2, :] = s * temp_dm[:, 1, :, 2, :] - c * temp_dm[:, 1, :, 3, :]
+        state[:, 2, :, 3, :] = c * temp_dm[:, 1, :, 2, :] + s * temp_dm[:, 1, :, 3, :]
 
     else:
         # Reshape Density Matrix
-        rt, mt2, ct, mt1, lt = 4**(num_qubits-q_1 -1), 4, 4**(q_1-q_2-1), 4, 4**(q_2)
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_1 - 1), 4, 4 ** (q_1 - q_2 - 1), 4, 4 ** (q_2)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
 
-        state[:, 2, :, 0, :] = s2*temp_dm[:, 2, :, 0, :] + c2*temp_dm[:, 2, :, 3, :] - \
-                          cs*(temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
-        state[:, 2, :, 3, :] = c2*temp_dm[:, 2, :, 0, :] + s2*temp_dm[:, 2, :, 3, :] + \
-                          cs*(temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
-        state[:, 3, :, 0, :] = s2*temp_dm[:, 3, :, 0, :] + c2*temp_dm[:, 3, :, 3, :] + \
-                          cs*(temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :]) 
-        state[:, 3, :, 3, :] = c2*temp_dm[:, 3, :, 0, :] + s2*temp_dm[:, 3, :, 3, :] - \
-                          cs*(temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :])
+        state[:, 2, :, 0, :] = (
+            s2 * temp_dm[:, 2, :, 0, :]
+            + c2 * temp_dm[:, 2, :, 3, :]
+            - cs * (temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
+        )
+        state[:, 2, :, 3, :] = (
+            c2 * temp_dm[:, 2, :, 0, :]
+            + s2 * temp_dm[:, 2, :, 3, :]
+            + cs * (temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
+        )
+        state[:, 3, :, 0, :] = (
+            s2 * temp_dm[:, 3, :, 0, :]
+            + c2 * temp_dm[:, 3, :, 3, :]
+            + cs * (temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :])
+        )
+        state[:, 3, :, 3, :] = (
+            c2 * temp_dm[:, 3, :, 0, :]
+            + s2 * temp_dm[:, 3, :, 3, :]
+            - cs * (temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :])
+        )
 
-        state[:, 0, :, 1, :] = c*temp_dm[:, 1, :, 1, :] - s*temp_dm[:, 0, :, 2, :]
-        state[:, 1, :, 1, :] = c*temp_dm[:, 0, :, 1, :] - s*temp_dm[:, 1, :, 2, :]
-        state[:, 2, :, 1, :] = -s*temp_dm[:, 2, :, 2, :] + c*temp_dm[:, 3, :, 2, :]
-        state[:, 3, :, 1, :] = -c*temp_dm[:, 2, :, 2, :] - s*temp_dm[:, 3, :, 2, :]
+        state[:, 0, :, 1, :] = c * temp_dm[:, 1, :, 1, :] - s * temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 1, :] = c * temp_dm[:, 0, :, 1, :] - s * temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 1, :] = -s * temp_dm[:, 2, :, 2, :] + c * temp_dm[:, 3, :, 2, :]
+        state[:, 3, :, 1, :] = -c * temp_dm[:, 2, :, 2, :] - s * temp_dm[:, 3, :, 2, :]
 
-        state[:, 0, :, 2, :] = s*temp_dm[:, 0, :, 1, :] + c*temp_dm[:, 1, :, 2, :]
-        state[:, 1, :, 2, :] = s*temp_dm[:, 1, :, 1, :] + c*temp_dm[:, 0, :, 2, :]
-        state[:, 2, :, 2, :] = s*temp_dm[:, 2, :, 1, :] - c*temp_dm[:, 3, :, 1, :]
-        state[:, 3, :, 2, :] = c*temp_dm[:, 2, :, 1, :] + s*temp_dm[:, 3, :, 1, :]
+        state[:, 0, :, 2, :] = s * temp_dm[:, 0, :, 1, :] + c * temp_dm[:, 1, :, 2, :]
+        state[:, 1, :, 2, :] = s * temp_dm[:, 1, :, 1, :] + c * temp_dm[:, 0, :, 2, :]
+        state[:, 2, :, 2, :] = s * temp_dm[:, 2, :, 1, :] - c * temp_dm[:, 3, :, 1, :]
+        state[:, 3, :, 2, :] = c * temp_dm[:, 2, :, 1, :] + s * temp_dm[:, 3, :, 1, :]
 
-    state =  np.reshape(state, num_qubits * [4])
+    state = np.reshape(state, num_qubits * [4])
 
     return state
+
 
 # Cache CX matrix as no parameters.
 _CX_MATRIX = gates.CXGate().to_matrix()
@@ -510,30 +537,36 @@ def _einsum_matmul_index_helper(gate_indices, number_of_qubits):
 
 def is_single(gate):
     # Checks if gate is single
-    return True if gate.name in ['u3', 'u1'] else False
+    return True if gate.name in ["u3", "u1"] else False
+
 
 def is_cx(gate):
     # Checks if gate is CX
-    return True if gate.name in ['CX', 'cx'] else False
+    return True if gate.name in ["CX", "cx"] else False
+
 
 def is_measure(gate):
     # Checks if gate is measure
-    return True if gate.name == 'measure' else False
+    return True if gate.name == "measure" else False
+
 
 def is_reset(gate):
     # Checks if gate is reset
-    return True if gate.name == 'reset' else False
+    return True if gate.name == "reset" else False
+
 
 def is_measure_dummy(gate):
     # Checks if gate is dummy measure
-    return True if gate.name == 'dummy_measure' else False
+    return True if gate.name == "dummy_measure" else False
+
 
 def is_reset_dummy(gate):
     # Checks if gate is dummy reset
-    return True if gate.name == 'dummy_reset' else False
+    return True if gate.name == "dummy_reset" else False
+
 
 def qubit_stack(i_set, num_qubits):
-    """ Divides the sequential instructions for the whole register
+    """Divides the sequential instructions for the whole register
         in to a stack of sequential instructions for each qubit.
         Multi-qubit instructions appear in the list for each involved qubit.
     Args:
@@ -553,7 +586,7 @@ def qubit_stack(i_set, num_qubits):
                 if not is_measure_dummy(instruction_set[instruction.qubits[0]][-1]):
                     instruction_set[instruction.qubits[0]].append(instruction)
                     dummy = deepcopy(instruction)
-                    dummy.name = 'dummy_measure'
+                    dummy.name = "dummy_measure"
                     dummy.qubits[0] = -1
                     for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
                         instruction_set[qubit].append(dummy)
@@ -562,17 +595,17 @@ def qubit_stack(i_set, num_qubits):
             else:
                 instruction_set[instruction.qubits[0]].append(instruction)
                 dummy = deepcopy(instruction)
-                dummy.name = 'dummy_measure'
+                dummy.name = "dummy_measure"
                 dummy.qubits[0] = -1
                 for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
                     instruction_set[qubit].append(dummy)
-        
+
         elif is_reset(instruction):
             if instruction_set[instruction.qubits[0]]:
                 if not is_reset_dummy(instruction_set[instruction.qubits[0]][-1]):
                     instruction_set[instruction.qubits[0]].append(instruction)
                     dummy = deepcopy(instruction)
-                    dummy.name = 'dummy_reset'
+                    dummy.name = "dummy_reset"
                     dummy.qubits[0] = -1
                     for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
                         instruction_set[qubit].append(dummy)
@@ -581,7 +614,7 @@ def qubit_stack(i_set, num_qubits):
             else:
                 instruction_set[instruction.qubits[0]].append(instruction)
                 dummy = deepcopy(instruction)
-                dummy.name = 'dummy_reset'
+                dummy.name = "dummy_reset"
                 dummy.qubits[0] = -1
                 for qubit in set(range(num_qubits)).difference(set(instruction.qubits)):
                     instruction_set[qubit].append(dummy)
@@ -591,8 +624,8 @@ def qubit_stack(i_set, num_qubits):
 
 
 def partition_helper(i_set, num_qubits):
-    """ Partitions the stack of qubit instructions in to a set of sequential levels.
-        Instructions in a single level do not overlap and can be executed in parallel.
+    """Partitions the stack of qubit instructions in to a set of sequential levels.
+    Instructions in a single level do not overlap and can be executed in parallel.
     """
 
     i_stack, depth = qubit_stack(i_set, num_qubits)
@@ -619,12 +652,11 @@ def partition_helper(i_set, num_qubits):
                     continue
                 sequence[level].append(gate)
                 qubit_included.append(qubit)
-                i_set.remove(gate)      # Remove from Set
-                i_stack[qubit].pop(0)   # Remove from Stack
+                i_set.remove(gate)  # Remove from Set
+                i_stack[qubit].pop(0)  # Remove from Stack
             # Check for C-NOT gate
             elif is_cx(gate):
-                second_qubit = list(
-                    set(gate.qubits).difference(set([qubit])))[0]
+                second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
                 buffer_gate = i_stack[second_qubit][0]
 
                 # Checks if gate already included in the partition
@@ -643,7 +675,7 @@ def partition_helper(i_set, num_qubits):
                 else:
                     continue
 
-            elif is_measure(gate): 
+            elif is_measure(gate):
 
                 all_dummy = True
                 for x in range(num_qubits):
@@ -710,8 +742,9 @@ def partition_helper(i_set, num_qubits):
         level += 1
     return sequence, level
 
+
 def partition(i_set, num_qubits):
-    """ Partition the instruction set in to a number of levels.
+    """Partition the instruction set in to a number of levels.
         Levels have to be executed sequentially,
         while instructions within each level can be executed in parallel.
     Args:
@@ -724,7 +757,7 @@ def partition(i_set, num_qubits):
     modified_i_set = []
     a = []
     for instruction in i_set:
-        if instruction.name !='barrier':
+        if instruction.name != "barrier":
             a.append(instruction)
         else:
             modified_i_set.append(a)
@@ -736,13 +769,17 @@ def partition(i_set, num_qubits):
     for mod_ins in modified_i_set:
         if mod_ins != []:
             # Bell, Expect and Ensemble measure form a partitiom on their own.
-            if mod_ins[0].name=='measure' and getattr(mod_ins[0],'params',None) != None and mod_ins[0].params[0] in ['Bell', 'Expect', 'Ensemble']:
+            if (
+                mod_ins[0].name == "measure"
+                and getattr(mod_ins[0], "params", None) != None
+                and mod_ins[0].params[0] in ["Bell", "Expect", "Ensemble"]
+            ):
                 partition_list.append([mod_ins])
                 levels += 1
             else:
-                seq,level = partition_helper(mod_ins,num_qubits)
+                seq, level = partition_helper(mod_ins, num_qubits)
                 partition_list.append(seq)
                 levels += level
     partition_list = list(itertools.chain(*partition_list))
 
-    return partition_list, levels    
+    return partition_list, levels

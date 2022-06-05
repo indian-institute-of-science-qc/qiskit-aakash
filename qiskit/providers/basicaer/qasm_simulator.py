@@ -174,8 +174,7 @@ class QasmSimulatorPy(BackendV1):
         # Axis for numpy.sum to compute probabilities
         axis = list(range(self._number_of_qubits))
         axis.remove(self._number_of_qubits - 1 - qubit)
-        probabilities = np.sum(np.abs(self._statevector)
-                               ** 2, axis=tuple(axis))
+        probabilities = np.sum(np.abs(self._statevector) ** 2, axis=tuple(axis))
         # Compute einsum index string for 1-qubit matrix multiplication
         random_number = self._local_random.rand()
         if random_number < probabilities[0]:
@@ -221,8 +220,7 @@ class QasmSimulatorPy(BackendV1):
                 pos = measured_qubits.index(qubit)
                 qubit_outcome = int((sample & (1 << pos)) >> pos)
                 membit = 1 << cmembit
-                classical_memory = (classical_memory & (
-                    ~membit)) | (qubit_outcome << cmembit)
+                classical_memory = (classical_memory & (~membit)) | (qubit_outcome << cmembit)
             value = bin(classical_memory)[2:]
             memory.append(hex(int(value, 2)))
         return memory
@@ -239,8 +237,7 @@ class QasmSimulatorPy(BackendV1):
         outcome, probability = self._get_measure_outcome(qubit)
         # update classical state
         membit = 1 << cmembit
-        self._classical_memory = (self._classical_memory & (
-            ~membit)) | (int(outcome) << cmembit)
+        self._classical_memory = (self._classical_memory & (~membit)) | (int(outcome) << cmembit)
 
         if cregbit is not None:
             regbit = 1 << cregbit
@@ -559,8 +556,7 @@ class QasmSimulatorPy(BackendV1):
             for operation in experiment.instructions:
                 conditional = getattr(operation, "conditional", None)
                 if isinstance(conditional, int):
-                    conditional_bit_set = (
-                        self._classical_register >> conditional) & 1
+                    conditional_bit_set = (self._classical_register >> conditional) & 1
                     if not conditional_bit_set:
                         continue
                 elif conditional is not None:
@@ -649,15 +645,13 @@ class QasmSimulatorPy(BackendV1):
                 else:
                     backend = self.name()
                     err_msg = '{0} encountered unrecognized operation "{1}"'
-                    raise BasicAerError(
-                        err_msg.format(backend, operation.name))
+                    raise BasicAerError(err_msg.format(backend, operation.name))
 
             # Add final creg data to memory list
             if self._number_of_cmembits > 0:
                 if self._sample_measure:
                     # If sampling we generate all shot samples from the final statevector
-                    memory = self._add_sample_measure(
-                        measure_sample_ops, self._shots)
+                    memory = self._add_sample_measure(measure_sample_ops, self._shots)
                 else:
                     # Turn classical_memory (int) into bit string and pad zero for unused cmembits
                     outcome = bin(self._classical_memory)[2:]

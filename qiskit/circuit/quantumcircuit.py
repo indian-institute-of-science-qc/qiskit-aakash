@@ -2160,7 +2160,9 @@ class QuantumCircuit:
         """
         return self.append(Reset(), [qubit], [])
 
-    def measure(self, qubit: QubitSpecifier, cbit: ClbitSpecifier, basis=None, add_param=None) -> InstructionSet:
+    def measure(
+        self, qubit: QubitSpecifier, cbit: ClbitSpecifier, basis=None, add_param=None
+    ) -> InstructionSet:
         """Measure quantum bit into classical bit (tuples).
 
         Args:
@@ -2173,7 +2175,7 @@ class QuantumCircuit:
         Raises:
             CircuitError: if arguments have bad format.
         """
-        if basis in ['Ensemble','Expect','Bell']:
+        if basis in ["Ensemble", "Expect", "Bell"]:
             self.barrier()
             self.append(Measure(basis, add_param), [qubit], [cbit])
             return self.barrier()

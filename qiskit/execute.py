@@ -21,16 +21,33 @@ running quickly we have provided this wrapper module.
 from qiskit.compiler import transpile, assemble
 
 
-def execute(experiments, backend,
-            basis_gates=None, coupling_map=None,  # circuit transpile options
-            backend_properties=None, initial_layout=None,
-            seed_transpiler=None, optimization_level=None, pass_manager=None,
-            qobj_id=None, qobj_header=None, shots=1024,  # common run options
-            memory=False, max_credits=10, seed_simulator=None,
-            default_qubit_los=None, default_meas_los=None,  # schedule run options
-            schedule_los=None, meas_level=2, meas_return='avg',
-            memory_slots=None, memory_slot_size=100, rep_time=None, parameter_binds=None,
-            **run_config):
+def execute(
+    experiments,
+    backend,
+    basis_gates=None,
+    coupling_map=None,  # circuit transpile options
+    backend_properties=None,
+    initial_layout=None,
+    seed_transpiler=None,
+    optimization_level=None,
+    pass_manager=None,
+    qobj_id=None,
+    qobj_header=None,
+    shots=1024,  # common run options
+    memory=False,
+    max_credits=10,
+    seed_simulator=None,
+    default_qubit_los=None,
+    default_meas_los=None,  # schedule run options
+    schedule_los=None,
+    meas_level=2,
+    meas_return="avg",
+    memory_slots=None,
+    memory_slot_size=100,
+    rep_time=None,
+    parameter_binds=None,
+    **run_config,
+):
     """Execute a list of circuits or pulse schedules on a backend.
 
     The execution is asynchronous, and a handle to a job instance is returned.
@@ -183,39 +200,41 @@ def execute(experiments, backend,
     Raises:
         QiskitError: if the execution cannot be interpreted as either circuits or schedules
     """
-    #print(experiments)
+    # print(experiments)
     # transpiling the circuits using given transpile options
-    experiments = transpile(experiments,
-                            basis_gates=basis_gates,
-                            coupling_map=coupling_map,
-                            backend_properties=backend_properties,
-                            initial_layout=initial_layout,
-                            seed_transpiler=seed_transpiler,
-                            optimization_level=optimization_level,
-                            backend=backend,
-                            pass_manager=pass_manager,
-                            )
-    #print(experiments)
+    experiments = transpile(
+        experiments,
+        basis_gates=basis_gates,
+        coupling_map=coupling_map,
+        backend_properties=backend_properties,
+        initial_layout=initial_layout,
+        seed_transpiler=seed_transpiler,
+        optimization_level=optimization_level,
+        backend=backend,
+        pass_manager=pass_manager,
+    )
+    # print(experiments)
     # assembling the circuits into a qobj to be run on the backend
-    qobj = assemble(experiments,
-                    qobj_id=qobj_id,
-                    qobj_header=qobj_header,
-                    shots=shots,
-                    memory=memory,
-                    max_credits=max_credits,
-                    seed_simulator=seed_simulator,
-                    default_qubit_los=default_qubit_los,
-                    default_meas_los=default_meas_los,
-                    schedule_los=schedule_los,
-                    meas_level=meas_level,
-                    meas_return=meas_return,
-                    memory_slots=memory_slots,
-                    memory_slot_size=memory_slot_size,
-                    rep_time=rep_time,
-                    parameter_binds=parameter_binds,
-                    backend=backend,
-                    run_config=run_config
-                    )
+    qobj = assemble(
+        experiments,
+        qobj_id=qobj_id,
+        qobj_header=qobj_header,
+        shots=shots,
+        memory=memory,
+        max_credits=max_credits,
+        seed_simulator=seed_simulator,
+        default_qubit_los=default_qubit_los,
+        default_meas_los=default_meas_los,
+        schedule_los=schedule_los,
+        meas_level=meas_level,
+        meas_return=meas_return,
+        memory_slots=memory_slots,
+        memory_slot_size=memory_slot_size,
+        rep_time=rep_time,
+        parameter_binds=parameter_binds,
+        backend=backend,
+        run_config=run_config,
+    )
 
     # executing the circuits on the backend and returning the job
     return backend.run(qobj, backend_options={**run_config})

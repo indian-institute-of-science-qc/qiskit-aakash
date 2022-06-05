@@ -29,14 +29,17 @@ class CompositeGate(Gate):
         name = instruction name string
         params = list of real parameters
         """
-        warnings.warn('CompositeGate is deprecated and will be removed in v0.9. '
-                      'Any Instruction can now be composed of other sub-instructions. '
-                      'To build them, you construct a circuit then use '
-                      'circuit.to_instruction().', DeprecationWarning)
+        warnings.warn(
+            "CompositeGate is deprecated and will be removed in v0.9. "
+            "Any Instruction can now be composed of other sub-instructions. "
+            "To build them, you construct a circuit then use "
+            "circuit.to_instruction().",
+            DeprecationWarning,
+        )
         super().__init__(name, params)
         self.data = []  # gate sequence defining the composite unitary
         self.inverse_flag = False
-        self.inverse_name = inverse_name or (name + 'dg')
+        self.inverse_name = inverse_name or (name + "dg")
 
     def instruction_list(self):
         """Return a list of instructions for this CompositeGate.

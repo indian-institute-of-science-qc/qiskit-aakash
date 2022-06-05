@@ -10,7 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-#Modified by NickelKiln @ QSimIISc
+# Modified by NickelKiln @ QSimIISc
 
 """
 AST (abstract syntax tree) to DAG (directed acyclic graph) converter.
@@ -25,6 +25,7 @@ from qiskit.circuit import QuantumRegister, ClassicalRegister, Gate, QuantumCirc
 from qiskit.qasm.node.real import Real
 from qiskit.circuit.measure import Measure
 from qiskit.circuit.reset import Reset
+
 #
 from qiskit.circuit.barrier import Barrier
 from qiskit.circuit.delay import Delay
@@ -64,8 +65,9 @@ from qiskit.circuit.library.standard_gates.rx import CRXGate
 from qiskit.circuit.library.standard_gates.ry import CRYGate
 from qiskit.circuit.library.standard_gates.rz import CRZGate
 from qiskit.circuit.library.standard_gates.sx import CSXGate
+
 #
- 
+
 
 def ast_to_dag(ast):
     """Build a ``DAGCircuit`` object from an AST ``Node`` object.
@@ -108,7 +110,7 @@ def ast_to_dag(ast):
 class AstInterpreter:
     """Interprets an OpenQASM by expanding subroutines and unrolling loops."""
 
-#
+    #
     standard_extension = {
         "u1": U1Gate,
         "u2": U2Gate,
@@ -148,7 +150,7 @@ class AstInterpreter:
         "cswap": CSwapGate,
         "delay": Delay,
     }
-#
+    #
 
     def __init__(self, dag):
         """Initialize interpreter's data."""
@@ -208,9 +210,9 @@ class AstInterpreter:
         bits = [self._process_bit_id(node_element) for node_element in node.bitlist.children]
 
         if name in self.gates:
-#
+            #
             self._arguments(name, bits, args)
-#
+        #
         else:
             raise QiskitError(
                 "internal error undefined gate:", "line=%s" % node.line, "file=%s" % node.file
@@ -253,8 +255,7 @@ class AstInterpreter:
         de_gate["n_args"] = node.n_args()
         de_gate["n_bits"] = node.n_bits()
         if node.n_args() > 0:
-            de_gate["args"] = [
-                element.name for element in node.arguments.children]
+            de_gate["args"] = [element.name for element in node.arguments.children]
         else:
             de_gate["args"] = []
         de_gate["bits"] = [c.name for c in node.bitlist.children]
@@ -278,13 +279,14 @@ class AstInterpreter:
             cx_gate = CXGate()
             cx_gate.condition = self.condition
             if len(id0) > 1 and len(id1) > 1:
-#
+                #
                 self.dag.apply_operation_back(cx_gate, [id0[idx], id1[idx]], [])
             elif len(id0) > 1:
                 self.dag.apply_operation_back(cx_gate, [id0[idx], id1[0]], [])
             else:
                 self.dag.apply_operation_back(cx_gate, [id0[0], id1[idx]], [])
-#
+
+    #
 
     def _process_measure(self, node):
         """Process a measurement node."""
@@ -295,11 +297,12 @@ class AstInterpreter:
                 "internal error: reg size mismatch", "line=%s" % node.line, "file=%s" % node.file
             )
         for idx, idy in zip(id0, id1):
-#
+            #
             meas_gate = Measure()
             meas_gate.condition = self.condition
             self.dag.apply_operation_back(meas_gate, [idx], [idy])
-#
+
+    #
 
     def _process_if(self, node):
         """Process an if node."""
@@ -353,10 +356,10 @@ class AstInterpreter:
 
         elif node.type == "custom_unitary":
             self._process_custom_unitary(node)
-#       
+        #
         elif node.type == "universal_unitary":
             self._process_u(node)
-#
+        #
 
         elif node.type == "cnot":
             self._process_cnot(node)
@@ -387,11 +390,11 @@ class AstInterpreter:
         elif node.type == "reset":
             id0 = self._process_bit_id(node.children[0])
             for i, _ in enumerate(id0):
-#
+                #
                 reset = Reset()
                 reset.condition = self.condition
                 self.dag.apply_operation_back(reset, [id0[i]], [])
-#
+        #
 
         elif node.type == "if":
             self._process_if(node)
@@ -454,12 +457,12 @@ class AstInterpreter:
         if name in self.standard_extension:
             op = self.standard_extension[name](*params)
         elif name in self.gates:
-#
+            #
             op = Gate(name=name, num_qubits=self.gates[name]["n_bits"], params=params)
             if not self.gates[name]["opaque"]:
                 # call a custom gate (otherwise, opaque)
                 op.definition = self._gate_rules_to_qiskit_circuit(self.gates[name], params=params)
-#
+        #
         else:
             raise QiskitError("unknown operation for ast node name %s" % name)
         return op

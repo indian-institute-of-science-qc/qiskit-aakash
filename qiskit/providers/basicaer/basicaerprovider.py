@@ -29,12 +29,8 @@ from .unitary_simulator import UnitarySimulatorPy
 
 logger = logging.getLogger(__name__)
 
-SIMULATORS = [
-    QasmSimulatorPy,
-    DmSimulatorPy,
-    StatevectorSimulatorPy,
-    UnitarySimulatorPy
-]
+SIMULATORS = [QasmSimulatorPy, DmSimulatorPy, StatevectorSimulatorPy, UnitarySimulatorPy]
+
 
 class BasicAerProvider(ProviderV1):
     """Provider for Basic Aer backends."""
@@ -84,14 +80,14 @@ class BasicAerProvider(ProviderV1):
     def _deprecated_backend_names():
         """Returns deprecated backend names."""
         return {
-            'qasm_simulator_py': 'qasm_simulator',
-            'dm_simulator_py': 'dm_simulator',
-            'statevector_simulator_py': 'statevector_simulator',
-            'unitary_simulator_py': 'unitary_simulator',
-            'local_qasm_simulator_py': 'qasm_simulator',
-            'local_statevector_simulator_py': 'statevector_simulator',
-            'local_unitary_simulator_py': 'unitary_simulator',
-            'local_unitary_simulator': 'unitary_simulator',
+            "qasm_simulator_py": "qasm_simulator",
+            "dm_simulator_py": "dm_simulator",
+            "statevector_simulator_py": "statevector_simulator",
+            "unitary_simulator_py": "unitary_simulator",
+            "local_qasm_simulator_py": "qasm_simulator",
+            "local_statevector_simulator_py": "statevector_simulator",
+            "local_unitary_simulator_py": "unitary_simulator",
+            "local_unitary_simulator": "unitary_simulator",
         }
 
     def _verify_backends(self):
