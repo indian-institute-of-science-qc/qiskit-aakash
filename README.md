@@ -64,7 +64,7 @@ qc.cx(0,1)
 backend = BasicAer.get_backend('dm_simulator')
 run = execute(qc,backend)
 result = run.result()
-print(result['results'][0]['data']['densitymatrix'])
+print(result.results[0].data.densitymatrix)
 ```
 It would output the resultant `densitymatrix` as,
 ```python
