@@ -521,8 +521,8 @@ class DmSimulatorPy(BaseBackend):
             axis=tuple(axis)), 2**num_measured)
 
         prob_key = ["".join(s) for s in itertools.product("01", repeat=num_measured)]
-        prob_key1 = [a[::-1] for a in prob_key]
-        partial_prob = dict(zip(prob_key1, probabilities))
+        # prob_key1 = [a[::-1] for a in prob_key]
+        partial_prob = dict(zip(prob_key, probabilities))
 
         max_str = max(partial_prob, key=partial_prob.get)
         max_prob = partial_prob[max_str]
