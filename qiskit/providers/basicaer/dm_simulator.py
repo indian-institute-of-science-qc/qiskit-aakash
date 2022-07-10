@@ -120,8 +120,11 @@ class DmSimulatorPy(BackendV1):
         "rotation_error": {"rx": [1.0, 0.0], "ry": [1.0, 0.0], "rz": [1.0, 0.0]},
         "tsp_model_error": [1.0, 0.0],
         "custom_densitymatrix": None,
+        "compute_densitymatrix":True,
         "show_partition": False,
         "plot": False,
+        "precision":np.half,
+        "precision_complex":np.csingle,
     }
 
     # Class level variable to return the final state at the end of simulation
@@ -176,6 +179,10 @@ class DmSimulatorPy(BackendV1):
         self._fidelity = None
         self._density_matrix_stored = None
 
+        # PRECISION
+        self._precision = np.half
+        self._precision_complex = np.csingle
+
     @classmethod
     def _default_options(cls):
         return Options(
@@ -189,8 +196,11 @@ class DmSimulatorPy(BackendV1):
             rotation_error={"rx": [1.0, 0.0], "ry": [1.0, 0.0], "rz": [1.0, 0.0]},
             tsp_model_error=[1.0, 0.0],
             custom_densitymatrix=None,
+            compute_densitymatrix=True,
             show_partition=False,
             plot=False,
+            precision=np.half,
+            precision_complex=np.csingle,
         )
 
     def _set_options(self, qobj_config=None, backend_options=None):
@@ -209,14 +219,20 @@ class DmSimulatorPy(BackendV1):
         if "backend_options" in backend_options and backend_options["backend_options"]:
             backend_options = backend_options["backend_options"]
 
+        if "precision" in backend_options:
+            self._precision = backend_options["precision"]
+
+        if "precision_complex" in backend_options:
+            self._precision_complex = backend_options["precision_complex"]
+
         # Check for custom initial density matrix in backend_options first,
         # otherwise take it from config.
         if "initial_densitymatrix" in backend_options:
             self._initial_densitymatrix = np.array(
-                backend_options["initial_densitymatrix"], dtype=float
+                backend_options["initial_densitymatrix"], dtype=self._precision
             )
         elif hasattr(qobj_config, "initial_densitymatrix"):
-            self._initial_densitymatrix = np.array(qobj_config.initial_densitymatrix, dtype=float)
+            self._initial_densitymatrix = np.array(qobj_config.initial_densitymatrix, dtype=self._precision)
 
         if "custom_densitymatrix" in backend_options:
             self._custom_densitymatrix = backend_options["custom_densitymatrix"]
@@ -336,20 +352,20 @@ class DmSimulatorPy(BackendV1):
 
         if self._initial_densitymatrix is None:
             if self._custom_densitymatrix is None:
-                self._densitymatrix = np.array([1, 0, 0, 1], dtype=float)
+                self._densitymatrix = np.array([1, 0, 0, 1], dtype=self._precision)
                 for i in range(self._number_of_qubits - 1):
                     self._densitymatrix = np.kron([1, 0, 0, 1], self._densitymatrix)
             elif self._custom_densitymatrix == "max_mixed":
-                self._densitymatrix = np.array([1, 0, 0, 0], dtype=float)
+                self._densitymatrix = np.array([1, 0, 0, 0], dtype=self._precision)
                 for i in range(self._number_of_qubits - 1):
                     self._densitymatrix = np.kron([1, 0, 0, 0], self._densitymatrix)
             elif self._custom_densitymatrix == "uniform_superpos":
-                self._densitymatrix = np.array([1, 1, 0, 0], dtype=float)
+                self._densitymatrix = np.array([1, 1, 0, 0], dtype=self._precision)
                 for i in range(self._number_of_qubits - 1):
                     self._densitymatrix = np.kron([1, 1, 0, 0], self._densitymatrix)
             elif self._custom_densitymatrix == "thermal_state":
                 tf = 2 * self._thermal_factor - 1
-                self._densitymatrix = np.array([1, 0, 0, tf], dtype=float)
+                self._densitymatrix = np.array([1, 0, 0, tf], dtype=self._precision)
                 for i in range(self._number_of_qubits - 1):
                     self._densitymatrix = np.kron([1, 0, 0, tf], self._densitymatrix)
             else:
@@ -363,9 +379,9 @@ class DmSimulatorPy(BackendV1):
                 if len(self._initial_densitymatrix) != self._number_of_qubits:
                     raise BasicAerError("Wrong input binary string length")
                 if self._initial_densitymatrix[0] == "0":
-                    self._densitymatrix = np.array([1, 0, 0, 1], dtype=float)
+                    self._densitymatrix = np.array([1, 0, 0, 1], dtype=self._precision)
                 else:
-                    self._densitymatrix = np.array([1, 0, 0, -1], dtype=float)
+                    self._densitymatrix = np.array([1, 0, 0, -1], dtype=self._precision)
                 for idx in self._initial_densitymatrix[1:]:
                     if idx == "0":
                         self._densitymatrix = np.kron([1, 0, 0, 1], self._densitymatrix)
@@ -387,6 +403,19 @@ class DmSimulatorPy(BackendV1):
 
         # Reshape to rank-N tensor
         self._densitymatrix = np.reshape(self._densitymatrix, self._number_of_qubits * [4])
+        self._densitymatrix = np.array(self._densitymatrix, dtype = self._precision)
+
+        if type(self._decoherence_factor) is list or type(self._decoherence_factor) is type(np.array([1.,2.])):
+            if len(self._decoherence_factor) < max(self._number_of_qubits,1):
+                raise BasicAerError(f"Incorrect length of decoherence factor. Should be {self._number_of_qubits}")
+        else:
+            self._decoherence_factor = np.ones(self._number_of_qubits)*self._decoherence_factor
+
+        if type(self._decay_factor) is list or type(self._decay_factor) is type(np.array([1.,2.])):
+            if len(self._decay_factor) < max(self._number_of_qubits,1):
+                raise BasicAerError("Incorrect length of decay factor")
+        else:
+            self._decay_factor = np.ones(self._number_of_qubits)*self._decay_factor
 
     def _validate_initial_densitymatrix(self):
         """Validate an initial densitymatrix"""
@@ -421,7 +450,16 @@ class DmSimulatorPy(BackendV1):
         self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt))
 
         for idx in gate:  # For Rotations in the Decomposed Gate list
-            self._densitymatrix = rot_gate_dm_matrix(
+            # self._densitymatrix = rot_gate_dm_matrix(
+            #     idx[0],
+            #     idx[1],
+            #     self._error_params["one_qubit_gates"][idx[0]],
+            #     self._densitymatrix,
+            #     qubit,
+            #     self._number_of_qubits,
+            # )
+
+            rot_gate_dm_matrix(
                 idx[0],
                 idx[1],
                 self._error_params["one_qubit_gates"][idx[0]],
@@ -455,22 +493,21 @@ class DmSimulatorPy(BackendV1):
             with rate 'g' towards the thermal state specified by 'p'.
         Args:
             level (int):    Clock cycle number (not used)
-            f     (float):  Contraction of off-diagonal elements due to T_2 (decoherence time)
+            f     (list):  Contraction of off-diagonal elements due to T_2 (decoherence time)
             p     (float):  Thermal factor corresponding to the asymptotic state
-            g     (float):  Decay of the excited state component due to T_1 (relaxation time)
+            g     (list):  Decay of the excited state component due to T_1 (relaxation time)
         """
-        off_diag_contract = np.sqrt(g) * f
-        diag_decay = (1 - g) * (2 * p - 1)
 
         for qb in range(self._number_of_qubits):
-
+            off_diag_contract = np.sqrt(g[qb]) * f[qb]
+            diag_decay = (1 - g[qb]) * (2 * p - 1)
             lt, mt, rt = 4**qb, 4, 4 ** (self._number_of_qubits - qb - 1)
             self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt))
             temp = self._densitymatrix.copy()  # qc.measure(q[0], c[0])
 
             self._densitymatrix[:, 1, :] = off_diag_contract * temp[:, 1, :]
             self._densitymatrix[:, 2, :] = off_diag_contract * temp[:, 2, :]
-            self._densitymatrix[:, 3, :] = g * temp[:, 3, :] + diag_decay * temp[:, 0, :]
+            self._densitymatrix[:, 3, :] = g[qb] * temp[:, 3, :] + diag_decay * temp[:, 0, :]
 
         self._densitymatrix = np.reshape(self._densitymatrix, self._number_of_qubits * [4])
 
@@ -498,7 +535,7 @@ class DmSimulatorPy(BackendV1):
         # We get permutations of signs for summing those coefficient values.
 
         if basis != "N":
-            operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=float)
+            operator_mes = np.array([[1, err_param], [1, -err_param]], dtype=self._precision)
             for i in range(self._number_of_qubits - 1):
                 operator_mes = np.kron(np.array([[1, err_param], [1, -err_param]]), operator_mes)
         else:
@@ -1355,10 +1392,10 @@ class DmSimulatorPy(BackendV1):
         """
 
         densitymatrix = np.zeros(
-            (2**self._number_of_qubits, 2**self._number_of_qubits), dtype=complex
+            (2**self._number_of_qubits, 2**self._number_of_qubits), dtype=self._precision_complex
         )
 
-        dmcomplex = dmpauli.astype(complex)
+        dmcomplex = dmpauli.astype(self._precision_complex)
         dot_prod = np.array(
             [[1, 0, 0, 1], [0, 1, complex(0, -1), 0], [0, 1, complex(0, 1), 0], [1, 0, 0, -1]]
         )
@@ -1371,7 +1408,7 @@ class DmSimulatorPy(BackendV1):
 
         for qubit in range(self._number_of_qubits):
             densitymatrix_b = np.zeros(
-                (4 ** (qubit), 4, 4 ** (self._number_of_qubits - qubit - 1)), dtype=complex
+                (4 ** (qubit), 4, 4 ** (self._number_of_qubits - qubit - 1)), dtype=self._precision_complex
             )
             dmcomplex = np.reshape(
                 dmcomplex, (4 ** (qubit), 4, 4 ** (self._number_of_qubits - qubit - 1))
