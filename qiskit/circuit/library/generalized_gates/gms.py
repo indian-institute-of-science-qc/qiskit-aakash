@@ -21,6 +21,7 @@ import numpy as np
 from qiskit.circuit.quantumcircuit import QuantumCircuit
 from qiskit.circuit.quantumregister import QuantumRegister
 from qiskit.circuit.library.standard_gates import RXXGate
+from qiskit.circuit.library.standard_gates import RYYGate
 from qiskit.circuit.gate import Gate
 
 
@@ -107,16 +108,49 @@ class MSGate(Gate):
     and is thus reduced to the RXXGate.
     """
 
-    def __init__(self, num_qubits, theta, label=None):
+    def __init__(self, label=None):
         """Create new MS gate."""
-        super().__init__("ms", num_qubits, [theta], label=label)
+        super().__init__("ms", 2, [], label=label)
 
     def _define(self):
-        theta = self.params[0]
-        q = QuantumRegister(self.num_qubits, "q")
+        q = QuantumRegister(2, "q")
         qc = QuantumCircuit(q, name=self.name)
-        for i in range(self.num_qubits):
-            for j in range(i + 1, self.num_qubits):
-                qc._append(RXXGate(theta), [q[i], q[j]], [])
+        qc._append(RXXGate(np.pi/2), [q[0], q[1]], [])
 
         self.definition = qc
+
+class MSGate_XX(Gate):
+    """MSGate has been deprecated.
+
+    2 Qubit Mølmer–Sørensen gate equivalent to RXX(pi/2).
+    """
+
+    def __init__(self, label=None):
+        """Create new MS gate."""
+        super().__init__("ms_xx", 2, [], label=label)
+
+    def _define(self):
+        q = QuantumRegister(2, "q")
+        qc = QuantumCircuit(q, name=self.name)
+        qc._append(RXXGate(np.pi/2), [q[0], q[1]], [])
+
+        self.definition = qc
+
+class MSGate_YY(Gate):
+    """MSGate has been deprecated.
+
+    2 Qubit Mølmer–Sørensen gate equivalent to RYY(pi/2).
+    """
+
+    def __init__(self, label=None):
+        """Create new MS gate."""
+        super().__init__("ms_yy", 2, [], label=label)
+
+    def _define(self):
+        q = QuantumRegister(2, "q")
+        qc = QuantumCircuit(q, name=self.name)
+        qc._append(RYYGate(np.pi/2), [q[0], q[1]], [])
+
+        self.definition = qc
+
+

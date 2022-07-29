@@ -15,4 +15,11 @@
 from .library.standard_gates.equivalence_library import StandardEquivalenceLibrary
 from .equivalence import EquivalenceLibrary
 
-SessionEquivalenceLibrary = EquivalenceLibrary(base=StandardEquivalenceLibrary)
+# from qiskit.qasm import pi
+# from qiskit.circuit import EquivalenceLibrary, Parameter, QuantumCircuit, QuantumRegister
+
+# from qiskit.circuit.library.generalized_gates.gms import MSGate, MSGate_XX, MSGate_YY
+# from qiskit.circuit.library.standard_gates import *
+
+
+_sel = SessionEquivalenceLibrary = EquivalenceLibrary(base=StandardEquivalenceLibrary)

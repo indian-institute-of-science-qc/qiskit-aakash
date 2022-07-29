@@ -118,13 +118,16 @@ def rot_gate_dm_matrix(gate, param, err_param, state, q, num_qubits):
         raise QiskitError("Gate is not among the valid decomposition types: %s" % gate)
 
     state1 = state.copy()
-    temp1 = state1[:, k[0], :]
-    temp2 = state1[:, k[1], :]
+    # temp1 = state1[:, k[0], :]
+    # temp2 = state1[:, k[1], :]
 
-    state[:, k[0], :] = c * temp1 - s * temp2
-    state[:, k[1], :] = c * temp2 + s * temp1
+    # state[:, k[0], :] = c * temp1 - s * temp2
+    # state[:, k[1], :] = c * temp2 + s * temp1
 
-    return state
+    state[:, k[0], :] = c * state1[:, k[0], :] - s * state1[:, k[1], :]
+    state[:, k[1], :] = c * state1[:, k[1], :] + s * state1[:, k[0], :]
+
+    # return state
 
 
 def U3_merge(xi, theta1, theta2):
@@ -140,13 +143,13 @@ def U3_merge(xi, theta1, theta2):
     Input Matrix Form
     {
         E^(-((I xi)/2))*cos[theta1/2]*cos[theta2/2] -
-        E^((I xi)/2)*sin[theta1/2]*sin[theta2/2]	(1,1)
+        E^((I xi)/2)*sin[theta1/2]*sin[theta2/2]    (1,1)
 
        -E^(((I xi)/2))*sin[theta1/2]*cos[theta2/2] -
         E^(-((I xi)/2))*cos[theta1/2]*sin[theta2/2]  (1,2)
 
         E^(-((I xi)/2))*sin[theta1/2]*cos[theta2/2] +
-        E^((I xi)/2)*cos[theta1/2]*sin[theta2/2]	(2,1)
+        E^((I xi)/2)*cos[theta1/2]*sin[theta2/2]    (2,1)
 
         E^((I xi)/2)*cos[theta1/2]*cos[theta2/2] -
         E^(-((I xi)/2))*sin[theta1/2]*sin[theta2/2]  (2,2)
@@ -267,13 +270,19 @@ def single_gate_merge(inst, num_qubits, merge_flag=True):
             # To preserve the sequencing of the instructions
             opx = [op, ind]
             # Gates that are not single qubit rotations separate merging segments
-            if opx[0].name in ("CX", "cx", "measure", "bfunc", "reset", "barrier"):
+            if opx[0].name in ["CX", "cx", "MS", "ms", "MS_XX", "ms_xx", "MS_YY", "ms_yy", "measure", "bfunc", "reset", "barrier"]:
                 for idx, sg in enumerate(single_gt):
                     if sg:
                         inst_merged.append(merge_gates(sg))
                         single_gt[idx] = []
                 if opx[0].name == "CX":
                     opx[0].name = "cx"
+                if opx[0].name == "MS":
+                    opx[0].name = "ms"
+                if opx[0].name == "MS_XX":
+                    opx[0].name = "ms_xx"
+                if opx[0].name == "MS_YY":
+                    opx[0].name = "ms_yy"
                 inst_merged.append(opx[0])
             # Single qubit rotations are appended to their respective qubit instructions
             elif opx[0].name in ("U", "u1", "u2", "u3"):
@@ -297,6 +306,12 @@ def single_gate_merge(inst, num_qubits, merge_flag=True):
             # Only names are changed without merging
             if op.name == "CX":
                 op.name = "cx"
+            elif op.name == "MS":
+                op.name = "ms"
+            elif op.name == "MS_XX":
+                op.name = "ms_xx"
+            elif op.name == "MS_YY":
+                op.name = "ms_yy"
             elif op.name == "U":
                 op.name = "u3"
             elif op.name == "u2":
@@ -324,7 +339,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     Args:
         err_param[1] is the mean error in the angle param "a".
         err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
-                     which equals <cos(a)>.
+                     which equals <cos(a - <a>)>.
     """
 
     # Calculating all cos and sin in advance
@@ -425,6 +440,195 @@ _CX_MATRIX = gates.CXGate().to_matrix()
 def cx_gate_matrix():
     """Get the matrix for a controlled-NOT gate."""
     return np.array([[1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0]], dtype=complex)
+
+def ms_gate_yy_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+    """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RYY.
+
+        Args:
+        state : density matrix
+        q_1 (int): Qubit 1
+        q_2 (int): Qubit 2
+        Note : Ordering of qubits (MSB right, LSB left)
+
+    The error model adds a fluctuation "a" to the angle producing the XX rotation,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The noisy MS gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    Args:
+        err_param[1] is the mean error in the angle param "a" (in radians).
+        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+                     which equals <cos(a-<a>)>.
+    """
+    angle = np.pi/2 + err_param[1]
+    cs = err_param[0] * np.cos(angle)
+    sn = err_param[0] * np.sin(angle)
+
+    q_1, q_2 = min(q_1, q_2), max(q_1, q_2)
+
+    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+    state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+    cs_temp_dm = state.copy()*cs
+    sn_temp_dm = state.copy()*sn
+
+
+    state[:,0,:,1,:] = cs_temp_dm[:,0,:,1,:] + sn_temp_dm[:,2,:,3,:]
+    state[:,1,:,0,:] = cs_temp_dm[:,1,:,0,:] + sn_temp_dm[:,3,:,2,:]
+    state[:,0,:,3,:] = cs_temp_dm[:,0,:,3,:] - sn_temp_dm[:,2,:,1,:]
+    state[:,3,:,0,:] = cs_temp_dm[:,3,:,0,:] - sn_temp_dm[:,1,:,2,:]
+    state[:,2,:,1,:] = cs_temp_dm[:,2,:,1,:] + sn_temp_dm[:,0,:,3,:]
+    state[:,1,:,2,:] = cs_temp_dm[:,1,:,2,:] + sn_temp_dm[:,3,:,0,:]
+    state[:,2,:,3,:] = cs_temp_dm[:,3,:,2,:] - sn_temp_dm[:,0,:,1,:]
+    state[:,3,:,2,:] = cs_temp_dm[:,2,:,3,:] - sn_temp_dm[:,1,:,0,:]
+
+    state = np.reshape(state, num_qubits * [4])
+
+    return state
+
+def ms_gate_zz_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+    """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RZZ.
+
+        Args:
+        state : density matrix
+        q_1 (int): Qubit 1
+        q_2 (int): Qubit 2
+        Note : Ordering of qubits (MSB right, LSB left)
+
+    The error model adds a fluctuation "a" to the angle producing the XX rotation,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The noisy MS gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    Args:
+        err_param[1] is the mean error in the angle param "a" (in radians).
+        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+                     which equals <cos(a-<a>)>.
+    """
+    angle = err_param[1]
+    cs = err_param[0] * np.cos(angle)
+    sn = err_param[0] * np.sin(angle)
+
+    q_1, q_2 = min(q_1, q_2), max(q_1, q_2)
+
+    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+    state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+    cs_temp_dm = state.copy()*cs
+    sn_temp_dm = state.copy()*sn
+
+
+    state[:,0,:,1,:] = cs_temp_dm[:,0,:,1,:] - sn_temp_dm[:,3,:,2,:]
+    state[:,1,:,0,:] = cs_temp_dm[:,1,:,0,:] - sn_temp_dm[:,2,:,3,:]
+    state[:,0,:,2,:] = cs_temp_dm[:,0,:,2,:] + sn_temp_dm[:,3,:,1,:]
+    state[:,2,:,0,:] = cs_temp_dm[:,2,:,0,:] + sn_temp_dm[:,1,:,3,:]
+    state[:,3,:,1,:] = cs_temp_dm[:,3,:,1,:] - sn_temp_dm[:,0,:,2,:]
+    state[:,1,:,3,:] = cs_temp_dm[:,1,:,3,:] - sn_temp_dm[:,2,:,0,:]
+    state[:,2,:,3,:] = cs_temp_dm[:,2,:,3,:] + sn_temp_dm[:,1,:,0,:]
+    state[:,3,:,2,:] = cs_temp_dm[:,3,:,2,:] + sn_temp_dm[:,0,:,1,:]
+
+    state = np.reshape(state, num_qubits * [4])
+
+    return state
+
+
+
+def ms_gate_xx_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+    """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RXX.
+
+        Args:
+        state : density matrix
+        q_1 (int): Qubit 1
+        q_2 (int): Qubit 2
+        Note : Ordering of qubits (MSB right, LSB left)
+
+    The error model adds a fluctuation "a" to the angle producing the XX rotation,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The noisy MS gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    Args:
+        err_param[1] is the mean error in the angle param "a" (in radians).
+        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+                     which equals <cos(a-<a>)>.
+    """
+    angle = np.pi/2 + err_param[1]
+    cs = err_param[0] * np.cos(angle)
+    sn = err_param[0] * np.sin(angle)
+
+    q_1, q_2 = min(q_1, q_2), max(q_1, q_2)
+
+    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+    state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+    cs_temp_dm = state.copy()*cs
+    sn_temp_dm = state.copy()*sn
+
+
+    state[:,0,:,2,:] = cs_temp_dm[:,0,:,2,:] - sn_temp_dm[:,1,:,3,:]
+    state[:,2,:,0,:] = cs_temp_dm[:,2,:,0,:] - sn_temp_dm[:,3,:,1,:]
+    state[:,0,:,3,:] = cs_temp_dm[:,0,:,3,:] + sn_temp_dm[:,1,:,2,:]
+    state[:,3,:,0,:] = cs_temp_dm[:,3,:,0,:] + sn_temp_dm[:,2,:,1,:]
+    state[:,1,:,2,:] = cs_temp_dm[:,1,:,2,:] - sn_temp_dm[:,0,:,3,:]
+    state[:,2,:,1,:] = cs_temp_dm[:,2,:,1,:] - sn_temp_dm[:,3,:,0,:]
+    state[:,1,:,3,:] = cs_temp_dm[:,1,:,3,:] + sn_temp_dm[:,0,:,2,:]
+    state[:,3,:,1,:] = cs_temp_dm[:,3,:,1,:] + sn_temp_dm[:,2,:,0,:]
+
+    state = np.reshape(state, num_qubits * [4])
+
+    return state
+
+def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+    """Apply C-NOT gate in density matrix formalism.
+
+        Args:
+        state : density matrix
+        q_1 (int): Control qubit
+        q_2 (int): Target qubit
+        Note : Ordering of qubits (MSB right, LSB left)
+
+    The error model adds a fluctuation "a" to the angle producing the X rotation,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The noisy C-NOT gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    Args:
+        err_param[1] is the mean error in the angle param "a".
+        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+                     which equals <cos(a - <a>)>.
+    """
+
+    # Calculating all cos and sin in advance
+    angle = np.pi/2 + err_param[1]
+    cs = err_param[0] * np.cos(angle)
+    sn = err_param[0] * np.sin(angle)
+
+    if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
+        raise QiskitError("Qubit Labels out of bound in CX Gate")
+    elif q_2 > q_1:
+        # Reshape Density Matrix
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+        state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+        cs_temp_dm = state.copy()*cs
+        sn_temp_dm = state.copy()*sn
+        
+        state[:,0,:,2,:] = cs_temp_dm[:,0,:,2,:] - sn_temp_dm[:,3,:,3,:]
+        state[:,0,:,3,:] = cs_temp_dm[:,0,:,3,:] + sn_temp_dm[:,3,:,2,:]
+        state[:,2,:,0,:] = cs_temp_dm[:,2,:,0,:] + sn_temp_dm[:,1,:,1,:]
+        state[:,1,:,0,:] = cs_temp_dm[:,1,:,0,:] - sn_temp_dm[:,2,:,1,:]
+        state[:,3,:,2,:] = cs_temp_dm[:,3,:,2,:] - sn_temp_dm[:,0,:,3,:]
+        state[:,3,:,3,:] = cs_temp_dm[:,3,:,3,:] + sn_temp_dm[:,0,:,2,:]
+        state[:,1,:,1,:] = cs_temp_dm[:,1,:,1,:] - sn_temp_dm[:,2,:,0,:]
+        state[:,2,:,1,:] = cs_temp_dm[:,2,:,1,:] + sn_temp_dm[:,1,:,0,:]
+
+    else:
+        
+        # Reshape Density Matrix
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_1 - 1), 4, 4 ** (q_1 - q_2 - 1), 4, 4 ** (q_2)
+        state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+        cs_temp_dm = state.copy()*cs
+        sn_temp_dm = state.copy()*sn
+        
+        state[:,2,:,0,:] = cs_temp_dm[:,2,:,0,:] - sn_temp_dm[:,3,:,3,:]
+        state[:,3,:,0,:] = cs_temp_dm[:,3,:,0,:] + sn_temp_dm[:,1,:,3,:]
+        state[:,0,:,2,:] = cs_temp_dm[:,0,:,2,:] + sn_temp_dm[:,1,:,1,:]
+        state[:,0,:,1,:] = cs_temp_dm[:,0,:,1,:] - sn_temp_dm[:,1,:,2,:]
+        state[:,2,:,3,:] = cs_temp_dm[:,2,:,3,:] - sn_temp_dm[:,3,:,0,:]
+        state[:,3,:,3,:] = cs_temp_dm[:,3,:,3,:] + sn_temp_dm[:,2,:,0,:]
+        state[:,1,:,1,:] = cs_temp_dm[:,1,:,1,:] - sn_temp_dm[:,0,:,2,:]
+        state[:,1,:,2,:] = cs_temp_dm[:,1,:,2,:] + sn_temp_dm[:,0,:,1,:]
+    state = np.reshape(state, num_qubits * [4])
+
+    return state
 
 
 def einsum_matmul_index(gate_indices, number_of_qubits):
@@ -539,6 +743,13 @@ def is_single(gate):
     # Checks if gate is single
     return True if gate.name in ["u3", "u1"] else False
 
+def is_ms_yy(gate):
+    # Checks if gate is ms YY gate
+    return True if gate.name in ["MS_YY", "ms_yy"] else False
+
+def is_ms_xx(gate):
+    # Checks if gate is ms XX gate
+    return True if gate.name in ["MS_XX", "ms_xx", "MS", "ms"] else False
 
 def is_cx(gate):
     # Checks if gate is CX
@@ -623,7 +834,7 @@ def qubit_stack(i_set, num_qubits):
     return instruction_set, stack_depth
 
 
-def partition_helper(i_set, num_qubits):
+def partition_helper(i_set, num_qubits, two_qubit_gate = 'CX'):
     """Partitions the stack of qubit instructions in to a set of sequential levels.
     Instructions in a single level do not overlap and can be executed in parallel.
     """
@@ -655,7 +866,7 @@ def partition_helper(i_set, num_qubits):
                 i_set.remove(gate)  # Remove from Set
                 i_stack[qubit].pop(0)  # Remove from Stack
             # Check for C-NOT gate
-            elif is_cx(gate):
+            elif two_qubit_gate == 'CX' and is_cx(gate) is True:
                 second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
                 buffer_gate = i_stack[second_qubit][0]
 
@@ -675,6 +886,46 @@ def partition_helper(i_set, num_qubits):
                 else:
                     continue
 
+            elif two_qubit_gate == 'MS_YY' and is_ms_yy(gate) is True:
+                second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
+                buffer_gate = i_stack[second_qubit][0]
+
+                # Checks if gate already included in the partition
+                if qubit in qubit_included or second_qubit in qubit_included:
+                    continue
+
+                # Check if MS is top in stacks of both of its indexes.
+                if gate == buffer_gate:
+                    qubit_included.append(qubit)
+                    qubit_included.append(second_qubit)
+                    sequence[level].append(gate)
+                    i_set.remove(gate)
+                    i_stack[qubit].pop(0)
+                    i_stack[second_qubit].pop(0)
+                # If not then don't add it.
+                else:
+                    continue
+            elif two_qubit_gate in ['MS_XX', 'MS'] and is_ms_xx(gate) is True:
+                second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
+                buffer_gate = i_stack[second_qubit][0]
+
+                # Checks if gate already included in the partition
+                if qubit in qubit_included or second_qubit in qubit_included:
+                    continue
+
+                # Check if MS is top in stacks of both of its indexes.
+                if gate == buffer_gate:
+                    qubit_included.append(qubit)
+                    qubit_included.append(second_qubit)
+                    sequence[level].append(gate)
+                    i_set.remove(gate)
+                    i_stack[qubit].pop(0)
+                    i_stack[second_qubit].pop(0)
+                # If not then don't add it.
+                else:
+                    continue
+            elif two_qubit_gate not in ['CX', 'MS', 'MS_XX', 'MS_YY']:
+                raise BasicAerError("Two Qubit gate not supported")
             elif is_measure(gate):
 
                 all_dummy = True
@@ -743,7 +994,7 @@ def partition_helper(i_set, num_qubits):
     return sequence, level
 
 
-def partition(i_set, num_qubits):
+def partition(i_set, num_qubits, two_qubit_gate = 'CX'):
     """Partition the instruction set in to a number of levels.
         Levels have to be executed sequentially,
         while instructions within each level can be executed in parallel.
@@ -777,7 +1028,7 @@ def partition(i_set, num_qubits):
                 partition_list.append([mod_ins])
                 levels += 1
             else:
-                seq, level = partition_helper(mod_ins, num_qubits)
+                seq, level = partition_helper(mod_ins, num_qubits, two_qubit_gate = two_qubit_gate)
                 partition_list.append(seq)
                 levels += level
     partition_list = list(itertools.chain(*partition_list))

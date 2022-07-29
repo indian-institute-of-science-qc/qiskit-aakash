@@ -63,6 +63,7 @@ from . import (
     CZGate,
 )
 
+from qiskit.circuit.library.generalized_gates.gms import MSGate, MSGate_XX, MSGate_YY
 
 _sel = StandardEquivalenceLibrary = EquivalenceLibrary()
 
@@ -1007,6 +1008,52 @@ for inst, qargs, cargs in [
     cx_to_zx90.append(inst, qargs, cargs)
 _sel.add_equivalence(CXGate(), cx_to_zx90)
 
+###########################################
+# Some Ion Equivalences
+###########################################
+# CXGate (from molmer sorensen XX)
+
+q = QuantumRegister(2, "q")
+cx_to_msxx = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (RYGate(pi/2), [q[0]], []),
+    (MSGate_XX(),[q[0],q[1]],[]),
+    (RXGate(-pi/2), [q[1]], []),
+    (RXGate(-pi/2), [q[0]], []),
+    (RYGate(-pi/2), [q[0]], []),
+]:
+    cx_to_msxx.append(inst, qargs, cargs)
+_sel.add_equivalence(CXGate(), cx_to_msxx)
+
+# CXGate (from molmer sorensen)
+
+q = QuantumRegister(2, "q")
+cx_to_ms = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (RYGate(pi/2), [q[0]], []),
+    (MSGate(),[q[0],q[1]],[]),
+    (RXGate(-pi/2), [q[1]], []),
+    (RXGate(-pi/2), [q[0]], []),
+    (RYGate(-pi/2), [q[0]], []),
+]:
+    cx_to_ms.append(inst, qargs, cargs)
+_sel.add_equivalence(CXGate(), cx_to_ms)
+
+# CXGate (from molmer sorensen YY)
+
+q = QuantumRegister(2, "q")
+cx_to_msyy = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (U3Gate(pi/2, 0, -pi/2), [q[1]], []),
+    (U3Gate(pi/2, -pi/2, -pi/2), [q[0]], []),
+    (MSGate_YY(),[q[0],q[1]],[]),
+    (RZGate(pi/2), [q[1]], []),
+    (U3Gate(-pi/2, 0, pi/2), [q[0]], []),
+]:
+    cx_to_msyy.append(inst, qargs, cargs)
+_sel.add_equivalence(CXGate(), cx_to_msyy)
+##########################################
+
 # CCXGate
 #                                                                       ┌───┐
 # q_0: ──■──     q_0: ───────────────────■─────────────────────■────■───┤ T ├───■──
@@ -1210,3 +1257,25 @@ h_to_rr.append(RGate(theta=pi / 2, phi=pi / 2), [q[0]])
 h_to_rr.append(RGate(theta=pi, phi=0), [q[0]])
 h_to_rr.global_phase = pi / 2
 _sel.add_equivalence(HGate(), h_to_rr)
+
+
+########################################
+# Ion equivalences from here
+
+# MSGate to MSGate_XX
+q = QuantumRegister(2, "q")
+ms_to_msxx = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (MSGate_XX(),[q[0],q[1]],[]),
+]:
+    ms_to_msxx.append(inst, qargs, cargs)
+_sel.add_equivalence(MSGate(), ms_to_msxx)
+
+# MSGate_XX to MSGate
+q = QuantumRegister(2, "q")
+msxx_to_ms = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (MSGate(),[q[0],q[1]],[]),
+]:
+    ms_to_msxx.append(inst, qargs, cargs)
+_sel.add_equivalence(MSGate_XX(), msxx_to_ms)

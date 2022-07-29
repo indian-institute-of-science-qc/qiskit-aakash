@@ -65,7 +65,10 @@ Exceptions
 from .basicaerprovider import BasicAerProvider
 from .basicaerjob import BasicAerJob
 from .qasm_simulator import QasmSimulatorPy
+from .dm_simulator_base import DmSimulatorPy_Base
 from .dm_simulator import DmSimulatorPy
+from .dm_simulator_molmer_sorenson_yy import DmSimulatorMSYYPy
+from .dm_simulator_molmer_sorenson_xx import DmSimulatorMSXXPy
 from .statevector_simulator import StatevectorSimulatorPy
 from .unitary_simulator import UnitarySimulatorPy
 from .exceptions import BasicAerError
