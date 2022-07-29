@@ -124,7 +124,7 @@ class DmSimulatorPy(DmSimulatorPy_Base):
     # This should be set to True for the densitymatrix simulator
     SHOW_FINAL_STATE = True
     PLOTTING = False
-    SHOW_PARTITION = True
+    SHOW_PARTITION = False
     DEBUG = True
     STORE_LOCAL = False
     COMPARE = False

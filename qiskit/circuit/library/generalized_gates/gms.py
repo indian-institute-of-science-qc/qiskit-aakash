@@ -153,4 +153,15 @@ class MSGate_YY(Gate):
 
         self.definition = qc
 
+def ms(self, q0, q1, label=None):
+    self.append(MSGate(label=label), [q0,q1], [])
 
+def ms_xx(self, q0, q1, label=None):
+    self.append(MSGate_XX(label=label), [q0,q1], [])
+
+def ms_yy(self, q0, q1, label=None):
+    self.append(MSGate_YY(label=label), [q0,q1], [])
+
+QuantumCircuit.ms = ms
+QuantumCircuit.ms_xx = ms_xx
+QuantumCircuit.ms_yy = ms_yy

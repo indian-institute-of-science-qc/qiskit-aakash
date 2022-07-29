@@ -1052,6 +1052,34 @@ for inst, qargs, cargs in [
 ]:
     cx_to_msyy.append(inst, qargs, cargs)
 _sel.add_equivalence(CXGate(), cx_to_msyy)
+
+q = QuantumRegister(2, "q")
+msxx_to_cx = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (RYGate(-pi/2), [q[0]], []),
+    (CXGate(),[q[0],q[1]],[]),
+    (RYGate(pi/2), [q[0]], []),
+    (RXGate(pi/2), [q[0]], []),
+    (RXGate(pi/2), [q[1]], []),
+]:
+    msxx_to_cx.append(inst, qargs, cargs)
+_sel.add_equivalence(MSGate_XX(), msxx_to_cx)
+_sel.add_equivalence(MSGate(), msxx_to_cx)
+
+q = QuantumRegister(2, "q")
+msyy_to_cx = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (U3Gate(-pi/2, pi/2, 0), [q[1]], []),
+    (U3Gate(-pi/2, pi/2, pi/2), [q[0]], []),
+    (MSGate_YY(),[q[0],q[1]],[]),
+    (U3Gate(pi/2, -pi/2, 0), [q[0]], []),
+    (RZGate(-pi/2), [q[1]], []),
+]:
+    msyy_to_cx.append(inst, qargs, cargs)
+_sel.add_equivalence(MSGate_YY(), msyy_to_cx)
+
+##########################################
+# Ion Equivalences done
 ##########################################
 
 # CCXGate
