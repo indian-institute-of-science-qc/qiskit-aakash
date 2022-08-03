@@ -459,6 +459,8 @@ def ms_gate_yy_dm_matrix(state, q_1, q_2, err_param, num_qubits):
                      which equals <cos(a-<a>)>.
     """
     angle = np.pi/2 + err_param[1]
+    if angle == 0.:
+        return
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
@@ -500,7 +502,9 @@ def ms_gate_zz_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
                      which equals <cos(a-<a>)>.
     """
-    angle = err_param[1]
+    angle = np.pi/2 + err_param[1]
+    if angle == 0.:
+        return
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
@@ -523,9 +527,6 @@ def ms_gate_zz_dm_matrix(state, q_1, q_2, err_param, num_qubits):
 
     state = np.reshape(state, num_qubits * [4])
 
-    return state
-
-
 
 def ms_gate_xx_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RXX.
@@ -545,6 +546,8 @@ def ms_gate_xx_dm_matrix(state, q_1, q_2, err_param, num_qubits):
                      which equals <cos(a-<a>)>.
     """
     angle = np.pi/2 + err_param[1]
+    if angle == 0.:
+        return
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
@@ -567,10 +570,8 @@ def ms_gate_xx_dm_matrix(state, q_1, q_2, err_param, num_qubits):
 
     state = np.reshape(state, num_qubits * [4])
 
-    return state
-
 def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
-    """Apply C-NOT gate in density matrix formalism.
+    """Apply ZX gate in density matrix formalism.
 
         Args:
         state : density matrix
@@ -588,12 +589,14 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """
 
     # Calculating all cos and sin in advance
-    angle = np.pi/2 + err_param[1]
+    angle = err_param[1]
+    if angle == 0.:
+        return
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
-        raise QiskitError("Qubit Labels out of bound in CX Gate")
+        raise QiskitError("Qubit Labels out of bound in R_ZX Gate")
     elif q_2 > q_1:
         # Reshape Density Matrix
         rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
@@ -627,8 +630,6 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state[:,1,:,1,:] = cs_temp_dm[:,1,:,1,:] - sn_temp_dm[:,0,:,2,:]
         state[:,1,:,2,:] = cs_temp_dm[:,1,:,2,:] + sn_temp_dm[:,0,:,1,:]
     state = np.reshape(state, num_qubits * [4])
-
-    return state
 
 
 def einsum_matmul_index(gate_indices, number_of_qubits):

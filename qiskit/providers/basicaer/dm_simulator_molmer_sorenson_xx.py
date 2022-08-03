@@ -111,21 +111,6 @@ class DmSimulatorMSXXPy(DmSimulatorPy_Base):
         ],
     }
 
-    DEFAULT_OPTIONS = {
-        "initial_densitymatrix": None,
-        "chop_threshold": 1e-15,
-        "thermal_factor": 1.0,
-        "decoherence_factor": 1.0,
-        "depolarization_factor": 1.0,
-        "bell_depolarization_factor": 1.0,
-        "decay_factor": 1.0,
-        "rotation_error": {"rx": [1.0, 0.0], "ry": [1.0, 0.0], "rz": [1.0, 0.0]},
-        "tsp_model_error": [1.0, 0.0],
-        "custom_densitymatrix": None,
-        "show_partition": False,
-        "plot": False,
-    }
-
     # Class level variable to return the final state at the end of simulation
     # This should be set to True for the densitymatrix simulator
     SHOW_FINAL_STATE = True

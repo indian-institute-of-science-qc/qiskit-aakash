@@ -49,6 +49,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 
+from qiskit.transpiler.coupling import CouplingMap
+
 from qiskit.circuit.quantumcircuit import QuantumCircuit
 from qiskit.util import local_hardware_info
 from qiskit.providers.models import QasmBackendConfiguration
@@ -87,6 +89,9 @@ class DmSimulatorPy_Base(BackendV1):
         "plot": False,
         "precision":np.half,
         "precision_complex":np.csingle,
+        "coupling_map": None,
+        "dipole_error_factor": None,
+        "crosstalk_factor": None,
     }
 
     # Class level variable to return the final state at the end of simulation
@@ -130,6 +135,7 @@ class DmSimulatorPy_Base(BackendV1):
         self._initial_densitymatrix = self.DEFAULT_OPTIONS["initial_densitymatrix"]
         self._chop_threshold = self.DEFAULT_OPTIONS["chop_threshold"]
         self._qobj_config = None
+        self._coupling_map = None
         # Errors
         self._error_params = {}
         self._rotation_error = None  # [<cos(fluctuation)>, mean] , Single Rotation gates errors
@@ -143,6 +149,11 @@ class DmSimulatorPy_Base(BackendV1):
             None  # During Measurement (Bit flip and Depolarization have the same effect)
         )
         self._bell_depolarization_factor = None
+        self._dipole_error_factor = None
+        self._crosstalk_factor = None
+        self._xxyy_error = None
+        self._zz_error = None
+
         # TEMP
         self._sample_measure = False
         self._get_den_mat = True
@@ -173,6 +184,9 @@ class DmSimulatorPy_Base(BackendV1):
             plot=False,
             precision=np.half,
             precision_complex=np.csingle,
+            coupling_map=None,
+            dipole_error_factor=None,
+            crosstalk_factor=None,
         )
 
     def _set_options(self, qobj_config=None, backend_options=None):
@@ -187,6 +201,9 @@ class DmSimulatorPy_Base(BackendV1):
         self._decay_factor = self.options.get("decay_factor")
         self._depolarization_factor = self.options.get("depolarization_factor")
         self._bell_depolarization_factor = self.options.get("bell_depolarization_factor")
+        self._dipole_error_factor = self.options.get("dipole_error_factor")
+        self._crosstalk_factor = self.options.get("crosstalk_factor")
+        self._coupling_map = self.options.get("coupling_map")
 
         if "backend_options" in backend_options and backend_options["backend_options"]:
             backend_options = backend_options["backend_options"]
@@ -258,6 +275,15 @@ class DmSimulatorPy_Base(BackendV1):
         # Error due to Depolarization during measurement
         if "bell_depolarization_factor" in backend_options:
             self.bell_depolarization_factor = backend_options["bell_depolarization_factor"]
+
+        if "dipole_error_factor" in backend_options:
+            self._dipole_error_factor = backend_options["dipole_error_factor"]
+
+        if "crosstalk_factor" in backend_options:
+            self._crosstalk_factor = backend_options["crosstalk_factor"]
+
+        if "coupling_map" in backend_options:
+            self._coupling_map = backend_options["coupling_map"]
 
         if "chop_threshold" in backend_options:
             self._chop_threshold = backend_options["chop_threshold"]
@@ -389,6 +415,51 @@ class DmSimulatorPy_Base(BackendV1):
         else:
             self._decay_factor = np.ones(self._number_of_qubits)*self._decay_factor
 
+        if type(self._dipole_error_factor) is float:
+            self._dipole_error_factor = self._dipole_error_factor*np.ones((self._number_of_qubits, self._number_of_qubits,))
+        elif type(self._dipole_error_factor) is list:
+            self._dipole_error_factor = np.array(self._dipole_error_factor)
+            if len(self._dipole_error_factor) != len(self._dipole_error_factor[0]) or len(self._dipole_error_factor) != self._number_of_qubits:
+                raise BasicAerError("Incorrect dimensions of dipole_error_factor")
+
+        self._xxyy_error = self._dipole_error_factor.copy() if self._dipole_error_factor is not None else None
+        self._zz_error = self._dipole_error_factor.copy() if self._dipole_error_factor is not None else None
+
+        if type(self._crosstalk_factor) is float:
+            self._crosstalk_factor = self._crosstalk_factor*np.ones((self._number_of_qubits, self._number_of_qubits,))
+        elif type(self._crosstalk_factor) is list:
+            self._crosstalk_factor = np.array(self._crosstalk_factor)
+            if len(self._crosstalk_factor) != len(self._crosstalk_factor[0]) or len(self._crosstalk_factor) != self._number_of_qubits:
+                raise BasicAerError("Incorrect dimensions of crosstalk_factor")        
+
+        if self._zz_error is None :
+            self._zz_error = self._crosstalk_factor
+        elif self._crosstalk_factor is not None:
+            self._zz_error = self._zz_error + self._crosstalk_factor        
+
+        couples = np.ones((self._number_of_qubits, self._number_of_qubits,))
+
+        if isinstance(self._coupling_map, CouplingMap):
+            self._coupling_map = self._coupling_map.get_edges()
+        
+        # Symmetrizing
+        self._coupling_list = []
+        if type(self._coupling_map) is list:
+            for coup in self._coupling_list:
+                self._coupling_list.append(coup)
+                if coup.reverse() not in self._coupling_map:
+                    self._coupling_list.append(coup.reverse())
+
+        if type(self._coupling_map) is list:
+            for ele in self._coupling_list:
+                couples[ele[0], ele[1]] = 0
+
+            couples = 1. - couples
+
+        self._xxyy_error = self._xxyy_error*couples if self._xxyy_error is not None else None
+        self._zz_error = self._zz_error*couples if self._zz_error is not None else None
+
+
     def _validate_initial_densitymatrix(self):
         """Validate an initial densitymatrix"""
         # If initial densitymatrix isn't set we don't need to validate
@@ -487,6 +558,30 @@ class DmSimulatorPy_Base(BackendV1):
         """
         # Applying the depolarization error
         self._densitymatrix[1:] = h*self._densitymatrix[1:] # This works because h\rho + (1-h)I = h\rho + (1-h)\rho[0,0,0,...]
+
+    def _add_dipole_and_crosstalk_error(self):
+        """
+        Adds dipole and crosstalk errors to the system based on the coupling map
+        """
+        if self._xxyy_error is not None:
+            for i in range(self._number_of_qubits):
+                for j in range(i+1, self._number_of_qubits):
+                    ms_gate_xx_dm_matrix(self._densitymatrix,
+                                        i,j,
+                                        [1., -np.pi/2 + self._xxyy_error[i,j]],
+                                        self._number_of_qubits)
+                    ms_gate_yy_dm_matrix(self._densitymatrix,
+                                        i,j,
+                                        [1., -np.pi/2 + self._xxyy_error[i,j]],
+                                        self._number_of_qubits)
+        if self._zz_error is not None:
+            for i in range(self._number_of_qubits):
+                for j in range(i+1, self._number_of_qubits):
+                    ms_gate_zz_dm_matrix(self._densitymatrix,
+                                        i,j,
+                                        [1., -np.pi/2 + self._zz_error[i,j]],
+                                        self._number_of_qubits)
+        
 
     def _add_ensemble_measure(self, basis, add_param, err_param):
         """Perform complete computational basis measurement for current density matrix.
@@ -1331,6 +1426,8 @@ class DmSimulatorPy_Base(BackendV1):
                     clock,
                     h = self._depolarization_factor,
                 )
+
+            self._add_dipole_and_crosstalk_error()
 
         if self.SHOW_FINAL_STATE:
             if self._get_den_mat:

@@ -213,6 +213,7 @@ def execute(
         backend=backend,
         pass_manager=pass_manager,
     )
+    run_config['coupling_map'] = coupling_map
     # print(experiments)
     # assembling the circuits into a qobj to be run on the backend
     qobj = assemble(

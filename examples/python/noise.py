@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 q = QuantumRegister(3)
 c = ClassicalRegister(3)
 qc = QuantumCircuit(q, c)
-qc.u1(3.6, 0)
+qc.p(3.6, 0)
 qc.cx(0, 1)
-qc.u1(2.6, 2)
+qc.p(2.6, 2)
 qc.cx(1, 0)
 qc.s(2)
 qc.y(2)
@@ -25,6 +25,8 @@ options1 = {
     "decay_factor": 0.99,
     "rotation_error": {"rx": [1.0, 0.0], "ry": [1.0, 0.0], "rz": [1.0, 0.0]},
     "tsp_model_error": [1.0, 0.0],
+    "dipole_error_factor": 0.0,
+    "crosstalk_factor": 0.0,
     "plot": False,
 }
 # Execution with and without noise
@@ -43,6 +45,8 @@ with_noise = prob1.values()
 
 x = np.arange(len(labels))  # the label locations
 width = 0.35  # the width of the bars
+
+print(without_noise, with_noise)
 
 fig, ax = plt.subplots()
 rects1 = ax.bar(x - width / 2, without_noise, width, label="Without Noise")
