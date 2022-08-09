@@ -432,6 +432,114 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
 
     return state
 
+def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+    """Apply C-NOT gate in density matrix formalism.
+
+        Args:
+        state : density matrix
+        q_1 (int): Control qubit
+        q_2 (int): Target qubit
+        Note : Ordering of qubits (MSB right, LSB left)
+
+    The error model adds a fluctuation "a" to the angle producing the X rotation,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The noisy C-NOT gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    Args:
+        err_param[1] is the mean error in the angle param "a".
+        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+                     which equals <cos(a)>.
+    """
+
+    # Calculating all cos and sin in advance
+    cav = err_param[0]
+    c2av = 4 * cav - 3  # assuming small fluctuations in angle "a"
+    c = cav * np.cos(err_param[1])
+    s = cav * np.sin(err_param[1])
+    c2 = 0.5 * (1 + c2av * np.cos(2 * err_param[1]))
+    s2 = 0.5 * (1 - c2av * np.cos(2 * err_param[1]))
+    s = cav * np.sin(err_param[1])
+    cs = c2av * np.sin(err_param[1]) * np.cos(err_param[1])
+
+    if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
+        raise QiskitError("Qubit Labels out of bound in CX Gate")
+    elif q_2 > q_1:
+        # Reshape Density Matrix
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+        state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+        temp_dm = state.copy()
+
+        state[:, 0, :, 1, :] = (
+            s2 * temp_dm[:, 0, :, 1, :]
+            + c2 * temp_dm[:, 3, :, 1, :]
+            + cs * (temp_dm[:, 3, :, 2, :] - temp_dm[:, 0, :, 2, :])
+        )
+        state[:, 0, :, 2, :] = ( 
+            s2 * temp_dm[:, 0, :, 2, :]
+            + c2 * temp_dm[:, 3, :, 2, :]
+            + cs * (temp_dm[:, 0, :, 1, :] - temp_dm[:, 3, :, 1, :])
+        )
+        state[:, 3, :, 2, :] = (
+            c2 * temp_dm[:, 0, :, 2, :]
+            + s2 * temp_dm[:, 3, :, 2, :]
+            + cs * (temp_dm[:, 3, :, 1, :] - temp_dm[:, 0, :, 1, :])
+        )
+        state[:, 3, :, 1, :] = (
+            c2 * temp_dm[:, 0, :, 1, :]
+            + s2 * temp_dm[:, 3, :, 1, :]
+            - cs * (temp_dm[:, 3, :, 2, :] - temp_dm[:, 0, :, 2, :])
+        )
+
+        state[:, 1, :, 0, :] = c * temp_dm[:, 1, :, 3, :] + s * temp_dm[:, 2, :, 0, :]
+        state[:, 1, :, 1, :] = c * temp_dm[:, 2, :, 2, :] + s * temp_dm[:, 2, :, 1, :]
+        state[:, 1, :, 2, :] = s * temp_dm[:, 2, :, 2, :] - c * temp_dm[:, 2, :, 1, :]
+        state[:, 1, :, 3, :] = c * temp_dm[:, 1, :, 0, :] + s * temp_dm[:, 2, :, 3, :]
+
+        state[:, 2, :, 0, :] = -s * temp_dm[:, 1, :, 0, :] + c * temp_dm[:, 2, :, 3, :]
+        state[:, 2, :, 1, :] = -s * temp_dm[:, 1, :, 1, :] - c * temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 2, :] = -s * temp_dm[:, 1, :, 2, :] + c * temp_dm[:, 1, :, 1, :]
+        state[:, 2, :, 3, :] = c * temp_dm[:, 2, :, 0, :] - s * temp_dm[:, 1, :, 3, :]
+
+    else:
+        # Reshape Density Matrix
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_1 - 1), 4, 4 ** (q_1 - q_2 - 1), 4, 4 ** (q_2)
+        state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+        temp_dm = state.copy()
+
+        state[:, 1, :, 0, :] = (
+            s2 * temp_dm[:, 1, :, 0, :]
+            + c2 * temp_dm[:, 1, :, 3, :]
+            + cs * (temp_dm[:, 2, :, 3, :] - temp_dm[:, 2, :, 0, :])
+        )
+        state[:, 2, :, 0, :] = (
+            s2 * temp_dm[:, 2, :, 0, :]
+            + c2 * temp_dm[:, 2, :, 3, :]
+            + cs * (temp_dm[:, 1, :, 0, :] - temp_dm[:, 1, :, 3, :])
+        )
+        state[:, 2, :, 3, :] = (
+            c2 * temp_dm[:, 2, :, 0, :]
+            + s2 * temp_dm[:, 2, :, 3, :]
+            + cs * (temp_dm[:, 1, :, 3, :] - temp_dm[:, 1, :, 0, :])
+        )
+        state[:, 1, :, 3, :] = (
+            c2 * temp_dm[:, 1, :, 0, :]
+            + s2 * temp_dm[:, 1, :, 3, :]
+            - cs * (temp_dm[:, 2, :, 3, :] - temp_dm[:, 2, :, 0, :])
+        )
+
+        state[:, 0, :, 1, :] = c * temp_dm[:, 3, :, 1, :] + s * temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 1, :] = c * temp_dm[:, 2, :, 2, :] + s * temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 1, :] = s * temp_dm[:, 2, :, 2, :] - c * temp_dm[:, 1, :, 2, :]
+        state[:, 3, :, 1, :] = c * temp_dm[:, 0, :, 1, :] - s * temp_dm[:, 3, :, 2, :]
+
+        state[:, 0, :, 2, :] = -s * temp_dm[:, 0, :, 1, :] + c * temp_dm[:, 3, :, 2, :]
+        state[:, 1, :, 2, :] = -s * temp_dm[:, 1, :, 1, :] - c * temp_dm[:, 2, :, 1, :]
+        state[:, 2, :, 2, :] = -s * temp_dm[:, 2, :, 1, :] + c * temp_dm[:, 1, :, 1, :]
+        state[:, 3, :, 2, :] = c * temp_dm[:, 0, :, 2, :] - s * temp_dm[:, 3, :, 1, :]
+
+    state = np.reshape(state, num_qubits * [4])
+
+    return state
+
 
 # Cache CX matrix as no parameters.
 _CX_MATRIX = gates.CXGate().to_matrix()
