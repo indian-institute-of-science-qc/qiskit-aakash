@@ -147,3 +147,18 @@ class DmSimulatorPy(DmSimulatorPy_Base):
             self._error_params["two_qubit_gates"],
             self._number_of_qubits,
         )
+    def _add_unitary_two_cz(self, qubit0, qubit1):
+        """Apply a two-qubit unitary transformation(cz gate is applied).
+
+        Args:
+            qubit0 (int): control qubit
+            qubit1 (int): target qubit
+        """
+
+        self._densitymatrix = cz_gate_dm_matrix(
+            self._densitymatrix,
+            qubit0,
+            qubit1,
+            self._error_params["two_qubit_gates"],
+            self._number_of_qubits,
+        )
