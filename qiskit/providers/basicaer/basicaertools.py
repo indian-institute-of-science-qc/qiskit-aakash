@@ -433,7 +433,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     return state
 
 def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
-    """Apply C-NOT gate in density matrix formalism.
+    """Apply C-Z gate in density matrix formalism.
 
         Args:
         state : density matrix
@@ -441,9 +441,9 @@ def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         q_2 (int): Target qubit
         Note : Ordering of qubits (MSB right, LSB left)
 
-    The error model adds a fluctuation "a" to the angle producing the X rotation,
+    The error model adds a fluctuation "a" to the angle producing the Z rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
-    The noisy C-NOT gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    The noisy C-Z gate then becomes (1 0 0 0), (0 1 0 0), (0 0 isin(a)+cos(a) 0), (0 0 0 isin(a)-cos(a))
     Args:
         err_param[1] is the mean error in the angle param "a".
         err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
