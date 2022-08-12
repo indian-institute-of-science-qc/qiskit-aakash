@@ -27,11 +27,12 @@ from .dm_simulator_molmer_sorenson_yy import DmSimulatorMSYYPy
 from .dm_simulator_molmer_sorenson_xx import DmSimulatorMSXXPy
 from .statevector_simulator import StatevectorSimulatorPy
 from .unitary_simulator import UnitarySimulatorPy
+from .dm_simulator_cz import DmSimulatorCZPy
 
 
 logger = logging.getLogger(__name__)
 
-SIMULATORS = [QasmSimulatorPy, DmSimulatorPy, StatevectorSimulatorPy, UnitarySimulatorPy, DmSimulatorMSYYPy, DmSimulatorMSXXPy]
+SIMULATORS = [QasmSimulatorPy, DmSimulatorPy, DmSimulatorCZPy, StatevectorSimulatorPy, UnitarySimulatorPy, DmSimulatorMSYYPy, DmSimulatorMSXXPy]
 
 
 class BasicAerProvider(ProviderV1):
