@@ -64,7 +64,7 @@ from .dm_simulator_base import DmSimulatorPy_Base
 logger = logging.getLogger(__name__)
 
 
-class DmSimulatorPy(DmSimulatorPy_Base):
+class DmSimulatorCZPy(DmSimulatorPy_Base):
     MAX_QUBITS_MEMORY = int(log2(local_hardware_info()["memory"] * (1024**3) / 16))
 
     DEFAULT_CONFIGURATION = {
