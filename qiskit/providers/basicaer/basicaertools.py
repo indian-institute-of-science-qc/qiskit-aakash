@@ -270,7 +270,7 @@ def single_gate_merge(inst, num_qubits, merge_flag=True):
             # To preserve the sequencing of the instructions
             opx = [op, ind]
             # Gates that are not single qubit rotations separate merging segments
-            if opx[0].name in ["CX", "cx", "MS", "ms", "MS_XX", "ms_xx", "MS_YY", "ms_yy", "measure", "bfunc", "reset", "barrier"]:
+            if opx[0].name in ["CX", "cx", "CZ", "cz", "MS", "ms", "MS_XX", "ms_xx", "MS_YY", "ms_yy", "measure", "bfunc", "reset", "barrier"]:
                 for idx, sg in enumerate(single_gt):
                     if sg:
                         inst_merged.append(merge_gates(sg))
