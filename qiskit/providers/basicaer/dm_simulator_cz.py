@@ -63,11 +63,12 @@ from .dm_simulator_base import DmSimulatorPy_Base
 
 logger = logging.getLogger(__name__)
 
-class DmSimulatorPy(DmSimulatorPy_Base):
+
+class DmSimulatorCZPy(DmSimulatorPy_Base):
     MAX_QUBITS_MEMORY = int(log2(local_hardware_info()["memory"] * (1024**3) / 16))
 
     DEFAULT_CONFIGURATION = {
-        "backend_name": "dm_simulator",
+        "backend_name": "dm_simulator_cz",
         "backend_version": "2.0.0",
         "n_qubits": MAX_QUBITS_MEMORY,
         "url": "https://github.com/Qiskit/qiskit-terra",
@@ -79,7 +80,7 @@ class DmSimulatorPy(DmSimulatorPy_Base):
         "max_shots": 1,
         "coupling_map": None,
         "description": "A python simulator for qasm experiments",
-        "basis_gates": ["u1", "u2", "u3", "cx", "id", "unitary"],
+        "basis_gates": ["u1", "u2", "u3", "cz", "id", "unitary"],
         "gates": [
             {
                 "name": "u1",
@@ -96,7 +97,7 @@ class DmSimulatorPy(DmSimulatorPy_Base):
                 "parameters": ["theta", "phi", "lambda"],
                 "qasm_def": "gate u3(theta,phi,lambda) q { U(theta,phi,lambda) q; }",
             },
-            {"name": "cx", "parameters": ["c", "t"], "qasm_def": "gate cx c,t { CX c,t; }"},
+            {"name": "cz", "parameters": ["c", "t"], "qasm_def": "gate cz c,t { CZ c,t; }"},
             {"name": "id", "parameters": ["a"], "qasm_def": "gate id a { U(0,0,0) a; }"},
             {"name": "unitary", "parameters": ["matrix"], "qasm_def": "unitary(matrix) q1, q2,..."},
         ],
@@ -123,24 +124,24 @@ class DmSimulatorPy(DmSimulatorPy_Base):
         )
 
         # Define two-qubit gate type
-        self._two_qubit_gates = ('cx', 'CX')
-        self._two_qubit_gate_qasm = 'cx'
-        self._two_qubit_gate_descriptor = 'C-NOT' # This is the string that would be printed if  SHOW_PARTITION is True
-        self._two_qubit_gate_partition_name = 'CX'
+        self._two_qubit_gates = ('cz', 'CZ')
+        self._two_qubit_gate_qasm = 'cz'
+        self._two_qubit_gate_descriptor = 'CZ'  # This is the string that would be printed if  SHOW_PARTITION is True
+        self._two_qubit_gate_partition_name = 'CZ'
 
         # Define which errors to be applied
         self._decoherence_and_amp_decay_applied = True
         self._depolarization_applied = False
 
     def _add_unitary_two(self, qubit0, qubit1):
-        """Apply a two-qubit unitary transformation (only cx gate is included).
+        """Apply a two-qubit unitary transformation (only cz gate is included).
 
         Args:
             qubit0 (int): control qubit
             qubit1 (int): target qubit
         """
 
-        self._densitymatrix = cx_gate_dm_matrix(
+        self._densitymatrix = cz_gate_dm_matrix(
             self._densitymatrix,
             qubit0,
             qubit1,

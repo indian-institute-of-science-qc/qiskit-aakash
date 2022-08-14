@@ -22,7 +22,7 @@ from copy import deepcopy
 import qiskit.circuit.library.standard_gates as gates
 from qiskit.exceptions import QiskitError
 import itertools
-
+from .exceptions import BasicAerError
 # Single qubit gates supported by ``single_gate_params``.
 SINGLE_QUBIT_GATES = ("U", "u1", "u2", "u3", "rz", "sx", "x")
 
@@ -270,13 +270,15 @@ def single_gate_merge(inst, num_qubits, merge_flag=True):
             # To preserve the sequencing of the instructions
             opx = [op, ind]
             # Gates that are not single qubit rotations separate merging segments
-            if opx[0].name in ["CX", "cx", "MS", "ms", "MS_XX", "ms_xx", "MS_YY", "ms_yy", "measure", "bfunc", "reset", "barrier"]:
+            if opx[0].name in ["CX", "cx", "CZ", "cz", "MS", "ms", "MS_XX", "ms_xx", "MS_YY", "ms_yy", "measure", "bfunc", "reset", "barrier"]:
                 for idx, sg in enumerate(single_gt):
                     if sg:
                         inst_merged.append(merge_gates(sg))
                         single_gt[idx] = []
                 if opx[0].name == "CX":
                     opx[0].name = "cx"
+                if opx[0].name == "CZ":
+                    opx[0].name = "cz"
                 if opx[0].name == "MS":
                     opx[0].name = "ms"
                 if opx[0].name == "MS_XX":
@@ -306,6 +308,8 @@ def single_gate_merge(inst, num_qubits, merge_flag=True):
             # Only names are changed without merging
             if op.name == "CX":
                 op.name = "cx"
+            elif op.name == "CZ":
+                op.name = "cz"
             elif op.name == "MS":
                 op.name = "ms"
             elif op.name == "MS_XX":
@@ -433,6 +437,115 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     return state
 
 
+def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+    """Apply C-Z gate in density matrix formalism.
+
+        Args:
+        state : density matrix
+        q_1 (int): Control qubit
+        q_2 (int): Target qubit
+        Note : Ordering of qubits (MSB right, LSB left)
+
+    The error model adds a fluctuation "a" to the angle producing the Z rotation,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    The noisy C-Z gate then becomes (1 0 0 0), (0 1 0 0), (0 0 isin(a)+cos(a) 0), (0 0 0 isin(a)-cos(a))
+    Args:
+        err_param[1] is the mean error in the angle param "a".
+        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+                     which equals <cos(a)>.
+    """
+
+    # Calculating all cos and sin in advance
+    cav = err_param[0]
+    c2av = 4 * cav - 3  # assuming small fluctuations in angle "a"
+    c = cav * np.cos(err_param[1])
+    s = cav * np.sin(err_param[1])
+    c2 = 0.5 * (1 + c2av * np.cos(2 * err_param[1]))
+    s2 = 0.5 * (1 - c2av * np.cos(2 * err_param[1]))
+    s = cav * np.sin(err_param[1])
+    cs = c2av * np.sin(err_param[1]) * np.cos(err_param[1])
+
+    if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
+        raise QiskitError("Qubit Labels out of bound in CX Gate")
+    elif q_2 > q_1:
+        # Reshape Density Matrix
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+        state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+        temp_dm = state.copy()
+
+        state[:, 0, :, 1, :] = (
+            s2 * temp_dm[:, 0, :, 1, :]
+            + c2 * temp_dm[:, 3, :, 1, :]
+            + cs * (temp_dm[:, 3, :, 2, :] - temp_dm[:, 0, :, 2, :])
+        )
+        state[:, 0, :, 2, :] = (
+            s2 * temp_dm[:, 0, :, 2, :]
+            + c2 * temp_dm[:, 3, :, 2, :]
+            + cs * (temp_dm[:, 0, :, 1, :] - temp_dm[:, 3, :, 1, :])
+        )
+        state[:, 3, :, 2, :] = (
+            c2 * temp_dm[:, 0, :, 2, :]
+            + s2 * temp_dm[:, 3, :, 2, :]
+            + cs * (temp_dm[:, 3, :, 1, :] - temp_dm[:, 0, :, 1, :])
+        )
+        state[:, 3, :, 1, :] = (
+            c2 * temp_dm[:, 0, :, 1, :]
+            + s2 * temp_dm[:, 3, :, 1, :]
+            - cs * (temp_dm[:, 3, :, 2, :] - temp_dm[:, 0, :, 2, :])
+        )
+
+        state[:, 1, :, 0, :] = c * temp_dm[:, 1, :, 3, :] + s * temp_dm[:, 2, :, 0, :]
+        state[:, 1, :, 1, :] = c * temp_dm[:, 2, :, 2, :] + s * temp_dm[:, 2, :, 1, :]
+        state[:, 1, :, 2, :] = s * temp_dm[:, 2, :, 2, :] - c * temp_dm[:, 2, :, 1, :]
+        state[:, 1, :, 3, :] = c * temp_dm[:, 1, :, 0, :] + s * temp_dm[:, 2, :, 3, :]
+
+        state[:, 2, :, 0, :] = -s * temp_dm[:, 1, :, 0, :] + c * temp_dm[:, 2, :, 3, :]
+        state[:, 2, :, 1, :] = -s * temp_dm[:, 1, :, 1, :] - c * temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 2, :] = -s * temp_dm[:, 1, :, 2, :] + c * temp_dm[:, 1, :, 1, :]
+        state[:, 2, :, 3, :] = c * temp_dm[:, 2, :, 0, :] - s * temp_dm[:, 1, :, 3, :]
+
+    else:
+        # Reshape Density Matrix
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_1 - 1), 4, 4 ** (q_1 - q_2 - 1), 4, 4 ** (q_2)
+        state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+        temp_dm = state.copy()
+
+        state[:, 1, :, 0, :] = (
+            s2 * temp_dm[:, 1, :, 0, :]
+            + c2 * temp_dm[:, 1, :, 3, :]
+            + cs * (temp_dm[:, 2, :, 3, :] - temp_dm[:, 2, :, 0, :])
+        )
+        state[:, 2, :, 0, :] = (
+            s2 * temp_dm[:, 2, :, 0, :]
+            + c2 * temp_dm[:, 2, :, 3, :]
+            + cs * (temp_dm[:, 1, :, 0, :] - temp_dm[:, 1, :, 3, :])
+        )
+        state[:, 2, :, 3, :] = (
+            c2 * temp_dm[:, 2, :, 0, :]
+            + s2 * temp_dm[:, 2, :, 3, :]
+            + cs * (temp_dm[:, 1, :, 3, :] - temp_dm[:, 1, :, 0, :])
+        )
+        state[:, 1, :, 3, :] = (
+            c2 * temp_dm[:, 1, :, 0, :]
+            + s2 * temp_dm[:, 1, :, 3, :]
+            - cs * (temp_dm[:, 2, :, 3, :] - temp_dm[:, 2, :, 0, :])
+        )
+
+        state[:, 0, :, 1, :] = c * temp_dm[:, 3, :, 1, :] + s * temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 1, :] = c * temp_dm[:, 2, :, 2, :] + s * temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 1, :] = s * temp_dm[:, 2, :, 2, :] - c * temp_dm[:, 1, :, 2, :]
+        state[:, 3, :, 1, :] = c * temp_dm[:, 0, :, 1, :] - s * temp_dm[:, 3, :, 2, :]
+
+        state[:, 0, :, 2, :] = -s * temp_dm[:, 0, :, 1, :] + c * temp_dm[:, 3, :, 2, :]
+        state[:, 1, :, 2, :] = -s * temp_dm[:, 1, :, 1, :] - c * temp_dm[:, 2, :, 1, :]
+        state[:, 2, :, 2, :] = -s * temp_dm[:, 2, :, 1, :] + c * temp_dm[:, 1, :, 1, :]
+        state[:, 3, :, 2, :] = c * temp_dm[:, 0, :, 2, :] - s * temp_dm[:, 3, :, 1, :]
+
+    state = np.reshape(state, num_qubits * [4])
+
+    return state
+
+
 # Cache CX matrix as no parameters.
 _CX_MATRIX = gates.CXGate().to_matrix()
 
@@ -440,6 +553,7 @@ _CX_MATRIX = gates.CXGate().to_matrix()
 def cx_gate_matrix():
     """Get the matrix for a controlled-NOT gate."""
     return np.array([[1, 0, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0], [0, 1, 0, 0]], dtype=complex)
+
 
 def ms_gate_yy_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RYY.
@@ -471,19 +585,19 @@ def ms_gate_yy_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
 
-
-    state[:,0,:,1,:] = cs_temp_dm[:,0,:,1,:] + sn_temp_dm[:,2,:,3,:]
-    state[:,1,:,0,:] = cs_temp_dm[:,1,:,0,:] + sn_temp_dm[:,3,:,2,:]
-    state[:,0,:,3,:] = cs_temp_dm[:,0,:,3,:] - sn_temp_dm[:,2,:,1,:]
-    state[:,3,:,0,:] = cs_temp_dm[:,3,:,0,:] - sn_temp_dm[:,1,:,2,:]
-    state[:,2,:,1,:] = cs_temp_dm[:,2,:,1,:] + sn_temp_dm[:,0,:,3,:]
-    state[:,1,:,2,:] = cs_temp_dm[:,1,:,2,:] + sn_temp_dm[:,3,:,0,:]
-    state[:,2,:,3,:] = cs_temp_dm[:,3,:,2,:] - sn_temp_dm[:,0,:,1,:]
-    state[:,3,:,2,:] = cs_temp_dm[:,2,:,3,:] - sn_temp_dm[:,1,:,0,:]
+    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 2, :, 3, :]
+    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 3, :, 2, :]
+    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] - sn_temp_dm[:, 2, :, 1, :]
+    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] - sn_temp_dm[:, 1, :, 2, :]
+    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] + sn_temp_dm[:, 0, :, 3, :]
+    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] + sn_temp_dm[:, 3, :, 0, :]
+    state[:, 2, :, 3, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 1, :]
+    state[:, 3, :, 2, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 1, :, 0, :]
 
     state = np.reshape(state, num_qubits * [4])
 
     return state
+
 
 def ms_gate_zz_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RZZ.
@@ -515,15 +629,14 @@ def ms_gate_zz_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
 
-
-    state[:,0,:,1,:] = cs_temp_dm[:,0,:,1,:] - sn_temp_dm[:,3,:,2,:]
-    state[:,1,:,0,:] = cs_temp_dm[:,1,:,0,:] - sn_temp_dm[:,2,:,3,:]
-    state[:,0,:,2,:] = cs_temp_dm[:,0,:,2,:] + sn_temp_dm[:,3,:,1,:]
-    state[:,2,:,0,:] = cs_temp_dm[:,2,:,0,:] + sn_temp_dm[:,1,:,3,:]
-    state[:,3,:,1,:] = cs_temp_dm[:,3,:,1,:] - sn_temp_dm[:,0,:,2,:]
-    state[:,1,:,3,:] = cs_temp_dm[:,1,:,3,:] - sn_temp_dm[:,2,:,0,:]
-    state[:,2,:,3,:] = cs_temp_dm[:,2,:,3,:] + sn_temp_dm[:,1,:,0,:]
-    state[:,3,:,2,:] = cs_temp_dm[:,3,:,2,:] + sn_temp_dm[:,0,:,1,:]
+    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 3, :, 2, :]
+    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 2, :, 3, :]
+    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 3, :, 1, :]
+    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 1, :, 3, :]
+    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] - sn_temp_dm[:, 0, :, 2, :]
+    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] - sn_temp_dm[:, 2, :, 0, :]
+    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] + sn_temp_dm[:, 1, :, 0, :]
+    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] + sn_temp_dm[:, 0, :, 1, :]
 
     state = np.reshape(state, num_qubits * [4])
 
@@ -558,17 +671,17 @@ def ms_gate_xx_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
 
-
-    state[:,0,:,2,:] = cs_temp_dm[:,0,:,2,:] - sn_temp_dm[:,1,:,3,:]
-    state[:,2,:,0,:] = cs_temp_dm[:,2,:,0,:] - sn_temp_dm[:,3,:,1,:]
-    state[:,0,:,3,:] = cs_temp_dm[:,0,:,3,:] + sn_temp_dm[:,1,:,2,:]
-    state[:,3,:,0,:] = cs_temp_dm[:,3,:,0,:] + sn_temp_dm[:,2,:,1,:]
-    state[:,1,:,2,:] = cs_temp_dm[:,1,:,2,:] - sn_temp_dm[:,0,:,3,:]
-    state[:,2,:,1,:] = cs_temp_dm[:,2,:,1,:] - sn_temp_dm[:,3,:,0,:]
-    state[:,1,:,3,:] = cs_temp_dm[:,1,:,3,:] + sn_temp_dm[:,0,:,2,:]
-    state[:,3,:,1,:] = cs_temp_dm[:,3,:,1,:] + sn_temp_dm[:,2,:,0,:]
+    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 1, :, 3, :]
+    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 3, :, 1, :]
+    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 1, :, 2, :]
+    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 2, :, 1, :]
+    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] - sn_temp_dm[:, 0, :, 3, :]
+    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] - sn_temp_dm[:, 3, :, 0, :]
+    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] + sn_temp_dm[:, 0, :, 2, :]
+    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] + sn_temp_dm[:, 2, :, 0, :]
 
     state = np.reshape(state, num_qubits * [4])
+
 
 def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """Apply ZX gate in density matrix formalism.
@@ -603,32 +716,32 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         cs_temp_dm = state.copy()*cs
         sn_temp_dm = state.copy()*sn
-        
-        state[:,0,:,2,:] = cs_temp_dm[:,0,:,2,:] - sn_temp_dm[:,3,:,3,:]
-        state[:,0,:,3,:] = cs_temp_dm[:,0,:,3,:] + sn_temp_dm[:,3,:,2,:]
-        state[:,2,:,0,:] = cs_temp_dm[:,2,:,0,:] + sn_temp_dm[:,1,:,1,:]
-        state[:,1,:,0,:] = cs_temp_dm[:,1,:,0,:] - sn_temp_dm[:,2,:,1,:]
-        state[:,3,:,2,:] = cs_temp_dm[:,3,:,2,:] - sn_temp_dm[:,0,:,3,:]
-        state[:,3,:,3,:] = cs_temp_dm[:,3,:,3,:] + sn_temp_dm[:,0,:,2,:]
-        state[:,1,:,1,:] = cs_temp_dm[:,1,:,1,:] - sn_temp_dm[:,2,:,0,:]
-        state[:,2,:,1,:] = cs_temp_dm[:,2,:,1,:] + sn_temp_dm[:,1,:,0,:]
+
+        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 3, :, 3, :]
+        state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 3, :, 2, :]
+        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 1, :, 1, :]
+        state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 2, :, 1, :]
+        state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 3, :]
+        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] + sn_temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] - sn_temp_dm[:, 2, :, 0, :]
+        state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] + sn_temp_dm[:, 1, :, 0, :]
 
     else:
-        
+
         # Reshape Density Matrix
         rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_1 - 1), 4, 4 ** (q_1 - q_2 - 1), 4, 4 ** (q_2)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         cs_temp_dm = state.copy()*cs
         sn_temp_dm = state.copy()*sn
-        
-        state[:,2,:,0,:] = cs_temp_dm[:,2,:,0,:] - sn_temp_dm[:,3,:,3,:]
-        state[:,3,:,0,:] = cs_temp_dm[:,3,:,0,:] + sn_temp_dm[:,1,:,3,:]
-        state[:,0,:,2,:] = cs_temp_dm[:,0,:,2,:] + sn_temp_dm[:,1,:,1,:]
-        state[:,0,:,1,:] = cs_temp_dm[:,0,:,1,:] - sn_temp_dm[:,1,:,2,:]
-        state[:,2,:,3,:] = cs_temp_dm[:,2,:,3,:] - sn_temp_dm[:,3,:,0,:]
-        state[:,3,:,3,:] = cs_temp_dm[:,3,:,3,:] + sn_temp_dm[:,2,:,0,:]
-        state[:,1,:,1,:] = cs_temp_dm[:,1,:,1,:] - sn_temp_dm[:,0,:,2,:]
-        state[:,1,:,2,:] = cs_temp_dm[:,1,:,2,:] + sn_temp_dm[:,0,:,1,:]
+
+        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 3, :, 3, :]
+        state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 1, :, 3, :]
+        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 1, :, 1, :]
+        state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 3, :, 0, :]
+        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] + sn_temp_dm[:, 2, :, 0, :]
+        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] - sn_temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] + sn_temp_dm[:, 0, :, 1, :]
     state = np.reshape(state, num_qubits * [4])
 
 
@@ -744,17 +857,25 @@ def is_single(gate):
     # Checks if gate is single
     return True if gate.name in ["u3", "u1"] else False
 
+
 def is_ms_yy(gate):
     # Checks if gate is ms YY gate
     return True if gate.name in ["MS_YY", "ms_yy"] else False
+
 
 def is_ms_xx(gate):
     # Checks if gate is ms XX gate
     return True if gate.name in ["MS_XX", "ms_xx", "MS", "ms"] else False
 
+
 def is_cx(gate):
     # Checks if gate is CX
     return True if gate.name in ["CX", "cx"] else False
+
+
+def is_cz(gate):
+    # Checks if gate is CZ
+    return True if gate.name in ["CZ", "cz"] else False
 
 
 def is_measure(gate):
@@ -835,7 +956,7 @@ def qubit_stack(i_set, num_qubits):
     return instruction_set, stack_depth
 
 
-def partition_helper(i_set, num_qubits, two_qubit_gate = 'CX'):
+def partition_helper(i_set, num_qubits, two_qubit_gate='CX'):
     """Partitions the stack of qubit instructions in to a set of sequential levels.
     Instructions in a single level do not overlap and can be executed in parallel.
     """
@@ -887,6 +1008,27 @@ def partition_helper(i_set, num_qubits, two_qubit_gate = 'CX'):
                 else:
                     continue
 
+            # Check for CZ gate
+            elif two_qubit_gate == 'CZ' and is_cz(gate) is True:
+                second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
+                buffer_gate = i_stack[second_qubit][0]
+
+                # Checks if gate already included in the partition
+                if qubit in qubit_included or second_qubit in qubit_included:
+                    continue
+
+                # Check if CZ is top in stacks of both of its indexes.
+                if gate == buffer_gate:
+                    qubit_included.append(qubit)
+                    qubit_included.append(second_qubit)
+                    sequence[level].append(gate)
+                    i_set.remove(gate)
+                    i_stack[qubit].pop(0)
+                    i_stack[second_qubit].pop(0)
+                # If not then don't add it.
+                else:
+                    continue
+
             elif two_qubit_gate == 'MS_YY' and is_ms_yy(gate) is True:
                 second_qubit = list(set(gate.qubits).difference(set([qubit])))[0]
                 buffer_gate = i_stack[second_qubit][0]
@@ -925,7 +1067,7 @@ def partition_helper(i_set, num_qubits, two_qubit_gate = 'CX'):
                 # If not then don't add it.
                 else:
                     continue
-            elif two_qubit_gate not in ['CX', 'MS', 'MS_XX', 'MS_YY']:
+            elif two_qubit_gate not in ['CX', 'CZ', 'MS', 'MS_XX', 'MS_YY']:
                 raise BasicAerError("Two Qubit gate not supported")
             elif is_measure(gate):
 
@@ -995,7 +1137,7 @@ def partition_helper(i_set, num_qubits, two_qubit_gate = 'CX'):
     return sequence, level
 
 
-def partition(i_set, num_qubits, two_qubit_gate = 'CX'):
+def partition(i_set, num_qubits, two_qubit_gate='CX'):
     """Partition the instruction set in to a number of levels.
         Levels have to be executed sequentially,
         while instructions within each level can be executed in parallel.
@@ -1029,7 +1171,7 @@ def partition(i_set, num_qubits, two_qubit_gate = 'CX'):
                 partition_list.append([mod_ins])
                 levels += 1
             else:
-                seq, level = partition_helper(mod_ins, num_qubits, two_qubit_gate = two_qubit_gate)
+                seq, level = partition_helper(mod_ins, num_qubits, two_qubit_gate=two_qubit_gate)
                 partition_list.append(seq)
                 levels += level
     partition_list = list(itertools.chain(*partition_list))

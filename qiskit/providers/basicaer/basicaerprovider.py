@@ -23,6 +23,7 @@ from qiskit.providers.providerutils import resolve_backend_name, filter_backends
 
 from .qasm_simulator import QasmSimulatorPy
 from .dm_simulator import DmSimulatorPy
+from .dm_simulator_cz import DmSimulatorCZPy
 from .dm_simulator_molmer_sorenson_yy import DmSimulatorMSYYPy
 from .dm_simulator_molmer_sorenson_xx import DmSimulatorMSXXPy
 from .statevector_simulator import StatevectorSimulatorPy
@@ -31,7 +32,8 @@ from .unitary_simulator import UnitarySimulatorPy
 
 logger = logging.getLogger(__name__)
 
-SIMULATORS = [QasmSimulatorPy, DmSimulatorPy, StatevectorSimulatorPy, UnitarySimulatorPy, DmSimulatorMSYYPy, DmSimulatorMSXXPy]
+SIMULATORS = [QasmSimulatorPy, DmSimulatorPy, DmSimulatorCZPy,
+              StatevectorSimulatorPy, UnitarySimulatorPy, DmSimulatorMSYYPy, DmSimulatorMSXXPy]
 
 
 class BasicAerProvider(ProviderV1):
