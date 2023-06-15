@@ -414,6 +414,12 @@ class DmSimulatorPy_Base(BackendV1):
                 raise BasicAerError("Incorrect length of decay factor")
         else:
             self._decay_factor = np.ones(self._number_of_qubits)*self._decay_factor
+        
+        if type(self._depolarization_factor) is list or type(self._depolarization_factor) is type(np.array([1.,2.])):
+            if len(self._depolarization_factor) < max(self._number_of_qubits,1):
+                raise BasicAerError("Incorrect length of depolarization factor")
+        else:
+            self._depolarization_factor = np.ones(self._number_of_qubits)*self._depolarization_factor
 
         if type(self._dipole_error_factor) is float:
             self._dipole_error_factor = self._dipole_error_factor*np.ones((self._number_of_qubits, self._number_of_qubits,))
@@ -445,7 +451,7 @@ class DmSimulatorPy_Base(BackendV1):
         # Symmetrizing
         self._coupling_list = []
         if type(self._coupling_map) is list:
-            for coup in self._coupling_list:
+            for coup in self._coupling_map:
                 self._coupling_list.append(coup)
                 if coup.reverse() not in self._coupling_map:
                     self._coupling_list.append(coup.reverse())
@@ -529,9 +535,9 @@ class DmSimulatorPy_Base(BackendV1):
             'f' due to decoherence and 'sqrt(g)' due to amplitude decay. Diagonal elements decay
             with rate 'g' towards the thermal state specified by 'p'.
         Args:
-            level (int):    Clock cycle number (not used)
+            level (int):   Clock cycle number (not used)
             f     (list):  Contraction of off-diagonal elements due to T_2 (decoherence time)
-            p     (float):  Thermal factor corresponding to the asymptotic state
+            p     (float): Thermal factor corresponding to the asymptotic state
             g     (list):  Decay of the excited state component due to T_1 (relaxation time)
         """
 
@@ -550,36 +556,43 @@ class DmSimulatorPy_Base(BackendV1):
         self._densitymatrix = np.reshape(self._densitymatrix, self._number_of_qubits * [4])
 
     def _add_depolarization_error(self, level, h):
-        """Apply depolarization transformation independently
-            to all the qubits.
+        """Apply depolarization transformation independently to all the qubits.
+            Depolarization contracts all Pauli components by a factor 'h'. 
         Args:
-            level (int):    Clock cycle number (not used)
-            h     (float): Depolarization error
+            level (int):  Clock cycle number (not used)
+            h     (list): Contraction of Pauli components due to depolarization
         """
-        # Applying the depolarization error
-        self._densitymatrix[1:] = h*self._densitymatrix[1:] # This works because h\rho + (1-h)I = h\rho + (1-h)\rho[0,0,0,...]
+        # Applying Depolarization
+        for qb in range(self._number_of_qubits):
+            lt, mt, rt = 4**qb, 4, 4 ** (self._number_of_qubits - qb - 1)
+            self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt))
+            self._densitymatrix[:,1:,:] = h[qb]*self._densitymatrix[:,1:,:]
+        
+        self._densitymatrix = np.reshape(self._densitymatrix, self._number_of_qubits * [4])
 
     def _add_dipole_and_crosstalk_error(self):
-        """
-        Adds dipole and crosstalk errors to the system based on the coupling map
+        """Adds dipole and crosstalk errors to the system based on the coupling map
+            xxyy_error = dipole error
+            zz_error = dipole error + crosstalk error
+            The error parameters are supplied by the user remains.
         """
         if self._xxyy_error is not None:
             for i in range(self._number_of_qubits):
                 for j in range(i+1, self._number_of_qubits):
-                    ms_gate_xx_dm_matrix(self._densitymatrix,
-                                        i,j,
-                                        [1., -np.pi/2 + self._xxyy_error[i,j]],
+                    rxx_gate_dm_matrix(self._densitymatrix,
+                                        i,j,0,
+                                        [1., self._xxyy_error[i,j]],
                                         self._number_of_qubits)
-                    ms_gate_yy_dm_matrix(self._densitymatrix,
-                                        i,j,
-                                        [1., -np.pi/2 + self._xxyy_error[i,j]],
+                    rxx_gate_dm_matrix(self._densitymatrix,
+                                        i,j,0,
+                                        [1., self._xxyy_error[i,j]],
                                         self._number_of_qubits)
         if self._zz_error is not None:
             for i in range(self._number_of_qubits):
                 for j in range(i+1, self._number_of_qubits):
-                    ms_gate_zz_dm_matrix(self._densitymatrix,
-                                        i,j,
-                                        [1., -np.pi/2 + self._zz_error[i,j]],
+                    rzz_gate_dm_matrix(self._densitymatrix,
+                                        i,j,0,
+                                        [1., self._zz_error[i,j]],
                                         self._number_of_qubits)
         
 

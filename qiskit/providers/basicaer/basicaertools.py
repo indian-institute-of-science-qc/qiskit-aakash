@@ -342,8 +342,8 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     The noisy C-NOT gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
     Args:
         err_param[1] is the mean error in the angle param "a".
-        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
-                     which equals <cos(a - <a>)>.
+        err_param[0] is the reduction in the radius after averaging over fluctuations in "a"
+                     which equals <cos(a-<a>)>.
     """
 
     # Calculating all cos and sin in advance
@@ -353,7 +353,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     s = cav * np.sin(err_param[1])
     c2 = 0.5 * (1 + c2av * np.cos(2 * err_param[1]))
     s2 = 0.5 * (1 - c2av * np.cos(2 * err_param[1]))
-    s = cav * np.sin(err_param[1])
+    """ s = cav * np.sin(err_param[1]) """
     cs = c2av * np.sin(err_param[1]) * np.cos(err_param[1])
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
@@ -433,7 +433,6 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state[:, 3, :, 2, :] = c * temp_dm[:, 2, :, 1, :] + s * temp_dm[:, 3, :, 1, :]
 
     state = np.reshape(state, num_qubits * [4])
-
     return state
 
 
@@ -444,15 +443,15 @@ def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state : density matrix
         q_1 (int): Control qubit
         q_2 (int): Target qubit
-        Note : Ordering of qubits (MSB right, LSB left)
+        Note: Ordering of qubits (MSB right, LSB left)
 
     The error model adds a fluctuation "a" to the angle producing the Z rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
-    The noisy C-Z gate then becomes (1 0 0 0), (0 1 0 0), (0 0 isin(a)+cos(a) 0), (0 0 0 isin(a)-cos(a))
+    The noisy C-Z gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a)+cos(a) 0), (0 0 0 Isin(a)-cos(a))
     Args:
         err_param[1] is the mean error in the angle param "a".
-        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
-                     which equals <cos(a)>.
+        err_param[0] is the reduction in the radius after averaging over fluctuations in "a",
+                     which equals <cos(a-<a>)>.
     """
 
     # Calculating all cos and sin in advance
@@ -462,11 +461,11 @@ def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     s = cav * np.sin(err_param[1])
     c2 = 0.5 * (1 + c2av * np.cos(2 * err_param[1]))
     s2 = 0.5 * (1 - c2av * np.cos(2 * err_param[1]))
-    s = cav * np.sin(err_param[1])
+    """ s = cav * np.sin(err_param[1]) """
     cs = c2av * np.sin(err_param[1]) * np.cos(err_param[1])
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
-        raise QiskitError("Qubit Labels out of bound in CX Gate")
+        raise QiskitError("Qubit Labels out of bound in CZ Gate")
     elif q_2 > q_1:
         # Reshape Density Matrix
         rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
@@ -476,22 +475,22 @@ def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state[:, 0, :, 1, :] = (
             s2 * temp_dm[:, 0, :, 1, :]
             + c2 * temp_dm[:, 3, :, 1, :]
-            + cs * (temp_dm[:, 3, :, 2, :] - temp_dm[:, 0, :, 2, :])
+            - cs * (temp_dm[:, 3, :, 2, :] - temp_dm[:, 0, :, 2, :])
         )
         state[:, 0, :, 2, :] = (
             s2 * temp_dm[:, 0, :, 2, :]
             + c2 * temp_dm[:, 3, :, 2, :]
-            + cs * (temp_dm[:, 0, :, 1, :] - temp_dm[:, 3, :, 1, :])
+            - cs * (temp_dm[:, 0, :, 1, :] - temp_dm[:, 3, :, 1, :])
         )
         state[:, 3, :, 2, :] = (
             c2 * temp_dm[:, 0, :, 2, :]
             + s2 * temp_dm[:, 3, :, 2, :]
-            + cs * (temp_dm[:, 3, :, 1, :] - temp_dm[:, 0, :, 1, :])
+            - cs * (temp_dm[:, 3, :, 1, :] - temp_dm[:, 0, :, 1, :])
         )
         state[:, 3, :, 1, :] = (
             c2 * temp_dm[:, 0, :, 1, :]
             + s2 * temp_dm[:, 3, :, 1, :]
-            - cs * (temp_dm[:, 3, :, 2, :] - temp_dm[:, 0, :, 2, :])
+            + cs * (temp_dm[:, 3, :, 2, :] - temp_dm[:, 0, :, 2, :])
         )
 
         state[:, 1, :, 0, :] = c * temp_dm[:, 1, :, 3, :] + s * temp_dm[:, 2, :, 0, :]
@@ -513,22 +512,22 @@ def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state[:, 1, :, 0, :] = (
             s2 * temp_dm[:, 1, :, 0, :]
             + c2 * temp_dm[:, 1, :, 3, :]
-            + cs * (temp_dm[:, 2, :, 3, :] - temp_dm[:, 2, :, 0, :])
+            - cs * (temp_dm[:, 2, :, 3, :] - temp_dm[:, 2, :, 0, :])
         )
         state[:, 2, :, 0, :] = (
             s2 * temp_dm[:, 2, :, 0, :]
             + c2 * temp_dm[:, 2, :, 3, :]
-            + cs * (temp_dm[:, 1, :, 0, :] - temp_dm[:, 1, :, 3, :])
+            - cs * (temp_dm[:, 1, :, 0, :] - temp_dm[:, 1, :, 3, :])
         )
         state[:, 2, :, 3, :] = (
             c2 * temp_dm[:, 2, :, 0, :]
             + s2 * temp_dm[:, 2, :, 3, :]
-            + cs * (temp_dm[:, 1, :, 3, :] - temp_dm[:, 1, :, 0, :])
+            - cs * (temp_dm[:, 1, :, 3, :] - temp_dm[:, 1, :, 0, :])
         )
         state[:, 1, :, 3, :] = (
             c2 * temp_dm[:, 1, :, 0, :]
             + s2 * temp_dm[:, 1, :, 3, :]
-            - cs * (temp_dm[:, 2, :, 3, :] - temp_dm[:, 2, :, 0, :])
+            + cs * (temp_dm[:, 2, :, 3, :] - temp_dm[:, 2, :, 0, :])
         )
 
         state[:, 0, :, 1, :] = c * temp_dm[:, 3, :, 1, :] + s * temp_dm[:, 0, :, 2, :]
@@ -542,7 +541,6 @@ def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         state[:, 3, :, 2, :] = c * temp_dm[:, 0, :, 2, :] - s * temp_dm[:, 3, :, 1, :]
 
     state = np.reshape(state, num_qubits * [4])
-
     return state
 
 
@@ -556,131 +554,160 @@ def cx_gate_matrix():
 
 
 def ms_gate_yy_dm_matrix(state, q_1, q_2, err_param, num_qubits):
-    """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RYY.
+    """Apply Molmer-Sorenson gate in density matrix formalism, equivalent to RYY(pi/2).
+    """
+    return ryy_gate_dm_matrix(state, q_1, q_2, np.pi/2, err_param, num_qubits)
+
+def ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+    """ Apply YY gate in density matrix formalism
 
         Args:
         state : density matrix
         q_1 (int): Qubit 1
         q_2 (int): Qubit 2
-        Note : Ordering of qubits (MSB right, LSB left)
+        rot_ang: Rotation angle
+        Note: Ordering of qubits (MSB right, LSB left)
 
-    The error model adds a fluctuation "a" to the angle producing the XX rotation,
+    The error model adds a fluctuation "a" to the angle producing the YY rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
-    The noisy MS gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    RYY(a) = exp(-ia/2 YxY) = (c 0 0 Is), (0 c -Is 0), (0 -Is c 0), (Is 0 0 c)
+    with c=cos(a/2), s=sin(a/2), and the noise alters the angle parameter "a".
+    The default rotation angle is a=pi/2.
     Args:
-        err_param[1] is the mean error in the angle param "a" (in radians).
-        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+        err_param[1] is the mean error in the angle param "a".
+        err_param[0] is the reduction in the radius after averaging over fluctuations in "a",
                      which equals <cos(a-<a>)>.
     """
-    angle = np.pi/2 + err_param[1]
+    angle = rot_ang + err_param[1]
     if angle == 0.:
         return
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
-    q_1, q_2 = min(q_1, q_2), max(q_1, q_2)
+    qmin = min(q_1, q_2)
+    qmax = max(q_1, q_2)
 
-    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - qmax - 1), 4, 4 ** (qmax - qmin - 1), 4, 4 ** qmin
     state = np.reshape(state, (lt, mt1, ct, mt2, rt))
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
 
-    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 2, :, 3, :]
-    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 3, :, 2, :]
-    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] - sn_temp_dm[:, 2, :, 1, :]
-    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] - sn_temp_dm[:, 1, :, 2, :]
-    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] + sn_temp_dm[:, 0, :, 3, :]
-    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] + sn_temp_dm[:, 3, :, 0, :]
-    state[:, 2, :, 3, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 1, :]
-    state[:, 3, :, 2, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 1, :, 0, :]
+    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 2, :, 3, :]
+    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 3, :, 2, :]
+    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 2, :, 1, :]
+    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 1, :, 2, :]
+    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] - sn_temp_dm[:, 0, :, 3, :]
+    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] - sn_temp_dm[:, 3, :, 0, :]
+    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] + sn_temp_dm[:, 0, :, 1, :]
+    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] + sn_temp_dm[:, 1, :, 0, :]
 
     state = np.reshape(state, num_qubits * [4])
-
     return state
 
 
 def ms_gate_zz_dm_matrix(state, q_1, q_2, err_param, num_qubits):
-    """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RZZ.
+    """Apply Molmer-Sorenson gate in density matrix formalism, equivalent to RZZ(pi/2).
+    """
+    return rzz_gate_dm_matrix(state, q_1, q_2, np.pi/2, err_param, num_qubits)
+
+def rzz_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+    """ Apply ZZ gate in density matrix formalism
 
         Args:
         state : density matrix
         q_1 (int): Qubit 1
         q_2 (int): Qubit 2
-        Note : Ordering of qubits (MSB right, LSB left)
+        rot_ang: Rotation angle
+        Note: Ordering of qubits (MSB right, LSB left)
 
-    The error model adds a fluctuation "a" to the angle producing the XX rotation,
+    The error model adds a fluctuation "a" to the angle producing the ZZ rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
-    The noisy MS gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    RZZ(a) = exp(-ia/2 ZxZ) = (c-Is 0 0 0 ), (0 c+Is 0 0 ), (0 0 c+Is 0), (0 0 0 c-Is)
+    with c=cos(a/2), s=sin(a/2), and the noise alters the angle parameter "a".ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+    The default rotation angle is a=pi/2.
     Args:
-        err_param[1] is the mean error in the angle param "a" (in radians).
-        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+        err_param[1] is the mean error in the angle param "a".
+        err_param[0] is the reduction in the radius after averaging over fluctuations in "a",
                      which equals <cos(a-<a>)>.
     """
-    angle = np.pi/2 + err_param[1]
+
+    angle = rot_ang + err_param[1]
     if angle == 0.:
         return
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
-    q_1, q_2 = min(q_1, q_2), max(q_1, q_2)
+    qmin = min(q_1, q_2)
+    qmax = max(q_1, q_2)
 
-    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - qmax - 1), 4, 4 ** (qmax - qmin - 1), 4, 4 ** qmin
     state = np.reshape(state, (lt, mt1, ct, mt2, rt))
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
 
-    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 3, :, 2, :]
-    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 2, :, 3, :]
-    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 3, :, 1, :]
-    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 1, :, 3, :]
-    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] - sn_temp_dm[:, 0, :, 2, :]
-    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] - sn_temp_dm[:, 2, :, 0, :]
-    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] + sn_temp_dm[:, 1, :, 0, :]
-    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] + sn_temp_dm[:, 0, :, 1, :]
+    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 3, :, 2, :]
+    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 2, :, 3, :]
+    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 3, :, 1, :]
+    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 1, :, 3, :]
+    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] + sn_temp_dm[:, 0, :, 2, :]
+    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] + sn_temp_dm[:, 2, :, 0, :]
+    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 1, :, 0, :]
+    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 1, :]
 
     state = np.reshape(state, num_qubits * [4])
+    return state
 
 
 def ms_gate_xx_dm_matrix(state, q_1, q_2, err_param, num_qubits):
-    """Apply Molmer-Sorenson gate in density matrix formalism equivalent to RXX.
+    """Apply Molmer-Sorenson gate in density matrix formalism, equivalent to RXX(pi/2).
+    """
+    return rxx_gate_dm_matrix(state, q_1, q_2, np.pi/2, err_param, num_qubits)
+
+def rxx_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+    """ Apply XX gate in density matrix formalism
 
         Args:
         state : density matrix
         q_1 (int): Qubit 1
         q_2 (int): Qubit 2
-        Note : Ordering of qubits (MSB right, LSB left)
+        rot_ang: Rotation angle
+        Note: Ordering of qubits (MSB right, LSB left)
 
     The error model adds a fluctuation "a" to the angle producing the XX rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
-    The noisy MS gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
+    RXX(a) = exp(-ia/2 XxX) = (c 0 0 -Is), (0 c -Is 0), (0 -Is c 0), (-Is 0 0 c)
+    with c=cos(a/2), s=sin(a/2), and the noise alters the angle parameter "a".
+    The default rotation angle is a=pi/2.
     Args:
-        err_param[1] is the mean error in the angle param "a" (in radians).
-        err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
+        err_param[1] is the mean error in the angle param "a".
+        err_param[0] is the reduction in the radius after averaging over fluctuations in "a",
                      which equals <cos(a-<a>)>.
     """
-    angle = np.pi/2 + err_param[1]
+    angle = rot_ang + err_param[1]
     if angle == 0.:
         return
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
-    q_1, q_2 = min(q_1, q_2), max(q_1, q_2)
+    qmin = min(q_1, q_2)
+    qmax = max(q_1, q_2)
 
-    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - qmax - 1), 4, 4 ** (qmax - qmin - 1), 4, 4 ** qmin
     state = np.reshape(state, (lt, mt1, ct, mt2, rt))
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
 
-    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 1, :, 3, :]
-    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 3, :, 1, :]
-    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 1, :, 2, :]
-    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 2, :, 1, :]
-    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] - sn_temp_dm[:, 0, :, 3, :]
-    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] - sn_temp_dm[:, 3, :, 0, :]
-    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] + sn_temp_dm[:, 0, :, 2, :]
-    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] + sn_temp_dm[:, 2, :, 0, :]
+    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 1, :, 3, :]
+    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 3, :, 1, :]
+    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] - sn_temp_dm[:, 1, :, 2, :]
+    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] - sn_temp_dm[:, 2, :, 1, :]
+    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] + sn_temp_dm[:, 0, :, 3, :]
+    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] + sn_temp_dm[:, 3, :, 0, :]
+    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] - sn_temp_dm[:, 0, :, 2, :]
+    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] - sn_temp_dm[:, 2, :, 0, :]
 
     state = np.reshape(state, num_qubits * [4])
+    return state
 
 
 def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
@@ -692,10 +719,12 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         q_2 (int): Target qubit
         Note : Ordering of qubits (MSB right, LSB left)
 
-    The error model adds a fluctuation "a" to the angle producing the X rotation,
+    The error model adds a fluctuation "a" to the angle producing the ZX rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
-    The noisy C-NOT gate then becomes (1 0 0 0), (0 1 0 0), (0 0 Isin(a) cos(a)), (0 0 cos(a) Isin(a))
-    Args:
+    RZX(a) = exp(-ia/2 ZxX) = (c -Is 0 0), (-Is c 0 0), (0 0 c Is), (0 0 Is c)
+    with c=cos(a/2), s=sin(a/2), and the noise alters the angle parameter "a".
+    The default rotation angle is a=0.    
+        Args:
         err_param[1] is the mean error in the angle param "a".
         err_param[0] is the reduction in the radius after averaging over fluctuations in the angle param,
                      which equals <cos(a - <a>)>.
@@ -712,37 +741,38 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         raise QiskitError("Qubit Labels out of bound in R_ZX Gate")
     elif q_2 > q_1:
         # Reshape Density Matrix
-        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, np.pi/24 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         cs_temp_dm = state.copy()*cs
         sn_temp_dm = state.copy()*sn
 
-        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 3, :, 3, :]
-        state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 3, :, 2, :]
-        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 1, :, 1, :]
-        state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 2, :, 1, :]
-        state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 3, :]
-        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] + sn_temp_dm[:, 0, :, 2, :]
-        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] - sn_temp_dm[:, 2, :, 0, :]
-        state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] + sn_temp_dm[:, 1, :, 0, :]
+        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 3, :, 3, :]
+        state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] - sn_temp_dm[:, 3, :, 2, :]
+        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 1, :, 1, :]
+        state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 2, :, 1, :]
+        state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] + sn_temp_dm[:, 0, :, 3, :]
+        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] - sn_temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] + sn_temp_dm[:, 2, :, 0, :]
+        state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] - sn_temp_dm[:, 1, :, 0, :]
 
     else:
-
         # Reshape Density Matrix
         rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_1 - 1), 4, 4 ** (q_1 - q_2 - 1), 4, 4 ** (q_2)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         cs_temp_dm = state.copy()*cs
         sn_temp_dm = state.copy()*sn
 
-        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 3, :, 3, :]
-        state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 1, :, 3, :]
-        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 1, :, 1, :]
-        state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 1, :, 2, :]
-        state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 3, :, 0, :]
-        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] + sn_temp_dm[:, 2, :, 0, :]
-        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] - sn_temp_dm[:, 0, :, 2, :]
-        state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] + sn_temp_dm[:, 0, :, 1, :]
+        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 3, :, 3, :]
+        state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] - sn_temp_dm[:, 2, :, 3, :]
+        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 1, :, 1, :]
+        state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] + sn_temp_dm[:, 3, :, 0, :]
+        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] - sn_temp_dm[:, 2, :, 0, :]
+        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] + sn_temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] - sn_temp_dm[:, 0, :, 1, :]
+    
     state = np.reshape(state, num_qubits * [4])
+    return state
 
 
 def einsum_matmul_index(gate_indices, number_of_qubits):
