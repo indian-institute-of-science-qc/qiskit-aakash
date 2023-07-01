@@ -87,11 +87,11 @@ class DmSimulatorPy_Base(BackendV1):
         "compute_densitymatrix":True,
         "show_partition": False,
         "plot": False,
-        "precision":np.half,
-        "precision_complex":np.csingle,
+        "precision":np.float,
+        "precision_complex":np.complex,
         "coupling_map": None,
-        "dipole_error_factor": None,
-        "crosstalk_factor": None,
+        "dipole_error": None, # should be either two numbers or two arrays or None. The two numbers/arrays correspond to length of vector and angle respectively
+        "crosstalk": None, # should be either two numbers or two arrays or None. The two numbers/arrays correspond to length of vector and angle respectively
     }
 
     # Class level variable to return the final state at the end of simulation
@@ -149,10 +149,8 @@ class DmSimulatorPy_Base(BackendV1):
             None  # During Measurement (Bit flip and Depolarization have the same effect)
         )
         self._bell_depolarization_factor = None
-        self._dipole_error_factor = None
-        self._crosstalk_factor = None
-        self._xxyy_error = None
-        self._zz_error = None
+        self._dipole_error = None
+        self._crosstalk= None
 
         # TEMP
         self._sample_measure = False
@@ -185,8 +183,8 @@ class DmSimulatorPy_Base(BackendV1):
             precision=np.half,
             precision_complex=np.csingle,
             coupling_map=None,
-            dipole_error_factor=None,
-            crosstalk_factor=None,
+            dipole_error=None,
+            crosstalk=None,
         )
 
     def _set_options(self, qobj_config=None, backend_options=None):
@@ -201,8 +199,8 @@ class DmSimulatorPy_Base(BackendV1):
         self._decay_factor = self.options.get("decay_factor")
         self._depolarization_factor = self.options.get("depolarization_factor")
         self._bell_depolarization_factor = self.options.get("bell_depolarization_factor")
-        self._dipole_error_factor = self.options.get("dipole_error_factor")
-        self._crosstalk_factor = self.options.get("crosstalk_factor")
+        self._dipole_error = self.options.get("dipole_error")
+        self._crosstalk = self.options.get("crosstalk")
         self._coupling_map = self.options.get("coupling_map")
 
         if "backend_options" in backend_options and backend_options["backend_options"]:
@@ -276,11 +274,11 @@ class DmSimulatorPy_Base(BackendV1):
         if "bell_depolarization_factor" in backend_options:
             self.bell_depolarization_factor = backend_options["bell_depolarization_factor"]
 
-        if "dipole_error_factor" in backend_options:
-            self._dipole_error_factor = backend_options["dipole_error_factor"]
+        if "dipole_error" in backend_options:
+            self._dipole_error = backend_options["dipole_error"]
 
-        if "crosstalk_factor" in backend_options:
-            self._crosstalk_factor = backend_options["crosstalk_factor"]
+        if "crosstalk" in backend_options:
+            self._crosstalk = backend_options["crosstalk"]
 
         if "coupling_map" in backend_options:
             self._coupling_map = backend_options["coupling_map"]
@@ -421,27 +419,35 @@ class DmSimulatorPy_Base(BackendV1):
         else:
             self._depolarization_factor = np.ones(self._number_of_qubits)*self._depolarization_factor
 
-        if type(self._dipole_error_factor) is float:
-            self._dipole_error_factor = self._dipole_error_factor*np.ones((self._number_of_qubits, self._number_of_qubits,))
-        elif type(self._dipole_error_factor) is list:
-            self._dipole_error_factor = np.array(self._dipole_error_factor)
-            if len(self._dipole_error_factor) != len(self._dipole_error_factor[0]) or len(self._dipole_error_factor) != self._number_of_qubits:
-                raise BasicAerError("Incorrect dimensions of dipole_error_factor")
+        if type(self._dipole_error) is list:
+            if len(self._dipole_error) != 2:
+                raise BasicAerError("Need exactly 2 elements/arrays for dipole error")
+            
+            if type(self._dipole_error[0]) is float:
+                self._dipole_error_scale = self._dipole_error[0]*np.ones((self._number_of_qubits, self._number_of_qubits,))
+                self._dipole_error_angle = self._dipole_error[1]*np.ones((self._number_of_qubits, self._number_of_qubits,))
+            else:
+                self._dipole_error_scale = np.array(self._dipole_error[0])
+                self._dipole_error_angle = np.array(self._dipole_error[1])
 
-        self._xxyy_error = self._dipole_error_factor.copy() if self._dipole_error_factor is not None else None
-        self._zz_error = self._dipole_error_factor.copy() if self._dipole_error_factor is not None else None
-
-        if type(self._crosstalk_factor) is float:
-            self._crosstalk_factor = self._crosstalk_factor*np.ones((self._number_of_qubits, self._number_of_qubits,))
-        elif type(self._crosstalk_factor) is list:
-            self._crosstalk_factor = np.array(self._crosstalk_factor)
-            if len(self._crosstalk_factor) != len(self._crosstalk_factor[0]) or len(self._crosstalk_factor) != self._number_of_qubits:
-                raise BasicAerError("Incorrect dimensions of crosstalk_factor")        
-
-        if self._zz_error is None :
-            self._zz_error = self._crosstalk_factor
-        elif self._crosstalk_factor is not None:
-            self._zz_error = self._zz_error + self._crosstalk_factor        
+            if self._dipole_error_scale.shape != (self._number_of_qubits, self._number_of_qubits,)\
+                or self._dipole_error_angle.shape != (self._number_of_qubits, self._number_of_qubits,):
+                raise BasicAerError("Incorrect dimensions of dipole_error")
+        
+        if type(self._crosstalk) is list:
+            if len(self._crosstalk) != 2:
+                raise BasicAerError("Need exactly 2 elements/arrays for crosstalk error")
+            
+            if type(self._crosstalk[0]) is float:
+                self._crosstalk_scale = self._crosstalk[0]*np.ones((self._number_of_qubits, self._number_of_qubits,))
+                self._crosstalk_angle = self._crosstalk[1]*np.ones((self._number_of_qubits, self._number_of_qubits,))
+            else:
+                self._crosstalk_scale = np.array(self._crosstalk[0])
+                self._crosstalk_angle = np.array(self._crosstalk[1])
+                
+            if self._crosstalk_scale.shape != (self._number_of_qubits, self._number_of_qubits,)\
+                or self._crosstalk_angle.shape != (self._number_of_qubits, self._number_of_qubits,):
+                raise BasicAerError("Incorrect dimensions of crosstalk error")    
 
         couples = np.ones((self._number_of_qubits, self._number_of_qubits,))
 
@@ -462,8 +468,11 @@ class DmSimulatorPy_Base(BackendV1):
 
             couples = 1. - couples
 
-        self._xxyy_error = self._xxyy_error*couples if self._xxyy_error is not None else None
-        self._zz_error = self._zz_error*couples if self._zz_error is not None else None
+        self._dipole_error_scale[couples == 0]  = np.nan if self._dipole_error_scale is not None else None
+        self._dipole_error_angle[couples == 0]  = np.nan if self._dipole_error_angle is not None else None
+        self._crosstalk_scale[couples == 0]     = np.nan if self._crosstalk_scale is not None else None
+        self._crosstalk_angle[couples == 0]     = np.nan if self._crosstalk_angle is not None else None
+
 
 
     def _validate_initial_densitymatrix(self):
@@ -570,30 +579,27 @@ class DmSimulatorPy_Base(BackendV1):
         
         self._densitymatrix = np.reshape(self._densitymatrix, self._number_of_qubits * [4])
 
-    def _add_dipole_and_crosstalk_error(self):
-        """Adds dipole and crosstalk errors to the system based on the coupling map
-            xxyy_error = dipole error
-            zz_error = dipole error + crosstalk error
-            The error parameters are supplied by the user remains.
-        """
-        if self._xxyy_error is not None:
+    def _add_dipole_error(self):
+        """Adds dipole error to density matrix based on the coupling map"""
+        if self._dipole_error_scale is not None:
             for i in range(self._number_of_qubits):
                 for j in range(i+1, self._number_of_qubits):
-                    rxx_gate_dm_matrix(self._densitymatrix,
-                                        i,j,0,
-                                        [1., self._xxyy_error[i,j]],
-                                        self._number_of_qubits)
-                    rxx_gate_dm_matrix(self._densitymatrix,
-                                        i,j,0,
-                                        [1., self._xxyy_error[i,j]],
-                                        self._number_of_qubits)
-        if self._zz_error is not None:
+                    if not np.isnan(self._dipole_error_scale[i,j]):
+                        dipole_error_dm_matrix(self._densitymatrix,
+                                            i,j,0,
+                                            [self._dipole_error_scale[i,j], self._dipole_error_angle[i,j]],
+                                            self._number_of_qubits)
+
+    def _add_crosstalk(self):
+        """Adds crosstalk error to the system based on the coupling map"""
+        if self._crosstalk_scale is not None:
             for i in range(self._number_of_qubits):
                 for j in range(i+1, self._number_of_qubits):
-                    rzz_gate_dm_matrix(self._densitymatrix,
-                                        i,j,0,
-                                        [1., self._zz_error[i,j]],
-                                        self._number_of_qubits)
+                    if not np.isnan(self._crosstalk_scale[i,j]):
+                        rzz_gate_dm_matrix(self._densitymatrix,
+                                            i,j,0,
+                                            [self._crosstalk_scale[i,j], self._crosstalk_angle[i,j]],
+                                            self._number_of_qubits)
         
 
     def _add_ensemble_measure(self, basis, add_param, err_param):
@@ -1440,7 +1446,8 @@ class DmSimulatorPy_Base(BackendV1):
                     h = self._depolarization_factor,
                 )
 
-            self._add_dipole_and_crosstalk_error()
+            self._add_dipole_error()
+            self._add_crosstalk()
 
         if self.SHOW_FINAL_STATE:
             if self._get_den_mat:

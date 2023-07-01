@@ -742,6 +742,53 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     state = np.reshape(state, num_qubits * [4])
     return state
 
+def dipole_error_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+    """ #TODO: Needs to be changed from ZZ to Dipole
+    Apply Dipole error in density matrix formalism
+
+        Args:
+        state : density matrix
+        q_1 (int): Qubit 1
+        q_2 (int): Qubit 2
+        rot_ang: Rotation angle
+        Note: Ordering of qubits (MSB right, LSB left)
+
+    The error model adds a fluctuation "a" to the angle producing the ZZ rotation,
+    with mean err_param[1] and variance parametrized in terms of err_param[0].
+    RZZ(a) = exp(-ia/2 ZxZ) = (c-Is 0 0 0 ), (0 c+Is 0 0 ), (0 0 c+Is 0), (0 0 0 c-Is)
+    with c=cos(a/2), s=sin(a/2), and the noise alters the angle parameter "a".ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+    The default rotation angle is a=pi/2.
+    Args:
+        err_param[1] is the mean error in the angle param "a".
+        err_param[0] is the reduction in the radius after averaging over fluctuations in "a",
+                     which equals <cos(a-<a>)>.
+    """
+
+    angle = rot_ang + err_param[1]
+    if angle == 0.:
+        return
+    cs = err_param[0] * np.cos(angle)
+    sn = err_param[0] * np.sin(angle)
+
+    qmin = min(q_1, q_2)
+    qmax = max(q_1, q_2)
+
+    rt, mt2, ct, mt1, lt = 4 ** (num_qubits - qmax - 1), 4, 4 ** (qmax - qmin - 1), 4, 4 ** qmin
+    state = np.reshape(state, (lt, mt1, ct, mt2, rt))
+    cs_temp_dm = state.copy()*cs
+    sn_temp_dm = state.copy()*sn
+
+    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 3, :, 2, :]
+    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 2, :, 3, :]
+    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 3, :, 1, :]
+    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 1, :, 3, :]
+    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] + sn_temp_dm[:, 0, :, 2, :]
+    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] + sn_temp_dm[:, 2, :, 0, :]
+    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 1, :, 0, :]
+    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 1, :]
+
+    state = np.reshape(state, num_qubits * [4])
+    return state
 
 def einsum_matmul_index(gate_indices, number_of_qubits):
     """Return the index string for Numpy.einsum matrix-matrix multiplication.
