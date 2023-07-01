@@ -151,6 +151,10 @@ class DmSimulatorPy_Base(BackendV1):
         self._bell_depolarization_factor = None
         self._dipole_error = None
         self._crosstalk= None
+        self._dipole_error_scale = None
+        self._crosstalk_scale= None
+        self._dipole_error_angle = None
+        self._crosstalk_angle= None
 
         # TEMP
         self._sample_measure = False
