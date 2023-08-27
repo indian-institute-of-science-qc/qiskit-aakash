@@ -353,7 +353,6 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     s = cav * np.sin(err_param[1])
     c2 = 0.5 * (1 + c2av * np.cos(2 * err_param[1]))
     s2 = 0.5 * (1 - c2av * np.cos(2 * err_param[1]))
-    """ s = cav * np.sin(err_param[1]) """
     cs = c2av * np.sin(err_param[1]) * np.cos(err_param[1])
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
@@ -407,16 +406,14 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
             - cs * (temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
         )
         state[:, 2, :, 3, :] = (
-            c2 * temp_dm[:, 2, :, 0, :]
-            + s2 * temp_dm[:, 2, :, 3, :]
-            + cs * (temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
-        )
-        state[:, 3, :, 0, :] = (
-            s2 * temp_dm[:, 3, :, 0, :]
-            + c2 * temp_dm[:, 3, :, 3, :]
-            + cs * (temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :])
-        )
-        state[:, 3, :, 3, :] = (
+        state[:, 1, :, 2, :] = -s * temp_dm[:, 2, :, 2, :] + c * temp_dm[:, 2, :, 3, :]
+        state[:, 1, :, 3, :] = -c * temp_dm[:, 2, :, 2, :] - s * temp_dm[:, 2, :, 3, :]
+
+        state[:, 2, :, 0, :] = s * temp_dm[:, 1, :, 0, :] + c * temp_dm[:, 2, :, 1, :]
+        state[:, 2, :, 1, :] = s * temp_dm[:, 1, :, 1, :] + c * temp_dm[:, 2, :, 0, :]
+        state[:, 2, :, 2, :] = s * temp_dm[:, 1, :, 2, :] - c * temp_dm[:, 1, :, 3, :]
+        state[:, 2, :, 3, :] = c * temp_dm[:, 1, :, 2, :] + s * temp_dm[:, 1, :, 3, :]
+
             c2 * temp_dm[:, 3, :, 0, :]
             + s2 * temp_dm[:, 3, :, 3, :]
             - cs * (temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :])
@@ -461,8 +458,7 @@ def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     s = cav * np.sin(err_param[1])
     c2 = 0.5 * (1 + c2av * np.cos(2 * err_param[1]))
     s2 = 0.5 * (1 - c2av * np.cos(2 * err_param[1]))
-    """ s = cav * np.sin(err_param[1]) """
-    cs = 0.5* c2av * np.sin(2*err_param[1])
+    cs = 0.5 * c2av * np.sin(2 * err_param[1])
 
     if (q_1 == q_2) or (q_1 >= num_qubits) or (q_2 >= num_qubits):
         raise QiskitError("Qubit Labels out of bound in CZ Gate")
@@ -591,7 +587,7 @@ def rzz_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     The error model adds a fluctuation "a" to the angle producing the ZZ rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
     RZZ(a) = exp(-ia/2 ZxZ) = (c-Is 0 0 0 ), (0 c+Is 0 0 ), (0 0 c+Is 0), (0 0 0 c-Is)
-    with c=cos(a/2), s=sin(a/2), and the noise alters the angle parameter "a".ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+    with c=cos(a/2), s=sin(a/2), and the noise alters the angle parameter "a".
     The default rotation angle is a=pi/2.
     Args:
         err_param[1] is the mean error in the angle param "a".
@@ -743,8 +739,8 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     return state
 
 def dipole_error_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
-    """ #TODO: Needs to be changed from ZZ to Dipole
-    Apply Dipole error in density matrix formalism
+    """ #TODO
+    Apply Dipole-Dipole error in density matrix formalism
 
         Args:
         state : density matrix
@@ -753,12 +749,14 @@ def dipole_error_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
         rot_ang: Rotation angle
         Note: Ordering of qubits (MSB right, LSB left)
 
-    The error model adds a fluctuation "a" to the angle producing the ZZ rotation,
+    The error model adds a fluctuation "a" to the angle producing the Dipole-Dipole rotation,
     with mean err_param[1] and variance parametrized in terms of err_param[0].
-    RZZ(a) = exp(-ia/2 ZxZ) = (c-Is 0 0 0 ), (0 c+Is 0 0 ), (0 0 c+Is 0), (0 0 0 c-Is)
-    with c=cos(a/2), s=sin(a/2), and the noise alters the angle parameter "a".ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
-    The default rotation angle is a=pi/2.
-    Args:
+    RDD(a) = exp(-ia sigma_i.sigma_j) = 
+           = exp(ia) (cos(2a)I - (i/2)sin(2a)(sigma_i.sigma_j + I))
+    with (sigma_i.sigma_j + I)^2 = 4I.
+    The evolution is U*rho*U^dagger, with U = [(cos(2a)-i cos(a)sin(a))I - i cos(a)sin(a) sigma_i.sigma_j]
+    The noise alters the angle parameter "a". The default rotation angle is a=0.
+        Args:
         err_param[1] is the mean error in the angle param "a".
         err_param[0] is the reduction in the radius after averaging over fluctuations in "a",
                      which equals <cos(a-<a>)>.
@@ -767,16 +765,24 @@ def dipole_error_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     angle = rot_ang + err_param[1]
     if angle == 0.:
         return
-    cs = err_param[0] * np.cos(angle)
-    sn = err_param[0] * np.sin(angle)
-
+    
+    # Calculating all cos and sin in advance
+    cav = err_param[0]
+    c4av = 16 * cav - 15  # assuming small fluctuations in angle "a"
+    c = cav * np.cos(err_param[1])
+    s = cav * np.sin(err_param[1])
+    c2sq = 0.5 * (1 + c4av * np.cos(4 * err_param[1]))
+    s2sq = 0.5 * (1 - c4av * np.cos(4 * err_param[1]))
+    c2s2 = c4av * np.sin(2 * err_param[1]) * np.cos(2 * err_param[1])
+    
     qmin = min(q_1, q_2)
     qmax = max(q_1, q_2)
 
     rt, mt2, ct, mt1, lt = 4 ** (num_qubits - qmax - 1), 4, 4 ** (qmax - qmin - 1), 4, 4 ** qmin
     state = np.reshape(state, (lt, mt1, ct, mt2, rt))
-    cs_temp_dm = state.copy()*cs
-    sn_temp_dm = state.copy()*sn
+    c2sq_temp_dm = state.copy()*c2sq
+    s2sq_temp_dm = state.copy()*s2sq
+    c2s2_temp_dm = state.copy()*c2s2
 
     state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 3, :, 2, :]
     state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 2, :, 3, :]
