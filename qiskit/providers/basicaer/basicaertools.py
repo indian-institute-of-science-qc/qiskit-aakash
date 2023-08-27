@@ -763,8 +763,6 @@ def dipole_error_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     # Calculating all cos and sin in advance
     cav = err_param[0]
     c4av = 16 * cav - 15  # assuming small fluctuations in angle "a"
-    c = cav * np.cos(angle)
-    s = cav * np.sin(angle)
     c2sq = 0.5 * (1 + c4av * np.cos(4 * angle))
     s2sq = 0.5 * (1 - c4av * np.cos(4 * angle))
     c2s2 = 0.5 * c4av * np.sin(4 * angle)
@@ -778,18 +776,19 @@ def dipole_error_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     s2sq_cp = state.copy()*s2sq
     c2s2_cp = state.copy()*c2s2
 
-    state[:, 0, :, 1, :] = c2sq_cp[:, 0, :, 1, :] + s2sq_cp[:, 1, :, 0, :] + c2s2_cp[:, 3, :, 2, :] + c2s2_cp[:, 3, :, 2, :]
-    state[:, 1, :, 0, :] = c2sq_cp[:, 1, :, 0, :] + s2sq_cp[:, 0, :, 1, :] + c2s2_cp[:, 2, :, 3, :] + c2s2_cp[:, 2, :, 3, :]
-    state[:, 0, :, 2, :] = c2sq_cp[:, 0, :, 2, :] + s2sq_cp[:, 2, :, 0, :] + c2s2_cp[:, 3, :, 1, :] + c2s2_cp[:, 3, :, 1, :]
-    state[:, 2, :, 0, :] = c2sq_cp[:, 2, :, 0, :] + s2sq_cp[:, 0, :, 2, :] + c2s2_cp[:, 1, :, 3, :] + c2s2_cp[:, 1, :, 3, :]
-    state[:, 0, :, 3, :] = c2sq_cp[:, 0, :, 3, :] + s2sq_cp[:, 3, :, 0, :] + c2s2_cp[:, 3, :, 2, :] + c2s2_cp[:, 3, :, 2, :]
-    state[:, 3, :, 0, :] = c2sq_cp[:, 3, :, 0, :] + s2sq_cp[:, 0, :, 3, :] + c2s2_cp[:, 2, :, 3, :] + c2s2_cp[:, 2, :, 3, :]
-    state[:, 1, :, 2, :] = c2sq_cp[:, 1, :, 2, :] + s2sq_cp[:, 2, :, 1, :] + c2s2_cp[:, 2, :, 0, :] + c2s2_cp[:, 2, :, 0, :]
-    state[:, 2, :, 1, :] = c2sq_cp[:, 2, :, 1, :] + s2sq_cp[:, 1, :, 2, :] + c2s2_cp[:, 0, :, 2, :] + c2s2_cp[:, 0, :, 2, :]
-    state[:, 1, :, 3, :] = c2sq_cp[:, 1, :, 3, :] + s2sq_cp[:, 3, :, 1, :] + c2s2_cp[:, 2, :, 0, :] + c2s2_cp[:, 2, :, 0, :]
-    state[:, 3, :, 1, :] = c2sq_cp[:, 3, :, 1, :] + s2sq_cp[:, 1, :, 3, :] + c2s2_cp[:, 0, :, 2, :] + c2s2_cp[:, 0, :, 2, :]
-    state[:, 2, :, 3, :] = c2sq_cp[:, 2, :, 3, :] + s2sq_cp[:, 3, :, 2, :] - c2s2_cp[:, 1, :, 0, :] + c2s2_cp[:, 1, :, 0, :]
-    state[:, 3, :, 2, :] = c2sq_cp[:, 3, :, 2, :] + s2sq_cp[:, 2, :, 3, :] - c2s2_cp[:, 0, :, 1, :] + c2s2_cp[:, 0, :, 1, :]
+    state[:, 0, :, 1, :] = c2sq_cp[:, 0, :, 1, :] + s2sq_cp[:, 1, :, 0, :] + c2s2_cp[:, 2, :, 3, :] - c2s2_cp[:, 3, :, 2, :]
+    state[:, 1, :, 0, :] = c2sq_cp[:, 1, :, 0, :] + s2sq_cp[:, 0, :, 1, :] - c2s2_cp[:, 2, :, 3, :] + c2s2_cp[:, 3, :, 2, :]
+    state[:, 0, :, 2, :] = c2sq_cp[:, 0, :, 2, :] + s2sq_cp[:, 2, :, 0, :] + c2s2_cp[:, 3, :, 1, :] - c2s2_cp[:, 1, :, 3, :]
+    state[:, 2, :, 0, :] = c2sq_cp[:, 2, :, 0, :] + s2sq_cp[:, 0, :, 2, :] - c2s2_cp[:, 3, :, 1, :] + c2s2_cp[:, 1, :, 3, :]
+    state[:, 0, :, 3, :] = c2sq_cp[:, 0, :, 3, :] + s2sq_cp[:, 3, :, 0, :] + c2s2_cp[:, 1, :, 2, :] - c2s2_cp[:, 2, :, 1, :]
+    state[:, 3, :, 0, :] = c2sq_cp[:, 3, :, 0, :] + s2sq_cp[:, 0, :, 3, :] - c2s2_cp[:, 1, :, 2, :] + c2s2_cp[:, 2, :, 1, :]
+
+    state[:, 1, :, 2, :] = c2sq_cp[:, 1, :, 2, :] + s2sq_cp[:, 2, :, 1, :] - c2s2_cp[:, 0, :, 3, :] + c2s2_cp[:, 3, :, 0, :]
+    state[:, 2, :, 1, :] = c2sq_cp[:, 2, :, 1, :] + s2sq_cp[:, 1, :, 2, :] + c2s2_cp[:, 0, :, 3, :] - c2s2_cp[:, 3, :, 0, :]
+    state[:, 1, :, 3, :] = c2sq_cp[:, 1, :, 3, :] + s2sq_cp[:, 3, :, 1, :] + c2s2_cp[:, 0, :, 2, :] - c2s2_cp[:, 2, :, 0, :]
+    state[:, 3, :, 1, :] = c2sq_cp[:, 3, :, 1, :] + s2sq_cp[:, 1, :, 3, :] - c2s2_cp[:, 0, :, 2, :] + c2s2_cp[:, 2, :, 0, :]
+    state[:, 2, :, 3, :] = c2sq_cp[:, 2, :, 3, :] + s2sq_cp[:, 3, :, 2, :] - c2s2_cp[:, 0, :, 1, :] + c2s2_cp[:, 1, :, 0, :]
+    state[:, 3, :, 2, :] = c2sq_cp[:, 3, :, 2, :] + s2sq_cp[:, 2, :, 3, :] + c2s2_cp[:, 0, :, 1, :] - c2s2_cp[:, 1, :, 0, :]
 
     state = np.reshape(state, num_qubits * [4])
     return state
