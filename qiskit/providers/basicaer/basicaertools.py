@@ -543,8 +543,7 @@ def ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
                      which equals <cos(a-<a>)>.
     """
     angle = rot_ang + err_param[1]
-    if angle == 0.:
-        return
+    # When angle=0, sin terms vanish, but cos terms do not.
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
@@ -596,8 +595,7 @@ def rzz_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     """
 
     angle = rot_ang + err_param[1]
-    if angle == 0.:
-        return
+    # When angle=0, sin terms vanish, but cos terms do not.
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
@@ -648,8 +646,7 @@ def rxx_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
                      which equals <cos(a-<a>)>.
     """
     angle = rot_ang + err_param[1]
-    if angle == 0.:
-        return
+    # When angle=0, sin terms vanish, but cos terms do not.
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
@@ -696,8 +693,7 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
 
     # Calculating all cos and sin in advance
     angle = err_param[1]
-    if angle == 0.:
-        return
+    # When angle=0, sin terms vanish, but cos terms do not.
     cs = err_param[0] * np.cos(angle)
     sn = err_param[0] * np.sin(angle)
 
@@ -763,35 +759,37 @@ def dipole_error_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     """
 
     angle = rot_ang + err_param[1]
-    if angle == 0.:
-        return
-    
+    # When angle=0, sin terms vanish, but cos terms do not.    
     # Calculating all cos and sin in advance
     cav = err_param[0]
     c4av = 16 * cav - 15  # assuming small fluctuations in angle "a"
-    c = cav * np.cos(err_param[1])
-    s = cav * np.sin(err_param[1])
-    c2sq = 0.5 * (1 + c4av * np.cos(4 * err_param[1]))
-    s2sq = 0.5 * (1 - c4av * np.cos(4 * err_param[1]))
-    c2s2 = c4av * np.sin(2 * err_param[1]) * np.cos(2 * err_param[1])
+    c = cav * np.cos(angle)
+    s = cav * np.sin(angle)
+    c2sq = 0.5 * (1 + c4av * np.cos(4 * angle))
+    s2sq = 0.5 * (1 - c4av * np.cos(4 * angle))
+    c2s2 = 0.5 * c4av * np.sin(4 * angle)
     
     qmin = min(q_1, q_2)
     qmax = max(q_1, q_2)
 
     rt, mt2, ct, mt1, lt = 4 ** (num_qubits - qmax - 1), 4, 4 ** (qmax - qmin - 1), 4, 4 ** qmin
     state = np.reshape(state, (lt, mt1, ct, mt2, rt))
-    c2sq_temp_dm = state.copy()*c2sq
-    s2sq_temp_dm = state.copy()*s2sq
-    c2s2_temp_dm = state.copy()*c2s2
+    c2sq_cp = state.copy()*c2sq
+    s2sq_cp = state.copy()*s2sq
+    c2s2_cp = state.copy()*c2s2
 
-    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 3, :, 2, :]
-    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 2, :, 3, :]
-    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 3, :, 1, :]
-    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 1, :, 3, :]
-    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] + sn_temp_dm[:, 0, :, 2, :]
-    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] + sn_temp_dm[:, 2, :, 0, :]
-    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 1, :, 0, :]
-    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 1, :]
+    state[:, 0, :, 1, :] = c2sq_cp[:, 0, :, 1, :] + s2sq_cp[:, 1, :, 0, :] + c2s2_cp[:, 3, :, 2, :] + c2s2_cp[:, 3, :, 2, :]
+    state[:, 1, :, 0, :] = c2sq_cp[:, 1, :, 0, :] + s2sq_cp[:, 0, :, 1, :] + c2s2_cp[:, 2, :, 3, :] + c2s2_cp[:, 2, :, 3, :]
+    state[:, 0, :, 2, :] = c2sq_cp[:, 0, :, 2, :] + s2sq_cp[:, 2, :, 0, :] + c2s2_cp[:, 3, :, 1, :] + c2s2_cp[:, 3, :, 1, :]
+    state[:, 2, :, 0, :] = c2sq_cp[:, 2, :, 0, :] + s2sq_cp[:, 0, :, 2, :] + c2s2_cp[:, 1, :, 3, :] + c2s2_cp[:, 1, :, 3, :]
+    state[:, 0, :, 3, :] = c2sq_cp[:, 0, :, 3, :] + s2sq_cp[:, 3, :, 0, :] + c2s2_cp[:, 3, :, 2, :] + c2s2_cp[:, 3, :, 2, :]
+    state[:, 3, :, 0, :] = c2sq_cp[:, 3, :, 0, :] + s2sq_cp[:, 0, :, 3, :] + c2s2_cp[:, 2, :, 3, :] + c2s2_cp[:, 2, :, 3, :]
+    state[:, 1, :, 2, :] = c2sq_cp[:, 1, :, 2, :] + s2sq_cp[:, 2, :, 1, :] + c2s2_cp[:, 2, :, 0, :] + c2s2_cp[:, 2, :, 0, :]
+    state[:, 2, :, 1, :] = c2sq_cp[:, 2, :, 1, :] + s2sq_cp[:, 1, :, 2, :] + c2s2_cp[:, 0, :, 2, :] + c2s2_cp[:, 0, :, 2, :]
+    state[:, 1, :, 3, :] = c2sq_cp[:, 1, :, 3, :] + s2sq_cp[:, 3, :, 1, :] + c2s2_cp[:, 2, :, 0, :] + c2s2_cp[:, 2, :, 0, :]
+    state[:, 3, :, 1, :] = c2sq_cp[:, 3, :, 1, :] + s2sq_cp[:, 1, :, 3, :] + c2s2_cp[:, 0, :, 2, :] + c2s2_cp[:, 0, :, 2, :]
+    state[:, 2, :, 3, :] = c2sq_cp[:, 2, :, 3, :] + s2sq_cp[:, 3, :, 2, :] - c2s2_cp[:, 1, :, 0, :] + c2s2_cp[:, 1, :, 0, :]
+    state[:, 3, :, 2, :] = c2sq_cp[:, 3, :, 2, :] + s2sq_cp[:, 2, :, 3, :] - c2s2_cp[:, 0, :, 1, :] + c2s2_cp[:, 0, :, 1, :]
 
     state = np.reshape(state, num_qubits * [4])
     return state
