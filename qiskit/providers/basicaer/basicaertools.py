@@ -399,36 +399,35 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_1 - 1), 4, 4 ** (q_1 - q_2 - 1), 4, 4 ** (q_2)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
-
         state[:, 2, :, 0, :] = (
             s2 * temp_dm[:, 2, :, 0, :]
             + c2 * temp_dm[:, 2, :, 3, :]
             - cs * (temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
         )
         state[:, 2, :, 3, :] = (
-        state[:, 1, :, 2, :] = -s * temp_dm[:, 2, :, 2, :] + c * temp_dm[:, 2, :, 3, :]
-        state[:, 1, :, 3, :] = -c * temp_dm[:, 2, :, 2, :] - s * temp_dm[:, 2, :, 3, :]
-
-        state[:, 2, :, 0, :] = s * temp_dm[:, 1, :, 0, :] + c * temp_dm[:, 2, :, 1, :]
-        state[:, 2, :, 1, :] = s * temp_dm[:, 1, :, 1, :] + c * temp_dm[:, 2, :, 0, :]
-        state[:, 2, :, 2, :] = s * temp_dm[:, 1, :, 2, :] - c * temp_dm[:, 1, :, 3, :]
-        state[:, 2, :, 3, :] = c * temp_dm[:, 1, :, 2, :] + s * temp_dm[:, 1, :, 3, :]
-
+            c2 * temp_dm[:, 2, :, 0, :]
+            + s2 * temp_dm[:, 2, :, 3, :]
+            + cs * (temp_dm[:, 3, :, 0, :] - temp_dm[:, 3, :, 3, :])
+        )
+        state[:, 3, :, 0, :] = (
+            s2 * temp_dm[:, 3, :, 0, :]
+            + c2 * temp_dm[:, 3, :, 3, :]
+            + cs * (temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :])
+        )
+        state[:, 3, :, 3, :] = (
             c2 * temp_dm[:, 3, :, 0, :]
             + s2 * temp_dm[:, 3, :, 3, :]
             - cs * (temp_dm[:, 2, :, 0, :] - temp_dm[:, 2, :, 3, :])
         )
-
         state[:, 0, :, 1, :] = c * temp_dm[:, 1, :, 1, :] - s * temp_dm[:, 0, :, 2, :]
         state[:, 1, :, 1, :] = c * temp_dm[:, 0, :, 1, :] - s * temp_dm[:, 1, :, 2, :]
         state[:, 2, :, 1, :] = -s * temp_dm[:, 2, :, 2, :] + c * temp_dm[:, 3, :, 2, :]
         state[:, 3, :, 1, :] = -c * temp_dm[:, 2, :, 2, :] - s * temp_dm[:, 3, :, 2, :]
-
+        
         state[:, 0, :, 2, :] = s * temp_dm[:, 0, :, 1, :] + c * temp_dm[:, 1, :, 2, :]
         state[:, 1, :, 2, :] = s * temp_dm[:, 1, :, 1, :] + c * temp_dm[:, 0, :, 2, :]
         state[:, 2, :, 2, :] = s * temp_dm[:, 2, :, 1, :] - c * temp_dm[:, 3, :, 1, :]
         state[:, 3, :, 2, :] = c * temp_dm[:, 2, :, 1, :] + s * temp_dm[:, 3, :, 1, :]
-
     state = np.reshape(state, num_qubits * [4])
     return state
 
