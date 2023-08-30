@@ -1078,6 +1078,24 @@ for inst, qargs, cargs in [
     msyy_to_cx.append(inst, qargs, cargs)
 _sel.add_equivalence(MSGate_YY(), msyy_to_cx)
 
+# MSGate to MSGate_XX
+q = QuantumRegister(2, "q")
+ms_to_msxx = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (MSGate_XX(),[q[0],q[1]],[]),
+]:
+    ms_to_msxx.append(inst, qargs, cargs)
+_sel.add_equivalence(MSGate(), ms_to_msxx)
+
+# MSGate_XX to MSGate
+q = QuantumRegister(2, "q")
+msxx_to_ms = QuantumCircuit(q)
+for inst, qargs, cargs in [
+    (MSGate(),[q[0],q[1]],[]),
+]:
+    ms_to_msxx.append(inst, qargs, cargs)
+_sel.add_equivalence(MSGate_XX(), msxx_to_ms)
+
 ##########################################
 # Ion Equivalences done
 ##########################################
@@ -1285,25 +1303,3 @@ h_to_rr.append(RGate(theta=pi / 2, phi=pi / 2), [q[0]])
 h_to_rr.append(RGate(theta=pi, phi=0), [q[0]])
 h_to_rr.global_phase = pi / 2
 _sel.add_equivalence(HGate(), h_to_rr)
-
-
-########################################
-# Ion equivalences from here
-
-# MSGate to MSGate_XX
-q = QuantumRegister(2, "q")
-ms_to_msxx = QuantumCircuit(q)
-for inst, qargs, cargs in [
-    (MSGate_XX(),[q[0],q[1]],[]),
-]:
-    ms_to_msxx.append(inst, qargs, cargs)
-_sel.add_equivalence(MSGate(), ms_to_msxx)
-
-# MSGate_XX to MSGate
-q = QuantumRegister(2, "q")
-msxx_to_ms = QuantumCircuit(q)
-for inst, qargs, cargs in [
-    (MSGate(),[q[0],q[1]],[]),
-]:
-    ms_to_msxx.append(inst, qargs, cargs)
-_sel.add_equivalence(MSGate_XX(), msxx_to_ms)
