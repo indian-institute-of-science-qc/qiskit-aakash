@@ -87,8 +87,8 @@ class DmSimulatorPy_Base(BackendV1):
         "compute_densitymatrix":True,
         "show_partition": False,
         "plot": False,
-        "precision":np.float,
-        "precision_complex":np.complex,
+        "precision":np.float32,
+        "precision_complex":np.complex64,
         "coupling_map": None,
         "dipole_error": None, # should be either two numbers or two arrays or None. The two numbers/arrays correspond to length of vector and angle respectively
         "crosstalk": None, # should be either two numbers or two arrays or None. The two numbers/arrays correspond to length of vector and angle respectively
@@ -416,7 +416,7 @@ class DmSimulatorPy_Base(BackendV1):
                 raise BasicAerError("Incorrect length of decay factor")
         else:
             self._decay_factor = np.ones(self._number_of_qubits)*self._decay_factor
-        
+
         if type(self._depolarization_factor) is list or type(self._depolarization_factor) is type(np.array([1.,2.])):
             if len(self._depolarization_factor) < max(self._number_of_qubits,1):
                 raise BasicAerError("Incorrect length of depolarization factor")
@@ -426,7 +426,7 @@ class DmSimulatorPy_Base(BackendV1):
         if type(self._dipole_error) is list:
             if len(self._dipole_error) != 2:
                 raise BasicAerError("Need exactly 2 elements/arrays for dipole error")
-            
+
             if type(self._dipole_error[0]) is float:
                 self._dipole_error_scale = self._dipole_error[0]*np.ones((self._number_of_qubits, self._number_of_qubits,))
                 self._dipole_error_angle = self._dipole_error[1]*np.ones((self._number_of_qubits, self._number_of_qubits,))
@@ -437,27 +437,27 @@ class DmSimulatorPy_Base(BackendV1):
             if self._dipole_error_scale.shape != (self._number_of_qubits, self._number_of_qubits,)\
                 or self._dipole_error_angle.shape != (self._number_of_qubits, self._number_of_qubits,):
                 raise BasicAerError("Incorrect dimensions of dipole_error")
-        
+
         if type(self._crosstalk) is list:
             if len(self._crosstalk) != 2:
                 raise BasicAerError("Need exactly 2 elements/arrays for crosstalk error")
-            
+
             if type(self._crosstalk[0]) is float:
                 self._crosstalk_scale = self._crosstalk[0]*np.ones((self._number_of_qubits, self._number_of_qubits,))
                 self._crosstalk_angle = self._crosstalk[1]*np.ones((self._number_of_qubits, self._number_of_qubits,))
             else:
                 self._crosstalk_scale = np.array(self._crosstalk[0])
                 self._crosstalk_angle = np.array(self._crosstalk[1])
-                
+
             if self._crosstalk_scale.shape != (self._number_of_qubits, self._number_of_qubits,)\
                 or self._crosstalk_angle.shape != (self._number_of_qubits, self._number_of_qubits,):
-                raise BasicAerError("Incorrect dimensions of crosstalk error")    
+                raise BasicAerError("Incorrect dimensions of crosstalk error")
 
         couples = np.ones((self._number_of_qubits, self._number_of_qubits,))
 
         if isinstance(self._coupling_map, CouplingMap):
             self._coupling_map = self._coupling_map.get_edges()
-        
+
         # Symmetrizing
         self._coupling_list = []
         if type(self._coupling_map) is list:
@@ -570,7 +570,7 @@ class DmSimulatorPy_Base(BackendV1):
 
     def _add_depolarization_error(self, level, h):
         """Apply depolarization transformation independently to all the qubits.
-            Depolarization contracts all Pauli components by a factor 'h'. 
+            Depolarization contracts all Pauli components by a factor 'h'.
         Args:
             level (int):  Clock cycle number (not used)
             h     (list): Contraction of Pauli components due to depolarization
@@ -580,7 +580,7 @@ class DmSimulatorPy_Base(BackendV1):
             lt, mt, rt = 4**qb, 4, 4 ** (self._number_of_qubits - qb - 1)
             self._densitymatrix = np.reshape(self._densitymatrix, (lt, mt, rt))
             self._densitymatrix[:,1:,:] = h[qb]*self._densitymatrix[:,1:,:]
-        
+
         self._densitymatrix = np.reshape(self._densitymatrix, self._number_of_qubits * [4])
 
     def _add_dipole_error(self):
@@ -604,7 +604,7 @@ class DmSimulatorPy_Base(BackendV1):
                                             i,j,0,
                                             [self._crosstalk_scale[i,j], self._crosstalk_angle[i,j]],
                                             self._number_of_qubits)
-        
+
 
     def _add_ensemble_measure(self, basis, add_param, err_param):
         """Perform complete computational basis measurement for current density matrix.
@@ -1434,7 +1434,7 @@ class DmSimulatorPy_Base(BackendV1):
                     err_msg = '{0} encountered unrecognized operation "{1}"'
                     raise BasicAerError(err_msg.format(backend, operation.name))
 
-        
+
             # Add Memory errors at the end of each clock cycle
             if self._decoherence_and_amp_decay_applied is True:
                 self._add_decoherence_and_amp_decay(
