@@ -328,7 +328,7 @@ def single_gate_merge(inst, num_qubits, merge_flag=True):
     return inst_merged
 
 
-def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):##Checked##
     """Apply C-NOT gate in density matrix formalism.
 
         Args:
@@ -432,7 +432,7 @@ def cx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     return state
 
 
-def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):##checked##
     """Apply C-Z gate in density matrix formalism.
 
         Args:
@@ -466,7 +466,7 @@ def cz_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         temp_dm = state.copy()
-
+        
         state[:, 0, :, 1, :] = s2 * temp_dm[:, 0, :, 1, :] + c2 * temp_dm[:, 3, :, 1, :] + cs * temp_dm[:, 3, :, 2, :] - cs * temp_dm[:, 0, :, 2, :]
         state[:, 0, :, 2, :] = s2 * temp_dm[:, 0, :, 2, :] + c2 * temp_dm[:, 3, :, 2, :] + cs * temp_dm[:, 0, :, 1, :] - cs * temp_dm[:, 3, :, 1, :]
         state[:, 3, :, 1, :] = c2 * temp_dm[:, 0, :, 1, :] + s2 * temp_dm[:, 3, :, 1, :] - cs * temp_dm[:, 3, :, 2, :] + cs * temp_dm[:, 0, :, 2, :]
@@ -521,7 +521,7 @@ def ms_gate_yy_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """
     return ryy_gate_dm_matrix(state, q_1, q_2, np.pi/2, err_param, num_qubits)
 
-def ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+def ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):##checked##
     """ Apply YY gate in density matrix formalism
 
         Args:
@@ -553,15 +553,23 @@ def ryy_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     state = np.reshape(state, (lt, mt1, ct, mt2, rt))
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
+    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 2, :, 3, :]
+    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 3, :, 2, :]
+    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] - sn_temp_dm[:, 2, :, 1, :]
+    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] - sn_temp_dm[:, 1, :, 2, :]
+    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] + sn_temp_dm[:, 0, :, 3, :]
+    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] + sn_temp_dm[:, 3, :, 0, :]
+    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 0, :, 1, :]
+    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 1, :, 0, :]
 
-    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 2, :, 3, :]
-    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 3, :, 2, :]
-    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 2, :, 1, :]
-    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 1, :, 2, :]
-    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] - sn_temp_dm[:, 0, :, 3, :]
-    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] - sn_temp_dm[:, 3, :, 0, :]
-    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] + sn_temp_dm[:, 0, :, 1, :]
-    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] + sn_temp_dm[:, 1, :, 0, :]
+    #state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 2, :, 3, :]
+    #state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 3, :, 2, :]
+    #state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 2, :, 1, :]
+    #state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 1, :, 2, :]
+    #state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] - sn_temp_dm[:, 0, :, 3, :]
+    #state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] - sn_temp_dm[:, 3, :, 0, :]
+    #state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] + sn_temp_dm[:, 0, :, 1, :]
+    #state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] + sn_temp_dm[:, 1, :, 0, :]
 
     state = np.reshape(state, num_qubits * [4])
     return state
@@ -572,7 +580,7 @@ def ms_gate_zz_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """
     return rzz_gate_dm_matrix(state, q_1, q_2, np.pi/2, err_param, num_qubits)
 
-def rzz_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+def rzz_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):##Checked##
     """ Apply ZZ gate in density matrix formalism
 
         Args:
@@ -606,14 +614,14 @@ def rzz_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
 
-    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 3, :, 2, :]
-    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 2, :, 3, :]
-    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 3, :, 1, :]
-    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 1, :, 3, :]
-    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] + sn_temp_dm[:, 0, :, 2, :]
-    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] + sn_temp_dm[:, 2, :, 0, :]
-    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 1, :, 0, :]
-    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 1, :]
+    state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 3, :, 2, :]
+    state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 2, :, 3, :]
+    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 3, :, 1, :]
+    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 1, :, 3, :]
+    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] - sn_temp_dm[:, 0, :, 2, :]
+    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] - sn_temp_dm[:, 2, :, 0, :]
+    state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] + sn_temp_dm[:, 1, :, 0, :]
+    state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] + sn_temp_dm[:, 0, :, 1, :]
 
     state = np.reshape(state, num_qubits * [4])
     return state
@@ -624,7 +632,7 @@ def ms_gate_xx_dm_matrix(state, q_1, q_2, err_param, num_qubits):
     """
     return rxx_gate_dm_matrix(state, q_1, q_2, np.pi/2, err_param, num_qubits)
 
-def rxx_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
+def rxx_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):##checked##
     """ Apply XX gate in density matrix formalism
 
         Args:
@@ -657,20 +665,22 @@ def rxx_gate_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
     cs_temp_dm = state.copy()*cs
     sn_temp_dm = state.copy()*sn
 
-    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 1, :, 3, :]
-    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 3, :, 1, :]
-    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] - sn_temp_dm[:, 1, :, 2, :]
-    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] - sn_temp_dm[:, 2, :, 1, :]
-    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] + sn_temp_dm[:, 0, :, 3, :]
-    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] + sn_temp_dm[:, 3, :, 0, :]
-    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] - sn_temp_dm[:, 0, :, 2, :]
-    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] - sn_temp_dm[:, 2, :, 0, :]
+    state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 1, :, 3, :]
+    state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 3, :, 1, :]
+    state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 1, :, 2, :]
+    state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 2, :, 1, :]
+    state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] - sn_temp_dm[:, 0, :, 3, :]
+    state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] - sn_temp_dm[:, 3, :, 0, :]
+    state[:, 1, :, 3, :] = cs_temp_dm[:, 1, :, 3, :] + sn_temp_dm[:, 0, :, 2, :]
+    state[:, 3, :, 1, :] = cs_temp_dm[:, 3, :, 1, :] + sn_temp_dm[:, 2, :, 0, :]
 
     state = np.reshape(state, num_qubits * [4])
     return state
 
 
-def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
+def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):##checked##
+
+
     """Apply ZX gate in density matrix formalism.
 
         Args:
@@ -700,19 +710,19 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         raise QiskitError("Qubit Labels out of bound in R_ZX Gate")
     elif q_2 > q_1:
         # Reshape Density Matrix
-        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, np.pi/24 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
+        rt, mt2, ct, mt1, lt = 4 ** (num_qubits - q_2 - 1), 4, 4 ** (q_2 - q_1 - 1), 4, 4 ** (q_1)
         state = np.reshape(state, (lt, mt1, ct, mt2, rt))
         cs_temp_dm = state.copy()*cs
         sn_temp_dm = state.copy()*sn
 
-        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 3, :, 3, :]
-        state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] - sn_temp_dm[:, 3, :, 2, :]
-        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 1, :, 1, :]
-        state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] + sn_temp_dm[:, 2, :, 1, :]
-        state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] + sn_temp_dm[:, 0, :, 3, :]
-        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] - sn_temp_dm[:, 0, :, 2, :]
-        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] + sn_temp_dm[:, 2, :, 0, :]
-        state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] - sn_temp_dm[:, 1, :, 0, :]
+        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 3, :, 3, :]
+        state[:, 0, :, 3, :] = cs_temp_dm[:, 0, :, 3, :] + sn_temp_dm[:, 3, :, 2, :]
+        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 1, :, 1, :]
+        state[:, 1, :, 0, :] = cs_temp_dm[:, 1, :, 0, :] - sn_temp_dm[:, 2, :, 1, :]
+        state[:, 3, :, 2, :] = cs_temp_dm[:, 3, :, 2, :] - sn_temp_dm[:, 0, :, 3, :]
+        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] + sn_temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] - sn_temp_dm[:, 2, :, 0, :]
+        state[:, 2, :, 1, :] = cs_temp_dm[:, 2, :, 1, :] + sn_temp_dm[:, 1, :, 0, :]
 
     else:
         # Reshape Density Matrix
@@ -721,14 +731,14 @@ def rzx_gate_dm_matrix(state, q_1, q_2, err_param, num_qubits):
         cs_temp_dm = state.copy()*cs
         sn_temp_dm = state.copy()*sn
 
-        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] + sn_temp_dm[:, 3, :, 3, :]
-        state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] - sn_temp_dm[:, 2, :, 3, :]
-        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] - sn_temp_dm[:, 1, :, 1, :]
-        state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] + sn_temp_dm[:, 1, :, 2, :]
-        state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] + sn_temp_dm[:, 3, :, 0, :]
-        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] - sn_temp_dm[:, 2, :, 0, :]
-        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] + sn_temp_dm[:, 0, :, 2, :]
-        state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] - sn_temp_dm[:, 0, :, 1, :]
+        state[:, 2, :, 0, :] = cs_temp_dm[:, 2, :, 0, :] - sn_temp_dm[:, 3, :, 3, :]
+        state[:, 3, :, 0, :] = cs_temp_dm[:, 3, :, 0, :] + sn_temp_dm[:, 2, :, 3, :]
+        state[:, 0, :, 2, :] = cs_temp_dm[:, 0, :, 2, :] + sn_temp_dm[:, 1, :, 1, :]
+        state[:, 0, :, 1, :] = cs_temp_dm[:, 0, :, 1, :] - sn_temp_dm[:, 1, :, 2, :]
+        state[:, 2, :, 3, :] = cs_temp_dm[:, 2, :, 3, :] - sn_temp_dm[:, 3, :, 0, :]
+        state[:, 3, :, 3, :] = cs_temp_dm[:, 3, :, 3, :] + sn_temp_dm[:, 2, :, 0, :]
+        state[:, 1, :, 1, :] = cs_temp_dm[:, 1, :, 1, :] - sn_temp_dm[:, 0, :, 2, :]
+        state[:, 1, :, 2, :] = cs_temp_dm[:, 1, :, 2, :] + sn_temp_dm[:, 0, :, 1, :]
     
     state = np.reshape(state, num_qubits * [4])
     return state
@@ -750,6 +760,7 @@ def dipole_error_dm_matrix(state, q_1, q_2, rot_ang, err_param, num_qubits):
            = exp(ia) (cos(2a)I - (i/2)sin(2a)(sigma_i.sigma_j + I))
     with (sigma_i.sigma_j + I)^2 = 4I.
     The evolution is U*rho*U^dagger, with U = [(cos(2a)-i cos(a)sin(a))I - i cos(a)sin(a) sigma_i.sigma_j]
+    U={{cos(2a)-isin(2a) 0 0 0},{0 cos(2a) -isin(2a) 0},{0 -isin(2a) cos(2a) 0},{0 0 0 cos(2a)-isin(2a)}}
     The noise alters the angle parameter "a". The default rotation angle is a=0.
         Args:
         err_param[1] is the mean error in the angle param "a".
