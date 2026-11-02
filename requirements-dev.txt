@@ -6,7 +6,7 @@ nxpd>=0.2
 pillow>=4.2.1
 pycodestyle
 pydot
-pylint>=2.2,<2.3
+pylint>=4.0.9,<4.1
 pylintfileheader>=0.0.2
 stestr>=2.0.0
 vcrpy
